@@ -109,9 +109,9 @@ const Footer = () => {
         </div>
 
         {/* Bottom Section */}
-        <div className="border-t border-gray-700 mt-8 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-400 text-sm">
+       <div className="border-t border-gray-700 mt-8 pt-8">
+  <div className="flex flex-col md:flex-row justify-center items-center">
+    <p className="text-gray-400 text-sm text-center">
               &copy; 2025 SafeRoute. All rights reserved. Made with care for safer roads.
             </p>
           </div>
