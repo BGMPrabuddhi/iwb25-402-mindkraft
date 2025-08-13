@@ -3,10 +3,6 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
-import type { Metadata } from "next";
-// import localFont from "next/font/local";
-import "./globals.css";
-
 // Removed custom font imports and variables because the fonts folder was deleted.
 
 export const metadata: Metadata = {
@@ -22,8 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-  <body className="antialiased">
+  <body className={`${inter.className} antialiased`}>
         {children}
       </body>
     </html>
