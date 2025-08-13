@@ -1,5 +1,14 @@
-import ballerina/io;
+import ballerina/http;
+import ballerina/log;
 
-public function main() {
-    io:println("Hello, World!");
+service /api on new http:Listener(8080) {
+    
+    resource function get health() returns json|error {
+        error? testResult = testConnection();
+        if testResult is error {
+            log:printError("Database connection failed", testResult);
+            return {"status": "error", "message": "Database connection failed"};
+        }
+        return {"status": "ok", "message": "Database connected successfully"};
+    }
 }
