@@ -14,6 +14,7 @@ interface SubmitForm {
   title: string
   description: string
   type: string
+  level:string
   location: string
   photo: File | null
 }
@@ -47,6 +48,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
     title: '',
     description: '',
     type: 'accident',
+    level: " ",
     location: '',
     photo: null
   })
@@ -536,7 +538,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
       <form className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Report Title *
+            Report Title 
           </label>
           <input
             type="text"
@@ -550,7 +552,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Detailed Description *
+            Detailed Description 
           </label>
           <textarea
             required
@@ -563,6 +565,22 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
         </div>
 
         <div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Select Level *
+  </label>
+  <select 
+    required
+    value={submitForm.level}
+    onChange={(e) => setSubmitForm({...submitForm, level: e.target.value})}
+    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+  >
+    <option value="">Select severity level</option>
+    <option value="high">High</option>
+    <option value="medium">Medium</option>
+    <option value="low">Low</option>
+  </select>
+</div>
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Hazard Type *
           </label>
@@ -572,10 +590,10 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
             onChange={(e) => setSubmitForm({...submitForm, type: e.target.value})}
             className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="accident">Traffic Accident</option>
-            <option value="pothole">Pothole / Road Damage</option>
-            <option value="Natural disaster">Water-logged Area / natural disaster</option>
-            <option value="construction">Construction / Road Work</option>
+            <option value="accident">Accident</option>
+            <option value="pothole">Road Damage</option>
+            <option value="Natural disaster"> Natural Disaster</option>
+            <option value="construction">Construction </option>
           </select>
         </div>
 
@@ -603,7 +621,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Photo Evidence (Optional)
+            Photo Evidence*
           </label>
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
            <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -628,20 +646,6 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
                </p>
              </div>
            )}
-         </div>
-       </div>
-
-       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-         <div className="flex">
-           <svg className="h-5 w-5 text-yellow-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-           </svg>
-           <div className="ml-3">
-             <h4 className="text-sm font-medium text-yellow-800">Important Notice</h4>
-             <p className="text-sm text-yellow-700 mt-1">
-               For immediate emergencies, call 119. This report will be reviewed and addressed by relevant authorities.
-             </p>
-           </div>
          </div>
        </div>
 
