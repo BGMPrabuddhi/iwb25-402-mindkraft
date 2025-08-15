@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { auth } from '@/utils/auth'
 
 type LoginFormData = {
   email: string
@@ -15,6 +16,7 @@ export default function LoginPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<LoginFormData>>({})
+  const [apiError, setApiError] = useState('')
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -61,22 +63,29 @@ export default function LoginPage() {
     if (!validateForm()) return
 
     setIsLoading(true)
+    setApiError('')
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      console.log('Login data:', formData)
-      alert('Login successful!')
-      
-      // Here you would typically:
-      // 1. Make API call to your backend
-      // 2. Store authentication token
-      // 3. Redirect to dashboard
-      
+      const result = await auth.login({
+        email: formData.email,
+        password: formData.password
+      });
+
+      if (result.success) {
+        console.log('Login successful:', result.data);
+        
+        // Show success message briefly
+        alert('Login successful!');
+        
+        // Redirect to home page
+        window.location.href = '/home';
+      } else {
+        console.error('Login error:', result.error);
+        setApiError(result.error || 'Login failed. Please try again.');
+      }
     } catch (error) {
-      console.error('Login error:', error)
-      alert('Login failed. Please try again.')
+      console.error('Unexpected login error:', error);
+      setApiError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false)
     }
@@ -247,14 +256,18 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
-            </form>
 
-            
+              {apiError && (
+                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">{apiError}</p>
+                </div>
+              )}
+            </form>
 
             {/* Sign Up Link */}
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link href="/sign-up" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
                   Create one here
                 </Link>

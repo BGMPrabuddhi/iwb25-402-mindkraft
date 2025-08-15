@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { auth } from '@/utils/auth'
 
 type SignupFormData = {
     firstName: string
@@ -23,6 +24,7 @@ export default function SignupPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<SignupFormData>>({})
+  const [apiError, setApiError] = useState('')
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -123,14 +125,30 @@ export default function SignupPage() {
     if (!validateForm()) return
 
     setIsLoading(true)
+    setApiError('')
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      console.log('Signup data:', formData)
-      alert('Account created successfully!')
+      const result = await auth.register({
+        email: formData.email,
+        password: formData.password,
+        name: `${formData.firstName} ${formData.lastName}`,
+      });
+
+      if (result.success) {
+        console.log('Registration successful:', result.data);
+        
+        // Show success message briefly before redirecting
+        alert('Account created successfully!');
+        
+        // Redirect to home page
+        window.location.href = '/home';
+      } else {
+        console.error('Registration error:', result.error);
+        setApiError(result.error || 'Registration failed. Please try again.');
+      }
     } catch (error) {
-      console.error('Signup error:', error)
-      alert('Signup failed. Please try again.')
+      console.error('Unexpected registration error:', error);
+      setApiError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false)
     }
@@ -431,6 +449,12 @@ export default function SignupPage() {
                   )}
                 </button>
               </div>
+
+              {apiError && (
+                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">{apiError}</p>
+                </div>
+              )}
             </form>
 
             {/* Login Link */}
