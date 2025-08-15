@@ -7,21 +7,38 @@ configurable string host = "localhost";
 configurable int port = 5432;
 configurable string name = "saferoute_db";
 configurable string username = "postgres";
-configurable string password = "1234";
+configurable string password = "123456";
 
-// Database client initialization
-final postgresql:Client dbClient = check new(
-    host = host,
-    port = port,
-    database = name,
-    username = username,
-    password = password
-);
+# Global database client instance
+postgresql:Client? dbClient = ();
 
-// Test connection function
+# Initialize database connection
+# + return - Error if initialization fails
+public function initDatabase() returns error? {
+    postgresql:Client|error newClient = new (
+        host = host,
+        port = port,
+        database = name,
+        username = username,
+        password = password
+    );
+    
+    if newClient is error {
+        return error("Failed to initialize database connection: " + newClient.message());
+    }
+    
+    dbClient = newClient;
+    return;
+}
+
+# Test database connection
+# + return - Error if connection test fails
 public function testConnection() returns error? {
-    // Simple connection test
-    stream<record{}, sql:Error?> resultStream = dbClient->query(`SELECT 1`);
-    var closeResult = resultStream.close();
-    return closeResult;
+    postgresql:Client? currentClient = dbClient;
+    if currentClient is postgresql:Client {
+        stream<record{}, sql:Error?> resultStream = currentClient->query(`SELECT 1`);
+        var closeResult = resultStream.close();
+        return closeResult;
+    }
+    return error("Database client not initialized");
 }
