@@ -2,35 +2,25 @@ import ballerina/sql;
 import ballerinax/postgresql;
 import ballerina/log;
 
-# Database configuration type
-#
-# + host - Database server hostname
-# + port - Database server port
-# + name - Database name
-# + username - Database username
-# + password - Database password
-public type DatabaseConfig record {|
-    string host;
-    int port;
-    string name;
-    string username;
-    string password;
-|};
+// Configurable variables for database connection
+configurable string host = "localhost";
+configurable int port = 5432;
+configurable string name = "saferoute_db";
+configurable string username = "postgres";
+configurable string password = "123456";
 
 # Global database client instance
 postgresql:Client? dbClient = ();
 
-# Initialize database connection with given configuration
-#
-# + config - Database configuration containing connection details
+# Initialize database connection with configured values
 # + return - error if connection fails, () if successful
-public function initDatabase(DatabaseConfig config) returns error? {
+public function initDatabase() returns error? {
     postgresql:Client|sql:Error newClient = new (
-        host = config.host,
-        port = config.port,
-        database = config.name,
-        username = config.username,
-        password = config.password
+        host = host,
+        port = port,
+        database = name,
+        username = username,
+        password = password
     );
     
     if newClient is postgresql:Client {

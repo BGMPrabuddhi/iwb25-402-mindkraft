@@ -1,14 +1,26 @@
 import ballerina/http;
 import ballerina/log;
-import ballerina/toml;
 import ballerina/jwt;
 import ballerina/time;
 import backend.database as db;
 import backend.auth as authModule;
 import backend.user as userModule;
 
-service /api on new http:Listener(8080) {
-    
+configurable int serverPort = 8080;
+configurable string[] corsOrigins = ["http://localhost:3000"];
+
+// JWT configuration
+configurable string jwtSecret = "pogVDNo+zysOxpiSYzqIp3FHuWimvX1bSj7uu674JoU=";
+configurable string jwtIssuer = "mindkraft-auth";
+configurable string jwtAudience = "saferoute-users";
+configurable int jwtExpiry = 3600;
+
+# HTTP listener configuration
+listener http:Listener httpListener = new(serverPort);
+
+# Service for user authentication
+service /api on httpListener {
+    # Health check endpoint for database connection
     resource function get health() returns json|error {
         error? testResult = testConnection();
         if testResult is error {
@@ -17,16 +29,9 @@ service /api on new http:Listener(8080) {
         }
         return {"status": "ok", "message": "Database connected successfully"};
     }
-}
-
-# HTTP listener configuration
-listener http:Listener httpListener = new(8080);
-
-# Service for user authentication
-service /api on httpListener {
     
-    # Health check endpoint
-    resource function get health() returns json {
+    # Service status endpoint
+    resource function get status() returns json {
         return {
             "status": "OK",
             "service": "SafeRoute Auth Service",
@@ -243,26 +248,15 @@ service /api on httpListener {
 # Initialize application
 # + return - An error if initialization fails, () otherwise
 public function main() returns error? {
-    // Load configuration
-    map<json> config = check toml:readFile("Config.toml");
-    
     // Initialize database
-    db:DatabaseConfig dbConfig = {
-        host: (config["database.host"] ?: "").toString(),
-        port: check int:fromString((config["database.port"] ?: "5432").toString()),
-        name: (config["database.name"] ?: "").toString(),
-        username: (config["database.username"] ?: "").toString(),
-        password: (config["database.password"] ?: "").toString()
-    };
-    
-    check db:initDatabase(dbConfig);
+    check db:initDatabase();
     
     // Initialize JWT
     authModule:JWTConfig jwtConfig = {
-        secret: (config["jwt.secret"] ?: "").toString(),
-        issuer: (config["jwt.issuer"] ?: "").toString(),
-        audience: (config["jwt.audience"] ?: "").toString(),
-        expiry: check int:fromString((config["jwt.expiry"] ?: "3600").toString())
+        secret: jwtSecret,
+        issuer: jwtIssuer,
+        audience: jwtAudience,
+        expiry: jwtExpiry
     };
     
     authModule:initJWT(jwtConfig);
