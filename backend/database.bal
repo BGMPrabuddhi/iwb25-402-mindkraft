@@ -7,7 +7,7 @@ configurable string host = "localhost";
 configurable int port = 5432;
 configurable string name = "saferoute_db";
 configurable string username = "postgres";
-configurable string password = "1234";
+configurable string password = "123456";
 
 // Database client initialization
 final postgresql:Client dbClient = check new(
