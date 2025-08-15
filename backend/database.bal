@@ -1,1 +1,0 @@
-// This file is now empty. Database configuration and client are defined in main.bal.

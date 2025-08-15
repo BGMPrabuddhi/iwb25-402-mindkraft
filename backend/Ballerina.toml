@@ -1,26 +1,13 @@
 [package]
-org = "bgmpr"
+org = "saferoute"
 name = "backend"
 version = "0.1.0"
-distribution = "2201.12.7"
+distribution = "2201.8.0"
 
 [build-options]
 observabilityIncluded = true
 
-[[dependency]]
-org = "ballerinax"
-name = "postgresql"
-version = "1.14.0"
-
-
-[[dependency]]
-org = "ballerina"
-name = "time"
-version = "2.2.5"
-
-[[platform.java11.dependency]]
+[[platform.java17.dependency]]
 groupId = "org.postgresql"
 artifactId = "postgresql"
 version = "42.7.2"
-path = "resources/postgresql-42.7.2.jar"
-
