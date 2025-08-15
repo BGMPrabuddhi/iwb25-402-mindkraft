@@ -6,21 +6,104 @@ import backend.database as db;
 import backend.auth as authModule;
 import backend.user as userModule;
 
-configurable int serverPort = 8080;
-configurable string[] corsOrigins = ["http://localhost:3000"];
+import backend.database;
+import backend.auth;
+import backend.user;
 
-// JWT configuration
-configurable string jwtSecret = "pogVDNo+zysOxpiSYzqIp3FHuWimvX1bSj7uu674JoU=";
-configurable string jwtIssuer = "mindkraft-auth";
-configurable string jwtAudience = "saferoute-users";
-configurable int jwtExpiry = 3600;
+configurable int serverPort = ?;
+configurable string[] corsOrigins = ?;
 
-# HTTP listener configuration
-listener http:Listener httpListener = new(serverPort);
+listener http:Listener apiListener = new (serverPort);
 
-# Service for user authentication
-service /api on httpListener {
-    # Health check endpoint for database connection
+service /api on apiListener {
+
+    // Public endpoints - no authentication required
+    resource function post auth/register(user:RegisterRequest req) returns json {
+        user:AuthResponse|error result = auth:register(req);
+        if result is error {
+            log:printError("Registration failed", result);
+            return {
+                success: false,
+                message: result.message(),
+                errorCode: "registration_failed"
+            };
+        }
+        return {
+            success: true,
+            token: result.token,
+            tokenType: result.tokenType,
+            expiresIn: result.expiresIn,
+            message: result.message
+        };
+    }
+
+    resource function post auth/login(user:LoginRequest req) returns json {
+        user:AuthResponse|error result = auth:login(req);
+        if result is error {
+            log:printError("Login failed", result);
+            return {
+                success: false,
+                message: result.message(),
+                errorCode: "login_failed"
+            };
+        }
+        return {
+            success: true,
+            token: result.token,
+            tokenType: result.tokenType,
+            expiresIn: result.expiresIn,
+            message: result.message
+        };
+    }
+
+    // Protected endpoints - require authentication
+    resource function get me(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return {
+                success: false,
+                message: "Authentication required",
+                errorCode: "unauthorized"
+            };
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            log:printError("Failed to get user profile", profile);
+            return {
+                success: false,
+                message: "Failed to retrieve user profile",
+                errorCode: "internal_error"
+            };
+        }
+        return {
+            success: true,
+            id: profile.id,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            email: profile.email,
+            createdAt: profile.createdAt
+        };
+    }
+
+    resource function get home(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return {
+                success: false,
+                message: "Authentication required",
+                errorCode: "unauthorized"
+            };
+        }
+
+        return {
+            success: true,
+            message: "Welcome to your home page!",
+            user: email,
+            timestamp: getCurrentTimestamp()
+        };
+    }
+
     resource function get health() returns json|error {
         error? testResult = testConnection();
         if testResult is error {
@@ -29,255 +112,30 @@ service /api on httpListener {
         }
         return {"status": "ok", "message": "Database connected successfully"};
     }
-    
-    # Service status endpoint
-    resource function get status() returns json {
-        return {
-            "status": "OK",
-            "service": "SafeRoute Auth Service",
-            "timestamp": time:utcNow()
-        };
-    }
-    
-    # User registration endpoint
-    resource function post signup(userModule:UserRegistrationRequest request) returns http:Response {
-        http:Response response = new;
-        
-        // Validate request
-        if request.firstName.trim() == "" || request.lastName.trim() == "" || 
-           request.email.trim() == "" || request.location.trim() == "" || 
-           request.password.trim() == "" {
-            response.statusCode = 400;
-            response.setJsonPayload({
-                "error": "All fields are required"
-            });
-            return response;
-        }
-        
-        // Email validation
-        if !isValidEmail(request.email) {
-            response.statusCode = 400;
-            response.setJsonPayload({
-                "error": "Invalid email format"
-            });
-            return response;
-        }
-        
-        // Password validation
-        if request.password.length() < 8 {
-            response.statusCode = 400;
-            response.setJsonPayload({
-                "error": "Password must be at least 8 characters long"
-            });
-            return response;
-        }
-        
-        // Create user
-        userModule:UserResponse|error userResult = userModule:createUser(request);
-        
-        if userResult is userModule:UserResponse {
-            // Generate JWT token
-            string|error token = authModule:generateHMACToken(userResult);
-            
-            if token is string {
-                authModule:JWTResponse jwtResponse = {
-                    accessToken: token,
-                    expiresIn: 3600, // 1 hour
-                    user: userResult
-                };
-                
-                response.statusCode = 201;
-                response.setJsonPayload(jwtResponse.toJson());
-                log:printInfo("User registered successfully: " + userResult.email);
-            } else {
-                response.statusCode = 500;
-                response.setJsonPayload({
-                    "error": "Failed to generate authentication token"
-                });
-                log:printError("Token generation failed", token);
-            }
-        } else {
-            if userResult.message().includes("already exists") {
-                response.statusCode = 409;
-            } else {
-                response.statusCode = 500;
-            }
-            response.setJsonPayload({
-                "error": userResult.message()
-            });
-            log:printError("User registration failed", userResult);
-        }
-        
-        return response;
-    }
-    
-    # User login endpoint
-    resource function post login(userModule:UserLoginRequest request) returns http:Response {
-        http:Response response = new;
-        
-        // Validate request
-        if request.email.trim() == "" || request.password.trim() == "" {
-            response.statusCode = 400;
-            response.setJsonPayload({
-                "error": "Email and password are required"
-            });
-            return response;
-        }
-        
-        // Authenticate user
-        userModule:UserResponse|error userResult = userModule:authenticateUser(request);
-        
-        if userResult is userModule:UserResponse {
-            // Generate JWT token
-            string|error token = authModule:generateHMACToken(userResult);
-            
-            if token is string {
-                authModule:JWTResponse jwtResponse = {
-                    accessToken: token,
-                    expiresIn: 3600, // 1 hour
-                    user: userResult
-                };
-                
-                response.statusCode = 200;
-                response.setJsonPayload(jwtResponse.toJson());
-                log:printInfo("User logged in successfully: " + userResult.email);
-            } else {
-                response.statusCode = 500;
-                response.setJsonPayload({
-                    "error": "Failed to generate authentication token"
-                });
-                log:printError("Token generation failed", token);
-            }
-        } else {
-            response.statusCode = 401;
-            response.setJsonPayload({
-                "error": "Invalid credentials"
-            });
-            log:printInfo("Login attempt failed for: " + request.email);
-        }
-        
-        return response;
-    }
-    
-    # Protected endpoint - Get user profile
-    resource function get profile(@http:Header string authorization) returns http:Response {
-        http:Response response = new;
-        
-        // Extract token from Authorization header
-        string|error token = extractTokenFromHeader(authorization);
-        
-        if token is error {
-            response.statusCode = 401;
-            response.setJsonPayload({
-                "error": "Authorization header missing or invalid"
-            });
-            return response;
-        }
-        
-        // Verify token
-        jwt:Payload|error payload = authModule:verifyHMACToken(token);
-        
-        if payload is jwt:Payload {
-            // Extract user ID from token
-            int|error userId = authModule:extractUserId(payload);
-            
-            if userId is int {
-                // Get user details
-                userModule:UserResponse|error user = userModule:getUserById(userId);
-                
-                if user is userModule:UserResponse {
-                    response.statusCode = 200;
-                    response.setJsonPayload(user.toJson());
-                } else {
-                    response.statusCode = 404;
-                    response.setJsonPayload({
-                        "error": "User not found"
-                    });
-                }
-            } else {
-                response.statusCode = 401;
-                response.setJsonPayload({
-                    "error": "Invalid token payload"
-                });
-            }
-        } else {
-            response.statusCode = 401;
-            response.setJsonPayload({
-                "error": "Invalid or expired token"
-            });
-        }
-        
-        return response;
-    }
-    
-    # Token validation endpoint
-    resource function post validate\-token(@http:Header string authorization) returns http:Response {
-        http:Response response = new;
-        
-        string|error token = extractTokenFromHeader(authorization);
-        
-        if token is error {
-            response.statusCode = 401;
-            response.setJsonPayload({
-                "valid": false,
-                "error": "Authorization header missing or invalid"
-            });
-            return response;
-        }
-        
-        jwt:Payload|error payload = authModule:verifyHMACToken(token);
-        
-        if payload is jwt:Payload {
-            response.statusCode = 200;
-            response.setJsonPayload({
-                "valid": true,
-                "payload": payload.toJson()
-            });
-        } else {
-            response.statusCode = 401;
-            response.setJsonPayload({
-                "valid": false,
-                "error": "Invalid or expired token"
-            });
-        }
-        
-        return response;
-    }
 }
 
-# Initialize application
-# + return - An error if initialization fails, () otherwise
+// Initialize database on startup
 public function main() returns error? {
-    // Initialize database
-    check db:initDatabase();
-    
-    // Initialize JWT
-    authModule:JWTConfig jwtConfig = {
-        secret: jwtSecret,
-        issuer: jwtIssuer,
-        audience: jwtAudience,
-        expiry: jwtExpiry
-    };
-    
-    authModule:initJWT(jwtConfig);
-    
-    log:printInfo("SafeRoute Auth Service started on port 8080");
+    check database:initializeDatabase();
+    log:printInfo("Database initialized successfully");
+    log:printInfo("Server started on port 8080");
 }
 
-# Utility function to validate email format
-# + email - The email address to validate
-# + return - true if email is valid, false otherwise
-function isValidEmail(string email) returns boolean {
-    // Simple email validation regex
-    return email.matches(re `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`);
-}
-
-# Extract JWT token from Authorization header
-# + authHeader - The Authorization header value from the request
-# + return - The extracted token if successful, error if the header format is invalid
-function extractTokenFromHeader(string authHeader) returns string|error {
-    if authHeader.startsWith("Bearer ") {
-        return authHeader.substring(7);
+function validateAuthHeader(http:Request req) returns string|error {
+    string|http:HeaderNotFoundError authHeader = req.getHeader("Authorization");
+    if authHeader is http:HeaderNotFoundError {
+        return error("Authorization header not found");
     }
-    return error("Invalid authorization header format");
+
+    if !authHeader.startsWith("Bearer ") {
+        return error("Invalid authorization header format");
+    }
+
+    string token = authHeader.substring(7); // Remove "Bearer " prefix
+    return auth:validateJwtToken(token);
+}
+
+function getCurrentTimestamp() returns string {
+    // Simple timestamp function
+    return "2024-01-01T00:00:00Z"; // Placeholder
 }

@@ -1,196 +1,226 @@
 import ballerina/jwt;
+import ballerina/crypto;
 import ballerina/time;
-import ballerina/log;
-import backend.user as userModule;
+import ballerina/sql;
 
-# Represents JWT configuration details
-# + secret - Secret key for JWT signing
-# + issuer - JWT issuer
-# + audience - JWT audience
-# + expiry - Token expiry time in seconds
-public type JWTConfig record {
-    string secret;
-    string issuer;
-    string audience;
-    int expiry;
-};
+import backend.database;
+import backend.user;
 
-# Represents JWT custom claims
-# + userId - Unique identifier of the user
-# + email - Email address of the user
-# + firstName - First name of the user
-# + lastName - Last name of the user
-public type CustomClaims record {
-    int userId;
-    string email;
-    string firstName;
-    string lastName;
-};
+configurable string jwtSecret = ?;
+configurable string jwtIssuer = ?;
+configurable string jwtAudience = ?;
+configurable int jwtExpiry = ?;
 
-# Represents JWT authentication response
-# + accessToken - Generated JWT token
-# + tokenType - Type of the token (Bearer)
-# + expiresIn - Token expiration time in seconds
-# + user - User information
-public type JWTResponse record {
-    string accessToken;
-    string tokenType = "Bearer";
-    int expiresIn;
-    userModule:UserResponse user;
-};
+public function register(user:RegisterRequest req) returns user:AuthResponse|error {
+    // Validate email format
+    if !isValidEmail(req.email) {
+        return error("Invalid email format");
+    }
 
-# Global JWT configuration instance
-JWTConfig? jwtConfig = ();
+    // Validate password strength
+    if req.password.length() < 6 {
+        return error("Password must be at least 6 characters long");
+    }
 
-# Initializes JWT configuration
-# + config - JWT configuration details
-public function initJWT(JWTConfig config) {
-    jwtConfig = config;
-    log:printInfo("JWT configuration initialized");
+    // Check if user already exists
+    boolean userExists = check checkUserExists(req.email);
+    if userExists {
+        return error("User with this email already exists");
+    }
+
+    // Hash the password using SHA-256
+    string salt = generateSalt();
+    string saltedPassword = req.password + salt;
+    byte[] hashedPassword = crypto:hashSha256(saltedPassword.toBytes());
+    string passwordHash = hashedPassword.toBase64() + ":" + salt;
+
+    // Get database client
+    var dbClient = database:getDbClient();
+
+    // Insert user into database
+    sql:ExecutionResult result = check dbClient->execute(`
+        INSERT INTO users (first_name, last_name, email, password_hash) 
+        VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash})
+    `);
+
+    if result.affectedRowCount < 1 {
+        return error("Failed to create user");
+    }
+
+    // Generate JWT token
+    user:AuthResponse tokenData = check generateJwt(req.email);
+    tokenData.message = "User registered successfully";
+    return tokenData;
 }
 
-# Generate JWT token for user
-public function generateToken(userModule:UserResponse user) returns string|error {
-    if jwtConfig is () {
-        return error("JWT configuration not initialized");
+public function login(user:LoginRequest req) returns user:AuthResponse|error {
+    // Get database client
+    var dbClient = database:getDbClient();
+
+    // Get user from database
+    stream<record {string password_hash;}, sql:Error?> userStream = 
+        dbClient->query(`SELECT password_hash FROM users WHERE email = ${req.email}`);
+
+    var userRecord = userStream.next();
+    check userStream.close();
+
+    if userRecord is sql:Error {
+        return error("Database error occurred");
     }
-    
-    JWTConfig config = <JWTConfig>jwtConfig;
-    
-    // Current time and expiry
-    time:Utc currentTime = time:utcNow();
-    time:Civil currentCivil = time:utcToCivil(currentTime);
-    decimal currentEpoch = <decimal>currentCivil.hour * 3600 + 
-                          <decimal>currentCivil.minute * 60 +
-                          <decimal>currentCivil.second;
-    decimal expirySeconds = currentEpoch + <decimal>config.expiry;
-    
-    // Generate token
-    string|jwt:Error token = jwt:issue({
-        issuer: config.issuer,
-        username: user.email,
-        audience: [config.audience],
-        expTime: expirySeconds,
-        customClaims: {
-            "userId": user.id,
-            "email": user.email,
-            "firstName": user.firstName,
-            "lastName": user.lastName
-        }
-    });
-    
-    if token is string {
-        return token;
-    } else {
-        log:printError("Failed to generate JWT token", token);
-        return error("Failed to generate token");
+
+    if userRecord is () {
+        return error("Invalid email or password");
     }
+
+    // Verify password
+    string[] parts = splitString(userRecord.value.password_hash, ":");
+    if parts.length() != 2 {
+        return error("Invalid password format in database");
+    }
+
+    string storedHash = parts[0];
+    string salt = parts[1];
+    
+    string saltedPassword = req.password + salt;
+    byte[] inputHash = crypto:hashSha256(saltedPassword.toBytes());
+    string inputHashBase64 = inputHash.toBase64();
+
+    if storedHash != inputHashBase64 {
+        return error("Invalid email or password");
+    }
+
+    // Generate JWT token
+    user:AuthResponse tokenData = check generateJwt(req.email);
+    tokenData.message = "Login successful";
+    return tokenData;
 }
 
-# Verify JWT token
-public function verifyToken(string token) returns jwt:Payload|error {
-    if jwtConfig is () {
-        return error("JWT configuration not initialized");
+public function getUserProfile(string email) returns user:UserProfile|error {
+    // Get database client
+    var dbClient = database:getDbClient();
+
+    stream<record {int id; string first_name; string last_name; string email; string created_at?;}, sql:Error?> userStream = 
+        dbClient->query(`
+            SELECT id, first_name, last_name, email, created_at 
+            FROM users WHERE email = ${email}
+        `);
+
+    var userRecord = userStream.next();
+    check userStream.close();
+
+    if userRecord is sql:Error {
+        return error("Database error occurred");
     }
-    
-    JWTConfig config = <JWTConfig>jwtConfig;
-    
+
+    if userRecord is () {
+        return error("User not found");
+    }
+
+    return {
+        id: userRecord.value.id,
+        firstName: userRecord.value.first_name,
+        lastName: userRecord.value.last_name,
+        email: userRecord.value.email,
+        createdAt: userRecord.value.created_at
+    };
+}
+
+public function validateJwtToken(string token) returns string|error {
     jwt:ValidatorConfig validatorConfig = {
-        issuer: config.issuer,
-        audience: [config.audience],
-        clockSkew: 60, // 1 minute clock skew,
+        issuer: jwtIssuer,
+        audience: jwtAudience,
         signatureConfig: {
-            certFile: "path/to/public.crt"
+            secret: jwtSecret
         }
     };
+
+    jwt:Payload payload = check jwt:validate(token, validatorConfig);
     
-    jwt:Payload|jwt:Error result = jwt:validate(token, validatorConfig);
-    
-    if result is jwt:Payload {
-        return result;
-    } else {
-        log:printError("JWT token validation failed", result);
-        return error("Invalid token");
+    string? sub = payload.sub;
+    if sub is string {
+        return sub;
     }
+    
+    return error("Invalid token: subject not found");
 }
 
-# Extract user ID from JWT payload
-public function extractUserId(jwt:Payload payload) returns int|error {
-    map<json>|error claims = <map<json>|error>payload.get("customClaims");
-    if claims is map<json> {
-        json|error userId = claims["userId"];
-        if userId is int {
-            return userId;
-        }
-    }
-    return error("User ID not found in token");
-}
-
-# For development purposes, use HMAC-based JWT (simpler setup)
-# Generate HMAC-based JWT token
-public function generateHMACToken(userModule:UserResponse user) returns string|error {
-    if jwtConfig is () {
-        return error("JWT configuration not initialized");
-    }
-    
-    JWTConfig config = <JWTConfig>jwtConfig;
-    
-    // Current time and expiry
+function generateJwt(string email) returns user:AuthResponse|error {
     time:Utc currentTime = time:utcNow();
-    time:Civil currentCivil = time:utcToCivil(currentTime);
-    decimal currentEpoch = (<decimal>currentCivil.year * 31556952) + 
-                        (<decimal>currentCivil.month * 2629746) +
-                        (<decimal>currentCivil.day * 86400);
-    decimal expirySeconds = currentEpoch + <decimal>config.expiry;
     
-    // Generate HMAC token using simple secret key config
-    string|jwt:Error token = jwt:issue({
-        issuer: config.issuer,
-        username: user.email,
-        audience: [config.audience],
-        expTime: expirySeconds,
+    // Get current time in seconds
+    [int, decimal] [timeSeconds, timeFraction] = currentTime;
+    decimal currentTimeInSeconds = <decimal>timeSeconds + timeFraction;
+    
+    jwt:IssuerConfig issuerConfig = {
+        issuer: jwtIssuer,
+        audience: jwtAudience,
+        expTime: currentTimeInSeconds + <decimal>jwtExpiry,
         signatureConfig: {
-            config: config.secret
+            algorithm: jwt:HS256,
+            config: jwtSecret
         },
-        customClaims: {
-            "userId": user.id,
-            "email": user.email,
-            "firstName": user.firstName,
-            "lastName": user.lastName
-        }
-    });
-    
-    if token is string {
-        return token;
-    } else {
-        log:printError("Failed to generate HMAC JWT token", token);
-        return error("Failed to generate token");
-    }
+        customClaims: {"sub": email}
+    };
+
+    string jwtToken = check jwt:issue(issuerConfig);
+
+    return {
+        token: jwtToken,
+        tokenType: "Bearer",
+        expiresIn: jwtExpiry,
+        message: ""
+    };
 }
 
-# Verify HMAC-based JWT token
-public function verifyHMACToken(string token) returns jwt:Payload|error {
-    if jwtConfig is () {
-        return error("JWT configuration not initialized");
+function checkUserExists(string email) returns boolean|error {
+    // Get database client
+    var dbClient = database:getDbClient();
+
+    stream<record {int count;}, sql:Error?> countStream = 
+        dbClient->query(`SELECT COUNT(*) as count FROM users WHERE email = ${email}`);
+
+    var countRecord = countStream.next();
+    check countStream.close();
+
+    if countRecord is sql:Error {
+        return error("Database error occurred");
+    }
+
+    if countRecord is () {
+        return false;
+    }
+
+    return countRecord.value.count > 0;
+}
+
+function isValidEmail(string email) returns boolean {
+    // Simple email validation
+    return email.includes("@") && email.includes(".") && email.length() > 5;
+}
+
+function generateSalt() returns string {
+    // Generate a simple salt using current time
+    time:Utc currentTime = time:utcNow();
+    [int, decimal] [timeSeconds, timeFraction] = currentTime;
+    string timeString = timeSeconds.toString() + timeFraction.toString();
+    byte[] saltBytes = crypto:hashSha256(timeString.toBytes());
+    return saltBytes.toBase64();
+}
+
+function splitString(string input, string delimiter) returns string[] {
+    // Simple string split implementation
+    string[] parts = [];
+    int startIndex = 0;
+    int? delimiterIndex = input.indexOf(delimiter, startIndex);
+    
+    while delimiterIndex is int {
+        parts.push(input.substring(startIndex, delimiterIndex));
+        startIndex = delimiterIndex + delimiter.length();
+        delimiterIndex = input.indexOf(delimiter, startIndex);
     }
     
-    JWTConfig config = <JWTConfig>jwtConfig;
+    // Add the last part
+    parts.push(input.substring(startIndex));
     
-    jwt:ValidatorConfig validatorConfig = {
-        issuer: config.issuer,
-        audience: [config.audience],
-        clockSkew: 60, // 1 minute clock skew,
-        signatureConfig: {
-            certFile: "path/to/public.crt"
-        }
-    };
-    
-    jwt:Payload|jwt:Error result = jwt:validate(token, validatorConfig);
-    
-    if result is jwt:Payload {
-        return result;
-    } else {
-        log:printError("HMAC JWT token validation failed", result);
-        return error("Invalid token");
-    }
+    return parts;
 }

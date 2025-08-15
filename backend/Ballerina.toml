@@ -12,5 +12,7 @@ org = "ballerinax"
 name = "postgresql"
 version = "1.14.0"
 
-
-
+[[dependency]]
+org = "ballerina"
+name = "jwt"
+version = "2.15.0"

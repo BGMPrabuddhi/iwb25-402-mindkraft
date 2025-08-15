@@ -1,58 +1,42 @@
-import ballerina/sql;
 import ballerinax/postgresql;
-import ballerina/log;
+import ballerinax/postgresql.driver as _;
 
-// Configurable variables for database connection
-configurable string host = "localhost";
-configurable int port = 5432;
-configurable string name = "saferoute_db";
-configurable string username = "postgres";
-configurable string password = "123456";
+public type User record {
+    int id;
+    string first_name;
+    string last_name;
+    string email;
+    string password_hash;
+    string created_at?;
+};
 
-# Global database client instance
-postgresql:Client? dbClient = ();
+configurable string host = ?;
+configurable int port = ?;
+configurable string name = ?;
+configurable string username = ?;
+configurable string password = ?;
 
-# Initialize database connection with configured values
-# + return - error if connection fails, () if successful
-public function initDatabase() returns error? {
-    postgresql:Client|sql:Error newClient = new (
-        host = host,
-        port = port,
-        database = name,
-        username = username,
-        password = password
-    );
-    
-    if newClient is postgresql:Client {
-        dbClient = newClient;
-        log:printInfo("Database connection established successfully");
-        return;
-    }
-    log:printError("Failed to establish database connection", newClient);
-    return newClient;
+final postgresql:Client dbClient = check new(
+    host = host,
+    port = port,
+    database = name,
+    username = username,
+    password = password
+);
+
+public function getDbClient() returns postgresql:Client {
+    return dbClient;
 }
 
-# Get the initialized database client
-#
-# + return - PostgreSQL client if initialized, error if not initialized
-public function getDbClient() returns postgresql:Client|error {
-    postgresql:Client? currentClient = dbClient;
-    if currentClient is postgresql:Client {
-        return currentClient;
-    }
-    return error("Database client not initialized");
-}
-
-# Close database connection
-#
-# + return - error if closing fails, () if successful
-public function closeDatabase() returns error? {
-    postgresql:Client? currentClient = dbClient;
-    if currentClient is postgresql:Client {
-        error? closeResult = currentClient.close();
-        if closeResult is error {
-            return closeResult;
-        }
-    }
-    return;
+public function initializeDatabase() returns error? {
+    _ = check dbClient->execute(`
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            first_name VARCHAR(100) NOT NULL,
+            last_name VARCHAR(100) NOT NULL,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
 }
