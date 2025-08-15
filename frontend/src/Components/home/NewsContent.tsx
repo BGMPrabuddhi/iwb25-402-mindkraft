@@ -1,5 +1,5 @@
 'use client'
-import { MagnifyingGlassIcon, TruckIcon, ExclamationTriangleIcon, CloudIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, TruckIcon, ExclamationTriangleIcon, CloudIcon, WrenchScrewdriverIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect, useCallback } from 'react'
 import { reportsAPI, type HazardReportData } from '@/lib/api'
 
@@ -12,6 +12,7 @@ interface SubmitForm {
   description: string;
   hazard_type: string;
   severity_level: string;
+  images: File[]; // Add images array
 }
 
 interface Report {
@@ -21,6 +22,7 @@ interface Report {
   hazard_type: string;
   severity_level: string;
   created_at?: string;
+  images?: string[]; // Add images to report interface
 }
 
 interface NewsContentProps {
@@ -37,13 +39,14 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
     description: '',
     hazard_type: '',
     severity_level: '',
-  
+    images: [], // Initialize images array
   })
 
   const [reports, setReports] = useState<Report[]>([])
   const [filteredReports, setFilteredReports] = useState<Report[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]) // For image previews
 
   // Mock reports data
   useEffect(() => {
@@ -54,9 +57,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
         description: "Large pothole causing vehicle damage near traffic light intersection",
         hazard_type: "pothole",
         severity_level: "high",
-       
         created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        
       },
       {
         id: 2,
@@ -64,9 +65,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
         description: "Two-vehicle collision blocking left lane",
         hazard_type: "accident",
         severity_level: "high",
-       
         created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-       
       },
       {
         id: 3,
@@ -74,9 +73,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
         description: "Road completely flooded after heavy rain",
         hazard_type: "Natural disaster",
         severity_level: "medium",
-       
         created_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-       
       },
       {
         id: 4,
@@ -84,12 +81,78 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
         description: "Lane closure due to road maintenance work",
         hazard_type: "construction",
         severity_level: "low",
-       
         created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
-      
       }
     ]
     setReports(mockReports)
+  }, [])
+
+  // Handle image upload
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    const fileArray = Array.from(files)
+    const maxFiles = 5
+    const maxSize = 5 * 1024 * 1024 // 5MB per file
+
+    // Validate files
+    const validFiles: File[] = []
+    const errors: string[] = []
+
+    for (const file of fileArray) {
+      if (submitForm.images.length + validFiles.length >= maxFiles) {
+        errors.push(`Maximum ${maxFiles} images allowed`)
+        break
+      }
+
+      if (file.size > maxSize) {
+        errors.push(`${file.name} is too large. Maximum size is 5MB`)
+        continue
+      }
+
+      if (!file.type.startsWith('image/')) {
+        errors.push(`${file.name} is not a valid image file`)
+        continue
+      }
+
+      validFiles.push(file)
+    }
+
+    if (errors.length > 0) {
+      alert('❌ Image Upload Errors:\n\n' + errors.join('\n'))
+    }
+
+    if (validFiles.length > 0) {
+      // Update form with new images
+      setSubmitForm(prev => ({
+        ...prev,
+        images: [...prev.images, ...validFiles]
+      }))
+
+      // Create previews
+      validFiles.forEach(file => {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            setImagePreviews(prev => [...prev, e.target!.result as string])
+          }
+        }
+        reader.readAsDataURL(file)
+      })
+    }
+
+    // Reset input
+    e.target.value = ''
+  }, [submitForm.images])
+
+  // Remove image
+  const removeImage = useCallback((index: number) => {
+    setSubmitForm(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }))
+    setImagePreviews(prev => prev.filter((_, i) => i !== index))
   }, [])
 
   // Test backend connection
@@ -154,17 +217,18 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
         description: submitForm.description.trim() || undefined,
         hazard_type: submitForm.hazard_type as 'accident' | 'pothole' | 'Natural disaster' | 'construction',
         severity_level: submitForm.severity_level as 'low' | 'medium' | 'high',
-        
+        images: submitForm.images.length > 0 ? submitForm.images : undefined,
       }
 
       console.log('🚀 Sending to API:', reportData)
+      console.log('📸 Images to upload:', submitForm.images.length)
 
       const response = await reportsAPI.submitReport(reportData)
       
       console.log('✅ Success response:', response)
       
       // Show success message
-      alert(`🎉 SUCCESS!\n\n${response.message}\n\nReport ID: ${response.report_id}\nTimestamp: ${new Date(response.timestamp || '').toLocaleString()}`)
+      alert(`🎉 SUCCESS!\n\n${response.message}\n\nReport ID: ${response.report_id}\nImages uploaded: ${submitForm.images.length}\nTimestamp: ${new Date(response.timestamp || '').toLocaleString()}`)
       
       // Reset form on success
       setSubmitForm({
@@ -172,8 +236,9 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
         description: '',
         hazard_type: '',
         severity_level: '',
-     
+        images: [],
       })
+      setImagePreviews([])
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
@@ -214,9 +279,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
         description: report.description || '',
         hazard_type: report.hazard_type,
         severity_level: report.severity_level,
-        
         created_at: report.created_at,
-        
       }))
 
       setFilteredReports(convertedReports)
@@ -354,12 +417,8 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
                     </div>
                     <p className="text-gray-600 mb-3">{report.description}</p>
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
-                    
                       {report.created_at && <span>🕒 {new Date(report.created_at).toLocaleString()}</span>}
                     </div>
-                  </div>
-                  <div className="text-right">
-                   
                   </div>
                 </div>
               </div>
@@ -386,6 +445,22 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
           Help keep our roads safe by reporting hazards, accidents, or dangerous conditions.
         </p>
         
+        {/* Connection test and status */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={testConnection}
+            className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+          >
+            🔗 Test Backend Connection
+          </button>
+          
+          {error && (
+            <div className="flex-1 min-w-full mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">❌ {error}</p>
+            </div>
+          )}
+        </div>
       </div>
       
       <form className="space-y-6" onSubmit={handleSubmit}>
@@ -433,6 +508,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
             className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={isLoading}
           >
+            <option value="">Select hazard type</option>
             <option value="accident">Traffic Accident</option>
             <option value="pothole">Pothole</option>
             <option value="Natural disaster">Natural Disaster</option>
@@ -458,7 +534,65 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
           </select>
         </div>
 
-  {/* Contact Information input removed as requested. */}
+        {/* Image Upload Section */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Add Images (Optional)
+          </label>
+          <div className="space-y-4">
+            {/* Upload Button */}
+            <div className="flex items-center justify-center w-full">
+              <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <PhotoIcon className="w-8 h-8 mb-4 text-gray-500" />
+                  <p className="mb-2 text-sm text-gray-500">
+                    <span className="font-semibold">Click to upload</span> or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB (Max 5 images)</p>
+                </div>
+                <input
+                  type="file"
+                  className="hidden"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={isLoading || submitForm.images.length >= 5}
+                />
+              </label>
+            </div>
+
+            {/* Image Previews */}
+            {imagePreviews.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">
+                  Selected Images ({submitForm.images.length}/5)
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {imagePreviews.map((preview, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                        disabled={isLoading}
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                      <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                        {(submitForm.images[index]?.size / 1024 / 1024).toFixed(1)}MB
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         <button
           type="submit"
@@ -478,7 +612,7 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
               Submitting Report...
             </span>
           ) : (
-            '🚀 Submit Hazard Report'
+            `🚀 Submit Hazard Report ${submitForm.images.length > 0 ? `(${submitForm.images.length} image${submitForm.images.length > 1 ? 's' : ''})` : ''}`
           )}
         </button>
 
@@ -491,7 +625,14 @@ const NewsContent = ({ activeTab }: NewsContentProps) => {
             <div className="mt-2 p-4 bg-gray-100 rounded-lg">
               <pre className="text-xs text-gray-600 overflow-auto">
                 {JSON.stringify({
-                  formData: submitForm,
+                  formData: {
+                    ...submitForm,
+                    images: submitForm.images.map(img => ({
+                      name: img.name,
+                      size: img.size,
+                      type: img.type
+                    }))
+                  },
                   apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api',
                   isLoading,
                   error
