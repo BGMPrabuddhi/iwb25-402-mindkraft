@@ -12,5 +12,9 @@ org = "ballerinax"
 name = "postgresql"
 version = "1.14.0"
 
-
+[[platform.java11.dependency]]
+groupId = "org.postgresql"
+artifactId = "postgresql"
+version = "42.7.2"
+path = "resources/postgresql-42.7.2.jar"
 
