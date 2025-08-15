@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { auth } from '@/utils/auth'
+import { useRouter } from 'next/navigation'
+import { authAPI } from '@/lib/auth'
 
 type SignupFormData = {
     firstName: string
@@ -14,6 +15,7 @@ type SignupFormData = {
 }
 
 export default function SignupPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     lastName: '',
@@ -77,9 +79,7 @@ export default function SignupPage() {
       newErrors.confirmPassword = 'Passwords do not match'
     }
 
-    if (!formData.location.trim()) {
-      newErrors.location = 'Please select your location'
-    }
+    // Location is optional, so no validation required
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -128,27 +128,30 @@ export default function SignupPage() {
     setApiError('')
     
     try {
-      const result = await auth.register({
+      console.log('🔄 Submitting registration form...');
+      
+      // Call the registration API
+      const result = await authAPI.register({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         email: formData.email,
-        password: formData.password,
-        name: `${formData.firstName} ${formData.lastName}`,
-      });
+        password: formData.password
+      })
+
+      console.log('📋 Registration result:', result);
 
       if (result.success) {
-        console.log('Registration successful:', result.data);
-        
-        // Show success message briefly before redirecting
-        alert('Account created successfully!');
-        
-        // Redirect to home page
-        window.location.href = '/home';
+        alert('✅ Account created successfully! Please log in with your credentials.')
+        // Redirect to login page after successful registration
+        router.push('/login')
       } else {
-        console.error('Registration error:', result.error);
-        setApiError(result.error || 'Registration failed. Please try again.');
+        const errorMessage = result.message || 'Registration failed. Please try again.';
+        console.error('Registration failed:', errorMessage);
+        alert(`❌ ${errorMessage}`);
       }
     } catch (error) {
-      console.error('Unexpected registration error:', error);
-      setApiError('An unexpected error occurred. Please try again.');
+      console.error('❌ Signup error:', error)
+      alert('❌ Signup failed. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -290,7 +293,7 @@ export default function SignupPage() {
               {/* Location Field with GPS */}
               <div className="group">
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
-                  Location
+                  Location <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -308,7 +311,7 @@ export default function SignupPage() {
                     className={`appearance-none block w-full pl-10 pr-12 py-3 border ${
                       errors.location ? 'border-red-300 shake' : 'border-gray-300'
                     } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
-                    placeholder="Enter your location or use GPS"
+                    placeholder="Enter your location (optional) or use GPS"
                   />
                   <button
                     type="button"
@@ -334,7 +337,7 @@ export default function SignupPage() {
                   <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.location}</p>
                 )}
                 <p className="mt-2 text-xs text-gray-500">
-                  Click the location icon to auto-detect your current location
+                  Location is optional. Click the location icon to auto-detect your current location
                 </p>
               </div>
 
@@ -461,7 +464,7 @@ export default function SignupPage() {
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Already have an account?{' '}
-                <Link href="/" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
+                <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
                   Sign in here
                 </Link>
               </p>

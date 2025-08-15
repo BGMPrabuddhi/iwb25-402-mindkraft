@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { auth } from '@/utils/auth'
+import { useRouter } from 'next/navigation'
+import { authAPI } from '@/lib/auth'
 
 type LoginFormData = {
   email: string
@@ -10,6 +11,7 @@ type LoginFormData = {
 }
 
 export default function LoginPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: ''
@@ -66,26 +68,29 @@ export default function LoginPage() {
     setApiError('')
     
     try {
-      const result = await auth.login({
+      console.log('🔄 Submitting login form...');
+      
+      // Call the login API
+      const result = await authAPI.login({
         email: formData.email,
         password: formData.password
-      });
+      })
+
+      console.log('📋 Login result:', result);
 
       if (result.success) {
-        console.log('Login successful:', result.data);
-        
-        // Show success message briefly
-        alert('Login successful!');
-        
-        // Redirect to home page
-        window.location.href = '/home';
+        alert('✅ Login successful! Welcome back!')
+        // Redirect to home page after successful login
+        router.push('/home')
       } else {
-        console.error('Login error:', result.error);
-        setApiError(result.error || 'Login failed. Please try again.');
+        const errorMessage = result.message || 'Login failed. Please try again.';
+        console.error('Login failed:', errorMessage);
+        alert(`❌ ${errorMessage}`);
       }
+      
     } catch (error) {
-      console.error('Unexpected login error:', error);
-      setApiError('An unexpected error occurred. Please try again.');
+      console.error('❌ Login error:', error)
+      alert('❌ Login failed. Please try again.')
     } finally {
       setIsLoading(false)
     }
