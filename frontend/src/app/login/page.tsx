@@ -18,6 +18,7 @@ export default function LoginPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<LoginFormData>>({})
+  const [apiError, setApiError] = useState('')
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export default function LoginPage() {
     if (!validateForm()) return
 
     setIsLoading(true)
+    setApiError('')
     
     try {
       console.log('🔄 Submitting login form...');
@@ -259,9 +261,13 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
-            </form>
 
-            
+              {apiError && (
+                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">{apiError}</p>
+                </div>
+              )}
+            </form>
 
             {/* Sign Up Link */}
             <div className="mt-6 text-center">

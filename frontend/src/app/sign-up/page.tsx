@@ -26,6 +26,7 @@ export default function SignupPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<SignupFormData>>({})
+  const [apiError, setApiError] = useState('')
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -124,6 +125,7 @@ export default function SignupPage() {
     if (!validateForm()) return
 
     setIsLoading(true)
+    setApiError('')
     
     try {
       console.log('🔄 Submitting registration form...');
@@ -450,6 +452,12 @@ export default function SignupPage() {
                   )}
                 </button>
               </div>
+
+              {apiError && (
+                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">{apiError}</p>
+                </div>
+              )}
             </form>
 
             {/* Login Link */}
