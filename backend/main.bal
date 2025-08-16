@@ -48,6 +48,27 @@ service /api on new http:Listener(8080) {
         check reports:handleReportSubmission(caller, req);
     }
 
+    resource function get reports(http:Caller caller, http:Request req) returns error? {
+        check reports:handleGetReports(caller, req);
+    }
+
+    resource function options reports/[int reportId](http:Caller caller, http:Request req) returns error? {
+        http:Response res = new;
+        res.statusCode = 200;
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        check caller->respond(res);
+    }
+
+    resource function put reports/[int reportId](http:Caller caller, http:Request req) returns error? {
+        check reports:handleUpdateReport(caller, req, reportId);
+    }
+
+    resource function delete reports/[int reportId](http:Caller caller, http:Request req) returns error? {
+        check reports:handleDeleteReport(caller, req, reportId);
+    }
+
     // Serve uploaded images
     resource function get images/[string filename](http:Caller caller, http:Request req) returns error? {
         string filePath = reports:getUploadDir() + "/" + filename;

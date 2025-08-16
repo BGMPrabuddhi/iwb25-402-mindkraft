@@ -268,3 +268,102 @@ function handleJsonSubmission(http:Caller caller, http:Request req, http:Respons
         check caller->respond(res);
     }
 }
+
+public function handleGetReports(http:Caller caller, http:Request req) returns error? {
+    http:Response res = new;
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+    types:HazardReport[]|error reportsResult = database:getAllReports();
+    
+    if reportsResult is types:HazardReport[] {
+        types:ReportsResponse response = {
+            status: "success",
+            message: "Reports retrieved successfully",
+            reports: reportsResult
+        };
+        res.setPayload(response);
+        check caller->respond(res);
+    } else {
+        log:printError("Failed to retrieve reports: " + reportsResult.message());
+        res.setPayload({
+            "status": "error", 
+            "message": "Failed to retrieve reports: " + reportsResult.message(),
+            "reports": []
+        });
+        check caller->respond(res);
+    }
+}
+
+public function handleUpdateReport(http:Caller caller, http:Request req, int reportId) returns error? {
+    http:Response res = new;
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+    json|error body = req.getJsonPayload();
+    if body is error {
+        res.setPayload({"status": "error", "message": "Invalid JSON payload"});
+        check caller->respond(res);
+        return;
+    }
+    
+    types:UpdateReportPayload|error updateData = body.cloneWithType(types:UpdateReportPayload);
+    if updateData is error {
+        res.setPayload({"status": "error", "message": "Invalid update data"});
+        check caller->respond(res);
+        return;
+    }
+    
+    // Validate required fields
+    if updateData.title is () || updateData.hazard_type is () || updateData.severity_level is () {
+        res.setPayload({"status": "error", "message": "Missing required fields"});
+        check caller->respond(res);
+        return;
+    }
+    
+    string title = updateData.title ?: "";
+    string description = updateData.description ?: "";
+    string hazardType = updateData.hazard_type ?: "";
+    string severityLevel = updateData.severity_level ?: "";
+    
+    types:HazardReport|error result = database:updateHazardReport(reportId, title, description, hazardType, severityLevel);
+    
+    if result is types:HazardReport {
+        types:UpdateReportResponse response = {
+            status: "success",
+            message: "Report updated successfully",
+            data: result
+        };
+        res.setPayload(response);
+        check caller->respond(res);
+    } else {
+        log:printError("Failed to update report: " + result.message());
+        res.setPayload({"status": "error", "message": "Failed to update report: " + result.message()});
+        check caller->respond(res);
+    }
+}
+
+public function handleDeleteReport(http:Caller caller, http:Request req, int reportId) returns error? {
+    http:Response res = new;
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    
+    boolean|error result = database:deleteHazardReport(reportId);
+    
+    if result is boolean && result {
+        types:DeleteReportResponse response = {
+            status: "success",
+            message: "Report deleted successfully"
+        };
+        res.setPayload(response);
+        check caller->respond(res);
+    } else {
+        string errorMsg = result is error ? result.message() : "Failed to delete report";
+        log:printError("Failed to delete report: " + errorMsg);
+        res.setPayload({"status": "error", "message": "Failed to delete report: " + errorMsg});
+        check caller->respond(res);
+    }
+}
