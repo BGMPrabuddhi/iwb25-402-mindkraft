@@ -9,31 +9,31 @@ import saferoute/backend.database;
 
 configurable string uploadDir = "uploads";
 
-// Upload functionality
+// Initialize upload directory
 public function initializeUploadDirectory() returns error? {
-    boolean dirExists = check file:test(uploadDir, file:EXISTS);
-    if !dirExists {
+    boolean|file:Error dirExists = file:test(uploadDir, file:EXISTS);
+    if dirExists is file:Error || !dirExists {
         check file:createDir(uploadDir);
         log:printInfo("Created upload directory: " + uploadDir);
     }
 }
 
-public function saveImageFile(mime:Entity part) returns string|error {
+// Save uploaded image file
+function saveImageFile(mime:Entity part) returns string|error {
     mime:ContentDisposition contentDisposition = part.getContentDisposition();
-    string originalFileName = "";
-    
+    string fileName = "";
     if contentDisposition.fileName is string {
-        originalFileName = contentDisposition.fileName;
+        fileName = contentDisposition.fileName;
     }
     
-    if originalFileName == "" {
+    if fileName.trim() == "" {
         return error("No filename provided");
     }
     
     string fileExtension = ".jpg";
-    int? lastDotIndex = originalFileName.lastIndexOf(".");
+    int? lastDotIndex = fileName.lastIndexOf(".");
     if lastDotIndex is int && lastDotIndex > 0 {
-        fileExtension = originalFileName.substring(lastDotIndex);
+        fileExtension = fileName.substring(lastDotIndex);
     }
     
     string uniqueFileName = uuid:createType4AsString() + fileExtension;
@@ -41,18 +41,15 @@ public function saveImageFile(mime:Entity part) returns string|error {
     
     byte[]|mime:ParserError bytesResult = part.getByteArray();
     if bytesResult is byte[] {
-        io:Error? writeResult = io:fileWriteBytes(filePath, bytesResult);
-        if writeResult is () {
-            log:printInfo("Image uploaded: " + originalFileName + " -> " + uniqueFileName);
-            return uniqueFileName;
-        } else {
-            return error("Failed to write file: " + writeResult.message());
-        }
+        check io:fileWriteBytes(filePath, bytesResult);
+        log:printInfo("Image uploaded: " + fileName + " -> " + uniqueFileName);
+        return uniqueFileName;
     } else {
         return error("Failed to read image bytes");
     }
 }
 
+// Get image content type based on file extension
 public function getImageContentType(string filename) returns string {
     if filename.endsWith(".jpg") || filename.endsWith(".jpeg") {
         return "image/jpeg";
@@ -66,6 +63,7 @@ public function getImageContentType(string filename) returns string {
     return "application/octet-stream";
 }
 
+// Get upload directory path
 public function getUploadDir() returns string {
     return uploadDir;
 }
@@ -185,7 +183,7 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
             }
         }
         
-        // Try to insert into database (or use mock)
+        // Try to insert into database
         int|error result = database:insertHazardReport(title, description, hazardType, severityLevel, imageNames, latDecimal, lngDecimal, address);
         
         if result is int {
@@ -234,22 +232,18 @@ function handleJsonSubmission(http:Caller caller, http:Request req, http:Respons
     decimal? longitude = ();
     string? address = ();
     
-    // Handle optional location safely
-    if report.location is types:LocationPayload {
-        types:LocationPayload loc = <types:LocationPayload>report.location;
-        latitude = loc.lat;
-        longitude = loc.lng;
-        address = loc.address;
-    }
+
+    // Handle optional description safely
+    string? reportDescription = report["description"] is string ? report["description"] : "";
     
     int|error result = database:insertHazardReport(
-        report.title, 
-        report.description ?: "", 
-        report.hazard_type, 
-        report.severity_level, 
-        emptyImages, 
-        latitude, 
-        longitude, 
+        report.title,
+        reportDescription ?: "",
+        report.hazard_type,
+        report.severity_level,
+        emptyImages,
+        latitude,
+        longitude,
         address
     );
     
