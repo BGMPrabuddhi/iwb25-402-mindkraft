@@ -11,6 +11,15 @@ export interface RegisterRequest {
   lastName: string;
   email: string;
   password: string;
+  location?: string;
+  locationDetails: {
+    latitude: number;
+    longitude: number;
+    city: string;
+    state: string;
+    country: string;
+    fullAddress: string;
+  };
 }
 
 export interface LoginRequest {
