@@ -130,10 +130,10 @@ const ReportsHistoryPage = () => {
 	};
 
 	return (
-		<main className="min-h-screen gradient-bg p-6">
+		<main className="min-h-screen  bg-black  p-6">
 			<div className="max-w-7xl mx-auto">
 				{/* Header Section */}
-				<div className="page-header">
+				<div className="page-header " color="primary">
 					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 						<div>
 							<h1 className="text-3xl font-bold text-white mb-2">Hazard Report History</h1>
@@ -191,107 +191,110 @@ const ReportsHistoryPage = () => {
 							}
 							
 							return (
-								<div key={report.id} className="card p-0 overflow-hidden group hover:scale-[1.02] transition-transform duration-200">
-									{/* Card Header */}
-									<div className="card-header">
-										<div className="flex justify-between items-start">
-											<h3 className="text-white font-semibold text-lg leading-tight">{report.title || 'Untitled Report'}</h3>
-											<span className={`badge ${
-												report.status === 'resolved' 
-													? 'badge-success' 
-													: report.status === 'active' 
-													? 'badge-warning' 
-													: 'badge-neutral'
-											}`}>
-												{report.status || 'unknown'}
-											</span>
-										</div>
-										<p className="text-gray-300 text-sm mt-2">
-											{report.created_at ? new Date(report.created_at).toLocaleDateString() : 'Unknown date'}
-										</p>
-									</div>
-
-									{/* Card Content */}
-									<div className="p-4">
-										<p className="text-gray-600 text-sm mb-4 line-clamp-3">
-											{report.description || 'No description provided'}
-										</p>
-
-										{/* Hazard Type & Severity */}
-										<div className="flex flex-wrap gap-2 mb-4">
-											<span className="bg-secondary text-white px-3 py-1 rounded-full text-xs font-medium">
-												{report.hazard_type}
-											</span>
-											<span className={`badge ${
-												report.severity_level === 'high' 
-													? 'badge-error'
-													: report.severity_level === 'medium'
-													? 'badge-warning'
-													: 'badge-info'
-											}`}>
-												{report.severity_level} severity
-											</span>
+								<div key={report.id} className="relative overflow-hidden group hover:scale-[1.02] transition-transform duration-200 rounded-xl">
+									{/* Glass Card with Backdrop Blur */}
+									<div className="backdrop-blur-md bg-white/70 border border-white/20 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300">
+										{/* Card Header */}
+										<div className="card-header">
+											<div className="flex justify-between items-start">
+												<h3 className="text-white font-semibold text-lg leading-tight drop-shadow-sm">{report.title || 'Untitled Report'}</h3>
+												<span className={`badge backdrop-blur-sm bg-white/20 text-white border border-white/30 ${
+													report.status === 'resolved' 
+														? 'badge-success' 
+														: report.status === 'active' 
+														? 'badge-warning' 
+														: 'badge-neutral'
+												}`}>
+													{report.status || 'unknown'}
+												</span>
+											</div>
+											<p className="text-gray-300 text-sm mt-2 drop-shadow-sm">
+												{report.created_at ? new Date(report.created_at).toLocaleDateString() : 'Unknown date'}
+											</p>
 										</div>
 
-										{/* Images */}
-										{report.images && report.images.length > 0 && (
-											<div className="flex gap-2 mb-4 overflow-x-auto">
-												{report.images.slice(0, 3).map((img, index) => (
-													<div key={img} className="relative flex-shrink-0">
-														<img
-															src={reportsAPI.getImageUrl(img)}
-															alt={img}
-															className="w-16 h-16 object-cover rounded-lg border-2 border-gray-100 hover:border-secondary-primary transition-colors"
-														/>
-														{index === 2 && report.images && report.images.length > 3 && (
-															<div className="absolute inset-0 bg-black bg-opacity-60 rounded-lg flex items-center justify-center">
-																<span className="text-white text-xs font-medium">+{report.images.length - 3}</span>
-															</div>
-														)}
-													</div>
-												))}
-											</div>
-										)}
+										{/* Glass Card Content */}
+										<div className="p-4 backdrop-blur-sm bg-white/80 border-t border-white/20">
+											<p className="text-gray-700 text-sm mb-4 line-clamp-3 font-medium">
+												{report.description || 'No description provided'}
+											</p>
 
-										{/* Location */}
-										{report.location && (
-											<div className="flex items-center gap-2 mb-4 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg">
-												<svg className="w-4 h-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-													<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-													<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-												</svg>
-												<span className="truncate">{report.location.address || `${report.location.lat}, ${report.location.lng}`}</span>
+											{/* Hazard Type & Severity */}
+											<div className="flex flex-wrap gap-2 mb-4">
+												<span className="bg-gradient-to-r from-teal-500 to-teal-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm">
+													{report.hazard_type}
+												</span>
+												<span className={`badge backdrop-blur-sm border border-white/30 font-medium shadow-md ${
+													report.severity_level === 'high' 
+														? 'bg-red-500/80 text-white border-red-300/50'
+														: report.severity_level === 'medium'
+														? 'bg-orange-500/80 text-white border-orange-300/50'
+														: 'bg-blue-500/80 text-white border-blue-300/50'
+												}`}>
+													{report.severity_level} severity
+												</span>
 											</div>
-										)}
-									</div>
 
-									{/* Card Actions */}
-									<div className="border-t bg-gray-50 px-4 py-3 flex gap-2">
-										<button
-											onClick={() => handleUpdate(report)}
-											className="btn-secondary flex-1 text-sm flex items-center justify-center gap-2"
-										>
-											<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-											</svg>
-											Update
-										</button>
-										<button
-											onClick={() => handleDeleteClick(report)}
-											disabled={deleteLoading === report.id}
-											className="btn-danger flex-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-										>
-											{deleteLoading === report.id ? (
-												<div className="loading-spinner h-4 w-4 border-white"></div>
-											) : (
-												<>
-													<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-													</svg>
-													Delete
-												</>
+											{/* Images */}
+											{report.images && report.images.length > 0 && (
+												<div className="flex gap-2 mb-4 overflow-x-auto">
+													{report.images.slice(0, 3).map((img, index) => (
+														<div key={img} className="relative flex-shrink-0">
+															<img
+																src={reportsAPI.getImageUrl(img)}
+																alt={img}
+																className="w-16 h-16 object-cover rounded-lg border-2 border-white/50 hover:border-teal-400/70 transition-all duration-200 shadow-lg backdrop-blur-sm"
+															/>
+															{index === 2 && report.images && report.images.length > 3 && (
+																<div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/20">
+																	<span className="text-white text-xs font-bold drop-shadow-md">+{report.images.length - 3}</span>
+																</div>
+															)}
+														</div>
+													))}
+												</div>
 											)}
-										</button>
+
+											{/* Location */}
+											{report.location && (
+												<div className="flex items-center gap-2 mb-4 text-xs text-gray-600 bg-white/60 backdrop-blur-sm p-2 rounded-lg border border-white/30 shadow-sm">
+													<svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+													</svg>
+													<span className="truncate font-medium">{report.location.address || `${report.location.lat}, ${report.location.lng}`}</span>
+												</div>
+											)}
+										</div>
+
+										{/* Glass Card Actions */}
+										<div className="border-t border-white/20 bg-white/60 backdrop-blur-sm px-4 py-3 flex gap-2">
+											<button
+												onClick={() => handleUpdate(report)}
+												className="btn-secondary flex-1 text-sm flex items-center justify-center gap-2 backdrop-blur-sm bg-teal-500/90 hover:bg-teal-600/90 border border-white/30 shadow-lg"
+											>
+												<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+												</svg>
+												Update
+											</button>
+											<button
+												onClick={() => handleDeleteClick(report)}
+												disabled={deleteLoading === report.id}
+												className="btn-danger flex-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 backdrop-blur-sm bg-red-500/90 hover:bg-red-600/90 border border-white/30 shadow-lg"
+											>
+												{deleteLoading === report.id ? (
+													<div className="loading-spinner h-4 w-4 border-white"></div>
+												) : (
+													<>
+														<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+														</svg>
+														Delete
+													</>
+												)}
+											</button>
+										</div>
 									</div>
 								</div>
 							);
