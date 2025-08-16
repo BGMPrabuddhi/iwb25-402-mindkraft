@@ -1,12 +1,6 @@
 import ballerina/http;
 import ballerina/log;
-import ballerina/jwt;
 import ballerina/time;
-import backend.database as db;
-import backend.auth as authModule;
-import backend.user as userModule;
-
-import backend.database;
 import backend.auth;
 import backend.user;
 
@@ -116,7 +110,7 @@ service /api on apiListener {
 
 // Initialize database on startup
 public function main() returns error? {
-    check database:initializeDatabase();
+    check initDatabase();
     log:printInfo("Database initialized successfully");
     log:printInfo("Server started on port 8080");
 }
@@ -136,6 +130,6 @@ function validateAuthHeader(http:Request req) returns string|error {
 }
 
 function getCurrentTimestamp() returns string {
-    // Simple timestamp function
-    return "2024-01-01T00:00:00Z"; // Placeholder
+    time:Utc currentTime = time:utcNow();
+    return time:utcToString(currentTime);
 }
