@@ -35,5 +35,20 @@ public type UserProfile record {
     string email;
     string location;
     LocationDetails locationDetails;
+    string? profileImage?;
     string createdAt?;
+};
+
+public type UpdateProfileRequest record {
+    string firstName;
+    string lastName;
+    string location;
+    string? profileImage?; // Base64 encoded image - optional
+};
+
+public type UpdateProfileResponse record {
+    boolean success;
+    string message;
+    UserProfile? user?;
+    string? errorCode?;
 };

@@ -139,10 +139,11 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         string? state;
         string? country;
         string? full_address;
+        string? profile_image;
         string created_at?;
     }, sql:Error?> userStream = 
         dbClient->query(`
-            SELECT id, first_name, last_name, email, location, latitude, longitude, city, state, country, full_address, created_at 
+            SELECT id, first_name, last_name, email, location, latitude, longitude, city, state, country, full_address, profile_image, created_at 
             FROM users WHERE email = ${email}
         `);
 
@@ -184,8 +185,56 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         email: userRecord.value.email,
         location: <string>userRecord.value.location,
         locationDetails: locationDetails,
+        profileImage: userRecord.value.profile_image,
         createdAt: userRecord.value.created_at
     };
+}
+
+public function updateUserProfile(string email, user:UpdateProfileRequest req) returns user:UserProfile|error {
+    // Validate input
+    if req.firstName.trim().length() == 0 {
+        return error("First name is required");
+    }
+    if req.lastName.trim().length() == 0 {
+        return error("Last name is required");
+    }
+    if req.location.trim().length() == 0 {
+        return error("Location is required");
+    }
+
+    // Get database client
+    var dbClient = database:getDbClient();
+
+    // Update user profile
+    sql:ExecutionResult result;
+    string? profileImage = req?.profileImage;
+    if profileImage is string {
+        // Update with profile image
+        result = check dbClient->execute(`
+            UPDATE users 
+            SET first_name = ${req.firstName}, 
+                last_name = ${req.lastName}, 
+                location = ${req.location},
+                profile_image = ${profileImage}
+            WHERE email = ${email}
+        `);
+    } else {
+        // Update without profile image
+        result = check dbClient->execute(`
+            UPDATE users 
+            SET first_name = ${req.firstName}, 
+                last_name = ${req.lastName}, 
+                location = ${req.location}
+            WHERE email = ${email}
+        `);
+    }
+
+    if result.affectedRowCount < 1 {
+        return error("User not found or no changes made");
+    }
+
+    // Return updated profile
+    return getUserProfile(email);
 }
 
 public function validateJwtToken(string token) returns string|error {

@@ -22,6 +22,7 @@ CREATE TABLE users (
     state VARCHAR(100) NOT NULL,
     country VARCHAR(100) NOT NULL,
     full_address TEXT NOT NULL,
+    profile_image TEXT, -- Base64 encoded image data
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
