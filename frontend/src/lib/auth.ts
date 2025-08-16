@@ -12,7 +12,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   location?: string;
-  locationDetails?: {
+  locationDetails: {
     latitude: number;
     longitude: number;
     city: string;

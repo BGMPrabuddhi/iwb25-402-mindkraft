@@ -205,6 +205,29 @@ export default function SignupPage() {
     try {
       console.log('🔄 Submitting registration form...');
       
+      // If we don't have GPS/search location data, try to geocode the manual location
+      let finalLocationDetails = locationData
+      
+      if (!locationData && formData.location.trim()) {
+        try {
+          console.log('🔍 Attempting to geocode manual location:', formData.location);
+          const geocodedResults = await googleMapsService.searchLocation(formData.location)
+          if (geocodedResults.length > 0) {
+            finalLocationDetails = {
+              latitude: geocodedResults[0].latitude,
+              longitude: geocodedResults[0].longitude,
+              address: geocodedResults[0].address,
+              city: geocodedResults[0].city,
+              state: geocodedResults[0].state,
+              country: geocodedResults[0].country
+            }
+            console.log('✅ Successfully geocoded location:', finalLocationDetails);
+          }
+        } catch (geocodeError) {
+          console.log('⚠️ Geocoding failed, using manual parsing:', geocodeError);
+        }
+      }
+      
       // Call the registration API
       const result = await authAPI.register({
         firstName: formData.firstName,
@@ -212,17 +235,27 @@ export default function SignupPage() {
         email: formData.email,
         password: formData.password,
         location: formData.location,
-        // Include detailed location data if available
-        ...(locationData && {
-          locationDetails: {
-            latitude: locationData.latitude,
-            longitude: locationData.longitude,
-            city: locationData.city,
-            state: locationData.state,
-            country: locationData.country,
-            fullAddress: locationData.address
+        // Always include locationDetails - use GPS/geocoded data if available, otherwise parse manual input
+        locationDetails: finalLocationDetails ? {
+          latitude: finalLocationDetails.latitude,
+          longitude: finalLocationDetails.longitude,
+          city: finalLocationDetails.city,
+          state: finalLocationDetails.state,
+          country: finalLocationDetails.country,
+          fullAddress: finalLocationDetails.address
+        } : (() => {
+          // Parse manually entered location as last resort
+          const locationParts = formData.location.split(',').map(part => part.trim()).filter(part => part.length > 0)
+          
+          return {
+            latitude: 0,
+            longitude: 0,
+            city: locationParts[0] || 'Unknown City',
+            state: locationParts[1] || 'Unknown State',
+            country: locationParts[2] || locationParts[locationParts.length - 1] || 'Unknown Country',
+            fullAddress: formData.location
           }
-        })
+        })()
       })
 
       console.log('📋 Registration result:', result);
@@ -514,7 +547,7 @@ export default function SignupPage() {
                   <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.location}</p>
                 )}
                 <p className="mt-2 text-xs text-gray-500">
-                  <span className="text-red-500">*</span> Location is required. Click the location icon to auto-detect your current location or type to search for a location.
+                  <span className="text-red-500">*</span> Location is required. Click the location icon to auto-detect your current location, type to search for suggestions, or enter manually (format: City, State, Country).
                 </p>
               </div>
 
