@@ -1,8 +1,19 @@
+public type LocationDetails record {
+    decimal latitude;
+    decimal longitude;
+    string city;
+    string state;
+    string country;
+    string fullAddress;
+};
+
 public type RegisterRequest record {
     string firstName;
     string lastName;
     string email;
     string password;
+    string location;
+    LocationDetails locationDetails;
 };
 
 public type LoginRequest record {
@@ -22,5 +33,7 @@ public type UserProfile record {
     string firstName;
     string lastName;
     string email;
+    string location;
+    LocationDetails locationDetails;
     string createdAt?;
 };

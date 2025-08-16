@@ -1,8 +1,10 @@
 import ballerina/http;
 import ballerina/log;
 import ballerina/time;
+import ballerina/sql;
 import backend.auth;
 import backend.user;
+import backend.database;
 
 configurable int serverPort = ?;
 configurable string[] corsOrigins = ?;
@@ -70,14 +72,26 @@ service /api on apiListener {
                 errorCode: "internal_error"
             };
         }
-        return {
+        
+        map<json> response = {
             success: true,
             id: profile.id,
             firstName: profile.firstName,
             lastName: profile.lastName,
             email: profile.email,
+            location: profile.location,
+            locationDetails: {
+                latitude: profile.locationDetails.latitude,
+                longitude: profile.locationDetails.longitude,
+                city: profile.locationDetails.city,
+                state: profile.locationDetails.state,
+                country: profile.locationDetails.country,
+                fullAddress: profile.locationDetails.fullAddress
+            },
             createdAt: profile.createdAt
         };
+        
+        return response;
     }
 
     resource function get home(http:Request req) returns json {
@@ -99,18 +113,29 @@ service /api on apiListener {
     }
 
     resource function get health() returns json|error {
-        error? testResult = testConnection();
-        if testResult is error {
+        var dbClient = database:getDbClient();
+        
+        // Test database connection by querying a simple value
+        stream<record {int value;}, sql:Error?> testStream = dbClient->query(`SELECT 1 as value`);
+        var testResult = testStream.next();
+        check testStream.close();
+        
+        if testResult is sql:Error {
             log:printError("Database connection failed", testResult);
             return {"status": "error", "message": "Database connection failed"};
         }
+        
+        if testResult is () {
+            return {"status": "error", "message": "Database connection failed"};
+        }
+        
         return {"status": "ok", "message": "Database connected successfully"};
     }
 }
 
 // Initialize database on startup
 public function main() returns error? {
-    check initDatabase();
+    check database:initializeDatabase();
     log:printInfo("Database initialized successfully");
     log:printInfo("Server started on port 8080");
 }
