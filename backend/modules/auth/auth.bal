@@ -22,6 +22,25 @@ public function register(user:RegisterRequest req) returns user:AuthResponse|err
         return error("Password must be at least 6 characters long");
     }
 
+    // Validate location data (now required)
+    if req.location.trim().length() == 0 {
+        return error("Location is required");
+    }
+
+    // Validate location details (now required)
+    if req.locationDetails.latitude < -90.0d || req.locationDetails.latitude > 90.0d {
+        return error("Invalid latitude value");
+    }
+    if req.locationDetails.longitude < -180.0d || req.locationDetails.longitude > 180.0d {
+        return error("Invalid longitude value");
+    }
+    if req.locationDetails.city.trim().length() == 0 {
+        return error("City is required");
+    }
+    if req.locationDetails.country.trim().length() == 0 {
+        return error("Country is required");
+    }
+
     // Check if user already exists
     boolean userExists = check checkUserExists(req.email);
     if userExists {
@@ -37,10 +56,19 @@ public function register(user:RegisterRequest req) returns user:AuthResponse|err
     // Get database client
     var dbClient = database:getDbClient();
 
-    // Insert user into database
+    // Location data (now required)
+    string location = req.location;
+    decimal latitude = req.locationDetails.latitude;
+    decimal longitude = req.locationDetails.longitude;
+    string city = req.locationDetails.city;
+    string state = req.locationDetails.state;
+    string country = req.locationDetails.country;
+    string fullAddress = req.locationDetails.fullAddress;
+
+    // Insert user into database with location data
     sql:ExecutionResult result = check dbClient->execute(`
-        INSERT INTO users (first_name, last_name, email, password_hash) 
-        VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash})
+        INSERT INTO users (first_name, last_name, email, password_hash, location, latitude, longitude, city, state, country, full_address) 
+        VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, ${location}, ${latitude}, ${longitude}, ${city}, ${state}, ${country}, ${fullAddress})
     `);
 
     if result.affectedRowCount < 1 {
@@ -99,9 +127,22 @@ public function getUserProfile(string email) returns user:UserProfile|error {
     // Get database client
     var dbClient = database:getDbClient();
 
-    stream<record {int id; string first_name; string last_name; string email; string created_at?;}, sql:Error?> userStream = 
+    stream<record {
+        int id; 
+        string first_name; 
+        string last_name; 
+        string email; 
+        string? location;
+        decimal? latitude;
+        decimal? longitude;
+        string? city;
+        string? state;
+        string? country;
+        string? full_address;
+        string created_at?;
+    }, sql:Error?> userStream = 
         dbClient->query(`
-            SELECT id, first_name, last_name, email, created_at 
+            SELECT id, first_name, last_name, email, location, latitude, longitude, city, state, country, full_address, created_at 
             FROM users WHERE email = ${email}
         `);
 
@@ -116,11 +157,33 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         return error("User not found");
     }
 
+    // Ensure location data is present (now required)
+    if (userRecord.value.location is () ||
+        userRecord.value.latitude is () || 
+        userRecord.value.longitude is () || 
+        userRecord.value.city is () || 
+        userRecord.value.state is () || 
+        userRecord.value.country is () || 
+        userRecord.value.full_address is ()) {
+        return error("User location data is incomplete");
+    }
+
+    user:LocationDetails locationDetails = {
+        latitude: <decimal>userRecord.value.latitude,
+        longitude: <decimal>userRecord.value.longitude,
+        city: <string>userRecord.value.city,
+        state: <string>userRecord.value.state,
+        country: <string>userRecord.value.country,
+        fullAddress: <string>userRecord.value.full_address
+    };
+
     return {
         id: userRecord.value.id,
         firstName: userRecord.value.first_name,
         lastName: userRecord.value.last_name,
         email: userRecord.value.email,
+        location: <string>userRecord.value.location,
+        locationDetails: locationDetails,
         createdAt: userRecord.value.created_at
     };
 }
