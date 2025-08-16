@@ -91,7 +91,63 @@ service /api on apiListener {
             createdAt: profile.createdAt
         };
         
+        // Add profile image if available
+        string? profileImage = profile?.profileImage;
+        if profileImage is string {
+            response["profileImage"] = profileImage;
+        }
+        
         return response;
+    }
+
+    resource function put me(http:Request req, user:UpdateProfileRequest updateReq) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return {
+                success: false,
+                message: "Authentication required",
+                errorCode: "unauthorized"
+            };
+        }
+
+        user:UserProfile|error updatedProfile = auth:updateUserProfile(email, updateReq);
+        if updatedProfile is error {
+            log:printError("Failed to update user profile", updatedProfile);
+            return {
+                success: false,
+                message: updatedProfile.message(),
+                errorCode: "update_failed"
+            };
+        }
+        
+        map<json> userResponse = {
+            id: updatedProfile.id,
+            firstName: updatedProfile.firstName,
+            lastName: updatedProfile.lastName,
+            email: updatedProfile.email,
+            location: updatedProfile.location,
+            locationDetails: {
+                latitude: updatedProfile.locationDetails.latitude,
+                longitude: updatedProfile.locationDetails.longitude,
+                city: updatedProfile.locationDetails.city,
+                state: updatedProfile.locationDetails.state,
+                country: updatedProfile.locationDetails.country,
+                fullAddress: updatedProfile.locationDetails.fullAddress
+            },
+            createdAt: updatedProfile.createdAt
+        };
+        
+        // Add profile image if available
+        string? updatedProfileImage = updatedProfile?.profileImage;
+        if updatedProfileImage is string {
+            userResponse["profileImage"] = updatedProfileImage;
+        }
+        
+        return {
+            success: true,
+            message: "Profile updated successfully",
+            user: userResponse
+        };
     }
 
     resource function get home(http:Request req) returns json {
