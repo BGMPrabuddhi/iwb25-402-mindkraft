@@ -42,8 +42,24 @@ export interface UserProfile {
   firstName?: string;
   lastName?: string;
   email?: string;
+  location?: string;
+  profileImage?: string;
   createdAt?: string;
   message?: string;
+  errorCode?: string;
+}
+
+export interface UpdateProfileRequest {
+  firstName: string;
+  lastName: string;
+  location: string; // Required field
+  profileImage?: string; // Base64 encoded image - optional
+}
+
+export interface UpdateProfileResponse {
+  success: boolean;
+  message: string;
+  user?: UserProfile;
   errorCode?: string;
 }
 
@@ -199,6 +215,46 @@ export class AuthAPI {
     }
   }
 
+  // Update user profile
+  async updateProfile(data: UpdateProfileRequest): Promise<UpdateProfileResponse> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        return {
+          success: false,
+          message: 'No authentication token found',
+          errorCode: 'no_token'
+        };
+      }
+
+      console.log('🔄 Updating user profile...');
+
+      // Use the same endpoint as getProfile but with PUT method
+      const response: AxiosResponse = await axios.put('/api/me', data, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('✅ Profile update response:', response.data);
+      return response.data;
+    } catch (error: unknown) {
+      console.error('❌ Profile update error:', error);
+      
+      // Handle axios error responses
+      if (axios.isAxiosError(error) && error.response?.data) {
+        return error.response.data;
+      }
+      
+      return {
+        success: false,
+        message: 'Network error occurred while updating profile',
+        errorCode: 'network_error'
+      };
+    }
+  }
+
   // Get home page data
   async getHome(): Promise<HomeResponse> {
     try {
@@ -318,6 +374,7 @@ export const useAuth = () => {
     logout: authAPI.logout.bind(authAPI),
     getProfile: authAPI.getProfile.bind(authAPI),
     getHome: authAPI.getHome.bind(authAPI),
+    updateProfile: authAPI.updateProfile.bind(authAPI),
   };
 };
 
