@@ -1,37 +1,53 @@
 // lib/api.ts
 
-// Hazard report data for submission
 export interface HazardReportData {
   title: string;
   description?: string;
   hazard_type: 'accident' | 'pothole' | 'Natural disaster' | 'construction';
   severity_level: 'low' | 'medium' | 'high';
-
+  images?: File[];
+  location?: {
+    lat: number;
+    lng: number;
+    address?: string;
+  };
 }
 
-// Hazard report returned from backend
+export interface ImageMetadata {
+  filename: string;
+  originalName: string;
+  size: number;
+  contentType: string;
+  uploadedAt: string;
+}
+
 export interface HazardReport {
   id: number;
   title: string;
   description?: string;
   hazard_type: 'accident' | 'pothole' | 'Natural disaster' | 'construction';
   severity_level: 'low' | 'medium' | 'high';
-
   status: 'active' | 'resolved' | 'in_progress';
-
   created_at: string;
   updated_at: string;
+  images?: string[];
+  image_metadata?: ImageMetadata[];
+  location?: {
+    lat: number;
+    lng: number;
+    address?: string;
+  };
 }
 
-// API response for single report
 export interface ApiResponse {
   message: string;
   data?: HazardReport;
   report_id?: number;
   timestamp?: string;
+  images_uploaded?: number;
+  image_urls?: string[];
 }
 
-// API response for list of reports
 export interface HazardReportsListResponse {
   reports: HazardReport[];
   total_count: number;
@@ -50,14 +66,12 @@ export interface HazardReportsListResponse {
   };
 }
 
-// Validation error response
 export interface ValidationErrorResponse {
   message: string;
   errors: string[];
   timestamp: string;
 }
 
-// Health check response
 export interface HealthCheckResponse {
   status: string;
   service: string;
@@ -65,12 +79,10 @@ export interface HealthCheckResponse {
   java_version: string;
   timestamp: string;
   database_status: string;
-  endpoints: Record<string, string>;
+  upload_directory?: string;
+  endpoints?: Record<string, string>;
 }
 
-
-
-// Singleton API class
 class ReportsAPI {
   private readonly baseUrl: string;
 
@@ -78,7 +90,6 @@ class ReportsAPI {
     this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
   }
 
-  // Handle fetch responses
   private async handleResponse<T>(response: Response): Promise<T> {
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
@@ -101,17 +112,48 @@ class ReportsAPI {
     return data as T;
   }
 
-  // Submit a new hazard report
+  // Submit a new hazard report (with optional images and location)
   async submitReport(reportData: HazardReportData): Promise<ApiResponse> {
     try {
+      // If no images, use JSON
+      if (!reportData.images || reportData.images.length === 0) {
+        const response = await fetch(`${this.baseUrl}/reports`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(reportData),
+        });
+        return await this.handleResponse<ApiResponse>(response);
+      }
+
+      // If images exist, use FormData and send location fields separately
+      const formData = new FormData();
+      formData.append('title', reportData.title);
+      formData.append('hazard_type', reportData.hazard_type);
+      formData.append('severity_level', reportData.severity_level);
+      if (reportData.description) {
+        formData.append('description', reportData.description);
+      }
+      // Add location fields if present
+      if (reportData.location) {
+        formData.append('latitude', reportData.location.lat.toString());
+        formData.append('longitude', reportData.location.lng.toString());
+        if (reportData.location.address) {
+          formData.append('address', reportData.location.address);
+        }
+      }
+      // Append all images
+      reportData.images.forEach((image) => {
+        formData.append('images', image, image.name);
+      });
+
       const response = await fetch(`${this.baseUrl}/reports`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(reportData),
+        body: formData, // No Content-Type header - browser will set it with boundary
       });
+
       return await this.handleResponse<ApiResponse>(response);
     } catch (error: any) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -121,7 +163,10 @@ class ReportsAPI {
     }
   }
 
-  // Get list of hazard reports
+  getImageUrl(filename: string): string {
+    return `${this.baseUrl}/images/${filename}`;
+  }
+
   async getReports(filters?: {
     hazard_type?: string;
     severity?: string;
@@ -149,7 +194,6 @@ class ReportsAPI {
     }
   }
 
-  // Get a single report by ID
   async getReportById(id: number): Promise<HazardReport> {
     try {
       const response = await fetch(`${this.baseUrl}/reports/${id}`, {
@@ -162,7 +206,6 @@ class ReportsAPI {
     }
   }
 
-  // Health check endpoint
   async healthCheck(): Promise<HealthCheckResponse> {
     try {
       const response = await fetch(`${this.baseUrl}/health`, {
@@ -175,8 +218,6 @@ class ReportsAPI {
     }
   }
 
-
-  // Update a report
   async updateReport(id: number, updateData: Partial<HazardReportData>): Promise<{
     message: string;
     data: HazardReport;
@@ -201,7 +242,6 @@ class ReportsAPI {
     }
   }
 
-  // Delete a report
   async deleteReport(id: number): Promise<{ message: string; timestamp: string }> {
     try {
       const response = await fetch(`${this.baseUrl}/reports/${id}`, {
@@ -215,5 +255,4 @@ class ReportsAPI {
   }
 }
 
-// Export singleton instance
 export const reportsAPI = new ReportsAPI();

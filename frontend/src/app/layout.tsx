@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
-// Removed custom font imports and variables because the fonts folder was deleted.
+
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyAz2gtcc8kLOLLa5jbq4V3P7cpsGYlOPjQ'
 
 export const metadata: Metadata = {
   title: 'SafeRoute - Road Safety Reporting Platform',
@@ -18,7 +20,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-  <body className={`${inter.className} antialiased`}>
+      <head>
+        <Script 
+          src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&v=weekly`}
+          strategy="beforeInteractive"
+          id="google-maps"
+        />
+      </head>
+      <body className={`${inter.className} antialiased`}>
         {children}
       </body>
     </html>
