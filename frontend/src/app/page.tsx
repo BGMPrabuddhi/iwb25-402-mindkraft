@@ -44,7 +44,7 @@ export default function Home() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            SafeRoutes
+            SafeRoute
           </h1>
         </div>
         
@@ -62,7 +62,7 @@ export default function Home() {
             <h1 className="text-6xl md:text-7xl font-bold mb-6 leading-tight">
               
               <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                SafeRoutes
+                SafeRoute
               </span>
             </h1>
             
