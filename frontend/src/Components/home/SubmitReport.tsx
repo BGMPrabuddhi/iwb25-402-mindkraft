@@ -294,7 +294,7 @@ const SubmitReport = () => {
     }
 
     if (errors.length > 0) {
-      alert('❌ Image Upload Errors:\n\n' + errors.join('\n'))
+      alert('Image Upload Errors:\n\n' + errors.join('\n'))
     }
 
     if (validFiles.length > 0) {
@@ -330,7 +330,7 @@ const SubmitReport = () => {
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     
-    console.log('📝 Form submitted with data:', submitForm)
+    console.log('Form submitted with data:', submitForm)
     
     const errors: string[] = []
     
@@ -348,7 +348,7 @@ const SubmitReport = () => {
     }
     
     if (errors.length > 0) {
-      alert('❌ Validation Errors:\n\n' + errors.join('\n'))
+      alert('Validation Errors:\n\n' + errors.join('\n'))
       return
     }
 
@@ -365,16 +365,16 @@ const SubmitReport = () => {
         location: submitForm.location,
       }
 
-      console.log('🚀 Sending to API:', reportData)
-      console.log('📸 Images to upload:', submitForm.images.length)
-      console.log('📍 Location:', submitForm.location)
+      console.log('Sending to API:', reportData)
+      console.log('Images to upload:', submitForm.images.length)
+      console.log('Location:', submitForm.location)
 
       const response = await reportsAPI.submitReport(reportData)
       
-      console.log('✅ Success response:', response)
+      console.log('Success response:', response)
       
       const locationText = submitForm.location ? `\nLocation: ${submitForm.location.address || `${submitForm.location.lat.toFixed(6)}, ${submitForm.location.lng.toFixed(6)}`}` : ''
-      alert(`🎉 SUCCESS!\n\n${response.message}\n\nReport ID: ${response.report_id}\nImages uploaded: ${submitForm.images.length}${locationText}\nTimestamp: ${new Date(response.timestamp || '').toLocaleString()}`)
+      alert(`SUCCESS!\n\n${response.message}\n\nReport ID: ${response.report_id}\nImages uploaded: ${submitForm.images.length}${locationText}\nTimestamp: ${new Date(response.timestamp || '').toLocaleString()}`)
       
       setSubmitForm({
         title: '',
@@ -388,9 +388,9 @@ const SubmitReport = () => {
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('❌ Submit error:', error)
+      console.error('Submit error:', error)
       setError(errorMessage)
-      alert(`❌ Failed to submit report!\n\n${errorMessage}`)
+      alert(`Failed to submit report!\n\n${errorMessage}`)
     } finally {
       setIsLoading(false)
     }
@@ -508,7 +508,7 @@ const SubmitReport = () => {
                   disabled={isLoading}
                 >
                   <MapPinIcon className="h-5 w-5 mr-2 text-gray-500" />
-                  <span className="text-gray-600">📍 Set Location on Map</span>
+                  <span className="text-gray-600"> Set Location on Map</span>
                 </button>
               ) : (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -680,7 +680,7 @@ const SubmitReport = () => {
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-sm text-blue-800">
-                    💡 Click on the map or drag the marker to set the exact location of the hazard. You can also search for a specific address above.
+                    Click on the map or drag the marker to set the exact location of the hazard. You can also search for a specific address above.
                   </p>
                 </div>
 
@@ -739,7 +739,7 @@ const SubmitReport = () => {
                      : 'bg-gray-300 cursor-not-allowed text-gray-500'
                  }`}
                >
-                 ✅ Confirm Location
+                 Confirm Location
                </button>
              </div>
            </div>
