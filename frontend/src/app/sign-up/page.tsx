@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { authAPI } from '@/lib/auth'
+import { googleMapsService, type LocationResult } from '@/lib/googleMaps'
 
 type SignupFormData = {
     firstName: string
@@ -12,7 +15,17 @@ type SignupFormData = {
     location: string
 }
 
+type LocationData = {
+  latitude: number
+  longitude: number
+  address: string
+  city: string
+  state: string
+  country: string
+}
+
 export default function SignupPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     lastName: '',
@@ -23,7 +36,12 @@ export default function SignupPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<SignupFormData>>({})
+  const [apiError, setApiError] = useState('')
   const [isVisible, setIsVisible] = useState(false)
+  const [locationData, setLocationData] = useState<LocationData | null>(null)
+  const [isGettingLocation, setIsGettingLocation] = useState(false)
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationResult[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   useEffect(() => {
     setIsVisible(true)
@@ -35,6 +53,12 @@ export default function SignupPage() {
       ...prev,
       [name]: value
     }))
+    
+    // Handle location search suggestions
+    if (name === 'location') {
+      handleLocationSearch(value)
+    }
+    
     // Clear error when user starts typing
     if (errors[name as keyof SignupFormData]) {
       setErrors(prev => ({
@@ -76,44 +100,97 @@ export default function SignupPage() {
     }
 
     if (!formData.location.trim()) {
-      newErrors.location = 'Please select your location'
+      newErrors.location = 'Location is required'
     }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      setIsLoading(true)
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords
-          try {
-            const response = await fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-            )
-            const data = await response.json()
-            const address = `${data.city}, ${data.principalSubdivision}, ${data.countryName}`
-            setFormData(prev => ({ ...prev, location: address }))
-            if (errors.location) {
-              setErrors(prev => ({ ...prev, location: '' }))
-            }
-          } catch (error) {
-            console.error('Error getting location:', error)
-            alert('Unable to get your location. Please enter manually.')
-          } finally {
-            setIsLoading(false)
-          }
-        },
-        (error) => {
-          console.error('Geolocation error:', error)
-          alert('Location access denied. Please enter your location manually.')
-          setIsLoading(false)
-        }
-      )
-    } else {
-      alert('Geolocation is not supported by this browser.')
+  const getCurrentLocation = async () => {
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+      alert('Google Maps API key is not configured. Please add your API key to environment variables.')
+      return
+    }
+
+    setIsGettingLocation(true)
+    setApiError('')
+    
+    try {
+      const result = await googleMapsService.getCurrentLocation()
+      
+      // Set the location data
+      setLocationData({
+        latitude: result.latitude,
+        longitude: result.longitude,
+        address: result.address,
+        city: result.city,
+        state: result.state,
+        country: result.country
+      })
+      
+      // Update form data with formatted address
+      const formattedLocation = result.city && result.state && result.country 
+        ? `${result.city}, ${result.state}, ${result.country}`
+        : result.address
+      
+      setFormData(prev => ({ ...prev, location: formattedLocation }))
+      
+      // Clear any location errors
+      if (errors.location) {
+        setErrors(prev => ({ ...prev, location: '' }))
+      }
+      
+      console.log('✅ Location obtained:', result)
+      
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get location'
+      console.error('❌ Location error:', errorMessage)
+      setApiError(`Unable to get your location: ${errorMessage}. Please enter your location manually.`)
+      
+      // Show a user-friendly alert
+      alert(`Unable to get your location: ${errorMessage}. Please enter your location manually.`)
+    } finally {
+      setIsGettingLocation(false)
+    }
+  }
+
+  const handleLocationSearch = async (query: string) => {
+    if (!query.trim() || query.length < 2) {
+      setLocationSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    try {
+      const results = await googleMapsService.searchLocation(query.trim())
+      setLocationSuggestions(results)
+      setShowSuggestions(results.length > 0)
+    } catch (error: unknown) {
+      console.error('Location search error:', error)
+      setLocationSuggestions([])
+      setShowSuggestions(false)
+    }
+  }
+
+  const selectLocationSuggestion = (suggestion: LocationResult) => {
+    // Simple: use the full address from Google Maps
+    setFormData(prev => ({ ...prev, location: suggestion.address }))
+    setLocationData({
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+      address: suggestion.address,
+      city: suggestion.city,
+      state: suggestion.state,
+      country: suggestion.country
+    })
+    
+    setShowSuggestions(false)
+    setLocationSuggestions([])
+    
+    // Clear any location errors
+    if (errors.location) {
+      setErrors(prev => ({ ...prev, location: '' }))
     }
   }
 
@@ -123,16 +200,133 @@ export default function SignupPage() {
     if (!validateForm()) return
 
     setIsLoading(true)
+    setApiError('')
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      console.log('Signup data:', formData)
-      alert('Account created successfully!')
+      console.log('🔄 Submitting registration form...');
+      
+      // If we don't have GPS/search location data, try to geocode the manual location
+      let finalLocationDetails = locationData
+      
+      if (!locationData && formData.location.trim()) {
+        try {
+          console.log('🔍 Attempting to geocode manual location:', formData.location);
+          const geocodedResults = await googleMapsService.searchLocation(formData.location)
+          if (geocodedResults.length > 0) {
+            finalLocationDetails = {
+              latitude: geocodedResults[0].latitude,
+              longitude: geocodedResults[0].longitude,
+              address: geocodedResults[0].address,
+              city: geocodedResults[0].city,
+              state: geocodedResults[0].state,
+              country: geocodedResults[0].country
+            }
+            console.log('✅ Successfully geocoded location:', finalLocationDetails);
+          }
+        } catch (geocodeError) {
+          console.log('⚠️ Geocoding failed, using manual parsing:', geocodeError);
+        }
+      }
+      
+      // Call the registration API
+      const result = await authAPI.register({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        location: formData.location,
+        // Always include locationDetails - use GPS/geocoded data if available, otherwise parse manual input
+        locationDetails: finalLocationDetails ? {
+          latitude: finalLocationDetails.latitude,
+          longitude: finalLocationDetails.longitude,
+          city: finalLocationDetails.city,
+          state: finalLocationDetails.state,
+          country: finalLocationDetails.country,
+          fullAddress: finalLocationDetails.address
+        } : (() => {
+          // Parse manually entered location as last resort
+          const locationParts = formData.location.split(',').map(part => part.trim()).filter(part => part.length > 0)
+          
+          return {
+            latitude: 0,
+            longitude: 0,
+            city: locationParts[0] || 'Unknown City',
+            state: locationParts[1] || 'Unknown State',
+            country: locationParts[2] || locationParts[locationParts.length - 1] || 'Unknown Country',
+            fullAddress: formData.location
+          }
+        })()
+      })
+
+      console.log('📋 Registration result:', result);
+
+      if (result.success) {
+        alert('✅ Account created successfully! Please log in with your credentials.')
+        // Redirect to login page after successful registration
+        router.push('/login')
+      } else {
+        const errorMessage = result.message || 'Registration failed. Please try again.';
+        console.error('Registration failed:', errorMessage);
+        alert(`❌ ${errorMessage}`);
+      }
     } catch (error) {
-      console.error('Signup error:', error)
-      alert('Signup failed. Please try again.')
+      console.error('❌ Signup error:', error)
+      alert('❌ Signup failed. Please try again.')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const formatLocationDisplay = (suggestion: LocationResult) => {
+    // Clean up location suggestions to show in user-friendly format
+    let displayText = suggestion.address
+    
+    // For Sri Lankan locations, extract the most relevant part
+    if (suggestion.country === 'Sri Lanka') {
+      const addressParts = suggestion.address.split(',').map(part => part.trim())
+      
+      // Filter out unwanted parts
+      const filteredParts = addressParts.filter(part => {
+        // Remove Plus Codes (like "54VV+VP6", "75Q5+5RX", etc.)
+        if (/^[A-Z0-9]{4}\+[A-Z0-9]{2,3}$/.test(part)) return false
+        // Remove "Sri Lanka" country name
+        if (part.toLowerCase().includes('sri lanka')) return false
+        // Remove provinces (like "Southern Province", "Western Province", etc.)
+        if (part.toLowerCase().includes('province')) return false
+        // Remove districts that are too general (like just "Galle" for Ampegama)
+        if (part.toLowerCase() === 'galle' || part.toLowerCase() === 'colombo' || 
+            part.toLowerCase() === 'kandy' || part.toLowerCase() === 'matara') {
+          // Only remove if there's a more specific location available
+          const hasMoreSpecific = addressParts.some(otherPart => 
+            otherPart.trim().toLowerCase() !== part.toLowerCase() && 
+            !otherPart.toLowerCase().includes('province') &&
+            !otherPart.toLowerCase().includes('sri lanka') &&
+            !/^[A-Z0-9]{4}\+[A-Z0-9]{2,3}$/.test(otherPart.trim())
+          )
+          return !hasMoreSpecific
+        }
+        // Remove empty parts
+        if (!part.trim()) return false
+        return true
+      })
+      
+      // Use the most specific location (usually the first filtered part)
+      if (filteredParts.length > 0) {
+        displayText = `${filteredParts[0]}, Sri Lanka`
+      } else {
+        // Fallback: use city name if available
+        displayText = suggestion.city ? `${suggestion.city}, Sri Lanka` : suggestion.address
+      }
+    } else {
+      // For non-Sri Lankan locations, show City, Country format if possible
+      if (suggestion.city && suggestion.country) {
+        displayText = `${suggestion.city}, ${suggestion.country}`
+      }
+    }
+    
+    return {
+      primary: displayText,
+      secondary: suggestion.address !== displayText ? suggestion.address : ''
     }
   }
 
@@ -269,10 +463,10 @@ export default function SignupPage() {
                 )}
               </div>
 
-              {/* Location Field with GPS */}
+              {/* Location Field with GPS and Search */}
               <div className="group">
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
-                  Location
+                  Location <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -287,19 +481,22 @@ export default function SignupPage() {
                     type="text"
                     value={formData.location}
                     onChange={handleChange}
+                    onFocus={() => setShowSuggestions(locationSuggestions.length > 0)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                     className={`appearance-none block w-full pl-10 pr-12 py-3 border ${
                       errors.location ? 'border-red-300 shake' : 'border-gray-300'
                     } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
                     placeholder="Enter your location or use GPS"
+                    required
                   />
                   <button
                     type="button"
                     onClick={getCurrentLocation}
-                    disabled={isLoading}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-600 transition-all duration-300 transform hover:scale-110"
-                    title="Get current location"
+                    disabled={isGettingLocation}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-600 transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Get current location using GPS"
                   >
-                    {isLoading ? (
+                    {isGettingLocation ? (
                       <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -311,12 +508,46 @@ export default function SignupPage() {
                       </svg>
                     )}
                   </button>
+                  
+                  {/* Location Suggestions Dropdown */}
+                  {showSuggestions && locationSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+                      {locationSuggestions.map((suggestion, index) => {
+                        const formatted = formatLocationDisplay(suggestion);
+                        return (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => selectLocationSuggestion(suggestion)}
+                            className="w-full text-left px-3 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none transition-colors duration-200 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900 truncate">
+                                  {formatted.primary}
+                                </div>
+                                {formatted.secondary && (
+                                  <div className="text-xs text-gray-500 truncate mt-1">
+                                    {formatted.secondary}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 {errors.location && (
                   <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.location}</p>
                 )}
                 <p className="mt-2 text-xs text-gray-500">
-                  Click the location icon to auto-detect your current location
+                  <span className="text-red-500">*</span> Location is required. Click the location icon to auto-detect your current location, type to search for suggestions, or enter manually (format: City, State, Country).
                 </p>
               </div>
 
@@ -431,13 +662,19 @@ export default function SignupPage() {
                   )}
                 </button>
               </div>
+
+              {apiError && (
+                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">{apiError}</p>
+                </div>
+              )}
             </form>
 
             {/* Login Link */}
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Already have an account?{' '}
-                <Link href="/" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
+                <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
                   Sign in here
                 </Link>
               </p>

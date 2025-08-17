@@ -11,12 +11,15 @@
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.10",
     "@heroicons/react": "^2.2.0",
+    "axios": "^1.11.0",
     "lucide-react": "^0.539.0",
     "next": "14.2.24",
     "react": "^18",
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@types/google.maps": "^3.58.1",
+    "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

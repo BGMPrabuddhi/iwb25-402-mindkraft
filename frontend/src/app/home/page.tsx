@@ -1,9 +1,62 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Header from '@/Components/layout/Header'
 import Footer from '@/Components/layout/Footer'
 import NewsAlert from '@/Components/home/NewsAlert'
 import ActionTabs from '@/Components/home/ActionTabs'
+import { authAPI, UserProfile, HomeResponse } from '@/lib/auth'
 
 export default function Home() {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [homeData, setHomeData] = useState<HomeResponse | null>(null)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Check if user is authenticated
+        if (!authAPI.isAuthenticated()) {
+          router.push('/login')
+          return
+        }
+
+        // Fetch user profile
+        const profileResult = await authAPI.getProfile()
+        if (!profileResult.success) {
+          router.push('/login')
+          return
+        }
+
+        // Fetch home page data
+        const homeResult = await authAPI.getHome()
+        
+        setUser(profileResult)
+        setHomeData(homeResult)
+      } catch (error) {
+        console.error('Authentication check failed:', error)
+        router.push('/login')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-blue-50">
       <Header />
@@ -15,7 +68,7 @@ export default function Home() {
           <section className="text-center mb-10">
             <div className="max-w-3xl mx-auto">
               <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Welcome to <span className="text-blue-600">SafeRoute</span>
+                Welcome back, <span className="text-blue-600">{user?.firstName || 'User'}</span>!
               </h1>
               <p className="text-xl text-gray-600 leading-relaxed">
                 Your community-driven platform for road safety reporting and real-time hazard alerts. 
@@ -31,6 +84,11 @@ export default function Home() {
                   Community Reports
                 </div>
               </div>
+              {homeData?.message && (
+                <div className="mt-4 p-3 bg-blue-100 text-blue-800 rounded-lg">
+                  {homeData.message}
+                </div>
+              )}
             </div>
           </section>
 
