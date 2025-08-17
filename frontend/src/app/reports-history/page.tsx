@@ -9,6 +9,30 @@ import DeleteReportModal from "../../Components/DeleteReportModal";
 
 const ReportsHistoryPage = () => {
 	const router = useRouter();
+
+	// Helper function to calculate time ago
+	const getTimeAgo = (dateString: string) => {
+		const now = new Date();
+		const past = new Date(dateString);
+		const diffInMs = now.getTime() - past.getTime();
+		
+		const seconds = Math.floor(diffInMs / 1000);
+		const minutes = Math.floor(seconds / 60);
+		const hours = Math.floor(minutes / 60);
+		const days = Math.floor(hours / 24);
+		const weeks = Math.floor(days / 7);
+		const months = Math.floor(days / 30);
+		const years = Math.floor(days / 365);
+
+		if (years > 0) return `${years} year${years > 1 ? 's' : ''} ago`;
+		if (months > 0) return `${months} month${months > 1 ? 's' : ''} ago`;
+		if (weeks > 0) return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+		if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+		if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+		if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+		if (seconds > 0) return `${seconds} second${seconds > 1 ? 's' : ''} ago`;
+		return 'Just now';
+	};
 	const [reports, setReports] = useState<HazardReport[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -130,7 +154,7 @@ const ReportsHistoryPage = () => {
 	};
 
 	return (
-		<main className="min-h-screen  bg-black  p-6">
+		<main className="min-h-screen  bg-white/40  p-6">
 			<div className="max-w-7xl mx-auto">
 				{/* Header Section */}
 				<div className="page-header " color="primary">
@@ -193,7 +217,7 @@ const ReportsHistoryPage = () => {
 							return (
 								<div key={report.id} className="relative overflow-hidden group hover:scale-[1.02] transition-transform duration-200 rounded-xl">
 									{/* Glass Card with Backdrop Blur */}
-									<div className="backdrop-blur-md bg-white/70 border border-white/20 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300">
+									<div className="bg-black/60 backdrop-blur-3xl rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300">
 										{/* Card Header */}
 										<div className="card-header">
 											<div className="flex justify-between items-start">
@@ -208,9 +232,20 @@ const ReportsHistoryPage = () => {
 													{report.status || 'unknown'}
 												</span>
 											</div>
-											<p className="text-gray-300 text-sm mt-2 drop-shadow-sm">
-												{report.created_at ? new Date(report.created_at).toLocaleDateString() : 'Unknown date'}
-											</p>
+											<div className="flex justify-between items-center mt-2">
+												<p className="text-gray-300 text-sm drop-shadow-sm">
+													{report.created_at ? new Date(report.created_at).toLocaleDateString() : 'Unknown date'}
+												</p>
+												{/* Time Ago Field */}
+												<div className="flex items-center gap-1 text-xs text-gray-300 bg-white/10 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
+													<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+													</svg>
+													<span className="font-medium">
+														{report.created_at ? getTimeAgo(report.created_at) : 'Unknown'}
+													</span>
+												</div>
+											</div>
 										</div>
 
 										{/* Glass Card Content */}
@@ -268,7 +303,7 @@ const ReportsHistoryPage = () => {
 										</div>
 
 										{/* Glass Card Actions */}
-										<div className="border-t border-white/20 bg-white/60 backdrop-blur-sm px-4 py-3 flex gap-2">
+										<div className="shadow-lg bg-white/50 backdrop-blur-3xl px-4 py-3 flex gap-2">
 											<button
 												onClick={() => handleUpdate(report)}
 												className="btn-secondary flex-1 text-sm flex items-center justify-center gap-2 backdrop-blur-sm bg-teal-500/90 hover:bg-teal-600/90 border border-white/30 shadow-lg"
