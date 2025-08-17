@@ -8,6 +8,7 @@ service /api on new http:Listener(8080) {
     
     function init() returns error? {
         check reports:initializeUploadDirectory();
+        check reports:initializeCleanupTask();
     }
 
     resource function get health() returns json {

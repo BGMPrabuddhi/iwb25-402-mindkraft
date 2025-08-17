@@ -4,10 +4,14 @@ import ballerina/mime;
 import ballerina/file;
 import ballerina/io;
 import ballerina/uuid;
+import ballerina/task;
 import saferoute/backend.types;
 import saferoute/backend.database;
 
 configurable string uploadDir = "uploads";
+
+// Global variable to hold the cleanup task
+task:JobId? cleanupTaskId = ();
 
 // Upload functionality
 public function initializeUploadDirectory() returns error? {
@@ -15,6 +19,38 @@ public function initializeUploadDirectory() returns error? {
     if !dirExists {
         check file:createDir(uploadDir);
         log:printInfo("Created upload directory: " + uploadDir);
+    }
+}
+
+// Initialize and start the automatic cleanup task
+public function initializeCleanupTask() returns error? {
+    // Schedule cleanup task to run every hour (3600000 milliseconds)
+    task:JobId? taskId = check task:scheduleJobRecurByFrequency(new CleanupJob(), 3600000);
+    cleanupTaskId = taskId;
+    log:printInfo("Initialized automatic report cleanup task - runs every hour");
+}
+
+// Stop the cleanup task (for graceful shutdown)
+public function stopCleanupTask() returns error? {
+    if cleanupTaskId is task:JobId {
+        check task:unscheduleJob(<task:JobId>cleanupTaskId);
+        log:printInfo("Stopped automatic report cleanup task");
+    }
+}
+
+// Job class for the cleanup task
+class CleanupJob {
+    *task:Job;
+    
+    public function execute() {
+        do {
+            int deletedCount = check database:deleteOldReports();
+            if deletedCount > 0 {
+                log:printInfo("Cleanup task completed: deleted " + deletedCount.toString() + " old reports");
+            }
+        } on fail error e {
+            log:printError("Cleanup task failed: " + e.message());
+        }
     }
 }
 

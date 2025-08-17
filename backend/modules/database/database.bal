@@ -273,3 +273,21 @@ public function deleteHazardReport(int reportId) returns boolean|error {
         return error DatabaseError("Report not found or delete failed");
     }
 }
+
+# Delete reports older than 24 hours automatically
+#
+# + return - Number of deleted reports or error if deletion fails.
+public function deleteOldReports() returns int|error {
+    sql:ParameterizedQuery deleteQuery = `
+        DELETE FROM hazard_reports 
+        WHERE created_at < NOW() - INTERVAL '24 hours'
+    `;
+    
+    sql:ExecutionResult result = check dbClient->execute(deleteQuery);
+    
+    int deletedCount = <int>result.affectedRowCount;
+    if deletedCount > 0 {
+        log:printInfo("Automatically deleted " + deletedCount.toString() + " reports older than 24 hours");
+    }
+    return deletedCount;
+}
