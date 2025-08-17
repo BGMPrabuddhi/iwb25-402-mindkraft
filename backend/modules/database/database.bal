@@ -59,10 +59,6 @@ public function insertHazardReport(
     string? address
 ) returns int|error {
     
-    // Convert decimal to float for database storage
-    float? latFloat = latitude is decimal ? <float>latitude : ();
-    float? lngFloat = longitude is decimal ? <float>longitude : ();
-    
     sql:ParameterizedQuery insertQuery = `
         INSERT INTO hazard_reports (
             title, description, hazard_type, severity_level, images, latitude, longitude, address
@@ -95,7 +91,6 @@ public function getHazardReports(string? hazardType, string? severity, string? s
     int total_count;
 |}|error {
     
-    // Simple query without complex filtering for now
     sql:ParameterizedQuery countQuery = `SELECT COUNT(*) FROM hazard_reports`;
     int|sql:Error totalCount = dbClient->queryRow(countQuery);
     
@@ -103,7 +98,6 @@ public function getHazardReports(string? hazardType, string? severity, string? s
         return error("Failed to get total count: " + totalCount.message());
     }
     
-    // Get paginated results
     int offset = (page - 1) * pageSize;
     sql:ParameterizedQuery dataQuery = `SELECT id, title, description, hazard_type, severity_level, status, images, latitude, longitude, address, created_at, updated_at FROM hazard_reports ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${offset}`;
     
@@ -131,24 +125,28 @@ public function getFilteredHazardReports(
     int pageSize
 ) returns types:HazardReport[]|error {
     
-    // Build dynamic query based on filters
-    string baseQuery = "SELECT id, title, description, hazard_type, severity_level, images, latitude, longitude, address, created_at, status FROM hazard_reports WHERE 1=1";
+    // Build base query
+    sql:ParameterizedQuery baseQuery = `SELECT id, title, description, hazard_type, severity_level, images, latitude, longitude, address, created_at, status FROM hazard_reports WHERE 1=1`;
     
-    // Add filters only if they are specified and not empty/all
+    // Add filters conditionally
     if hazardType != "" && hazardType != "all" {
-        baseQuery = baseQuery + " AND hazard_type = '" + hazardType + "'";
+        baseQuery = sql:queryConcat(baseQuery, ` AND hazard_type = ${hazardType}`);
     }
+    
     if severity != "" && severity != "all" {
-        baseQuery = baseQuery + " AND severity_level = '" + severity + "'";
+        baseQuery = sql:queryConcat(baseQuery, ` AND severity_level = ${severity}`);
     }
+    
     if status != "" && status != "all" {
-        baseQuery = baseQuery + " AND status = '" + status + "'";
+        baseQuery = sql:queryConcat(baseQuery, ` AND status = ${status}`);
     }
     
-    baseQuery = baseQuery + " ORDER BY created_at DESC";
+    // Add ordering
+    baseQuery = sql:queryConcat(baseQuery, ` ORDER BY created_at DESC`);
     
-    // For now, get all matching records (you can add LIMIT/OFFSET later)
-    sql:ParameterizedQuery query = `${baseQuery}`;
+    // Add pagination
+    int offset = (page - 1) * pageSize;
+    baseQuery = sql:queryConcat(baseQuery, ` LIMIT ${pageSize} OFFSET ${offset}`);
     
     stream<record {|
         int id;
@@ -162,7 +160,7 @@ public function getFilteredHazardReports(
         string? address;
         string created_at;
         string status;
-    |}, sql:Error?> resultStream = dbClient->query(query);
+    |}, sql:Error?> resultStream = dbClient->query(baseQuery);
     
     types:HazardReport[] reports = [];
     check from var row in resultStream
@@ -191,6 +189,7 @@ public function getFilteredHazardReports(
             };
             reports.push(report);
         };
+    
     return reports;
 }
 // Get single hazard report by ID
@@ -214,7 +213,6 @@ public function updateHazardReport(int id, string? title, string? description,
                                   string? hazardType, string? severityLevel, string? status) 
                                   returns boolean|error {
     
-    // Simple update for now
     sql:ParameterizedQuery updateQuery = `UPDATE hazard_reports SET updated_at = CURRENT_TIMESTAMP WHERE id = ${id}`;
     sql:ExecutionResult|sql:Error result = dbClient->execute(updateQuery);
     
