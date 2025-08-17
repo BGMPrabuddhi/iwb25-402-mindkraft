@@ -1,0 +1,7 @@
+# Ignore uploads directory
+uploads/
+# generated files
+target/
+generated/
+
+
