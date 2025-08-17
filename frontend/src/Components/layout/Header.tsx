@@ -1,24 +1,69 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
-import { UserCircleIcon, Bars3Icon, XMarkIcon, ChevronDownIcon, UserIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
-
-interface User {
-  username: string
-  profilePicture?: string
-}
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import { UserCircleIcon, Bars3Icon, XMarkIcon, ChevronDownIcon, UserIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
+import { authAPI, UserProfile } from '@/lib/auth'
 
 const Header = () => {
-  const [user] = useState<User>({
-    username: 'John Doe',
-    profilePicture: ''
-  })
-  
+  const router = useRouter()
+  const [user, setUser] = useState<UserProfile | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Fetch user profile on component mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (authAPI.isAuthenticated()) {
+        try {
+          const profile = await authAPI.getProfile()
+          if (profile.success) {
+            setUser(profile)
+          }
+        } catch (error) {
+          console.error('Failed to fetch user profile:', error)
+        }
+      }
+    }
+
+    fetchUserProfile()
+  }, [])
+
+  // Refetch user profile (can be called when returning from profile edit)
+  const refreshUserProfile = async () => {
+    if (authAPI.isAuthenticated()) {
+      try {
+        const profile = await authAPI.getProfile()
+        if (profile.success) {
+          setUser(profile)
+        }
+      } catch (error) {
+        console.error('Failed to refresh user profile:', error)
+      }
+    }
+  }
+
+  // Listen for focus events to refresh profile when returning to the page
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshUserProfile()
+    }
+
+    const handleProfileUpdate = () => {
+      refreshUserProfile()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('profileUpdated', handleProfileUpdate)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('profileUpdated', handleProfileUpdate)
+    }
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -35,15 +80,13 @@ const Header = () => {
   }, [])
 
   const handleLogout = () => {
-    // TODO: Implement logout logic
-    console.log('Logging out...')
-    // Example: Clear tokens, redirect to login, etc.
+    authAPI.logout()
     setIsProfileDropdownOpen(false)
+    router.push('/login')
   }
 
   const handleEditProfile = () => {
-    // TODO: Navigate to edit profile page or open modal
-    console.log('Edit profile clicked')
+    router.push('/profile')
     setIsProfileDropdownOpen(false)
   }
 
@@ -76,22 +119,34 @@ const Header = () => {
           {/* Profile Section */}
           <div className="flex items-center space-x-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-gray-900">{user.username}</p>
+              <p className="text-sm font-medium text-gray-900">
+                {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'Guest'}
+              </p>
             </div>
             
             <div className="relative" ref={dropdownRef}>
               <button 
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                 className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                aria-label="Profile menu"
               >
-                {user.profilePicture ? (
-                  <Image
-                    src={user.profilePicture}
-                    alt="Profile"
-                    width={36}
-                    height={36}
-                    className="h-9 w-9 rounded-full object-cover border-2 border-blue-500"
-                  />
+                {user?.profileImage ? (
+                  <div className="h-9 w-9 rounded-full overflow-hidden border-2 border-blue-600">
+                    <Image
+                      src={user.profileImage}
+                      alt="Profile picture"
+                      width={36}
+                      height={36}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        // Fallback to icon if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                    <UserCircleIcon className="h-9 w-9 text-blue-600 hidden" />
+                  </div>
                 ) : (
                   <UserCircleIcon className="h-9 w-9 text-blue-600" />
                 )}
@@ -104,20 +159,24 @@ const Header = () => {
                   {/* User Info Section */}
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      {user.profilePicture ? (
-                        <Image
-                          src={user.profilePicture}
-                          alt="Profile"
-                          width={40}
-                          height={40}
-                          className="h-10 w-10 rounded-full object-cover"
-                        />
+                      {user?.profileImage ? (
+                        <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-gray-200">
+                          <Image
+                            src={user.profileImage}
+                            alt="Profile picture"
+                            width={40}
+                            height={40}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
                       ) : (
                         <UserCircleIcon className="h-10 w-10 text-gray-400" />
                       )}
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{user.username}</p>
-                        <p className="text-xs text-gray-500">General User</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'Guest'}
+                        </p>
+                        <p className="text-xs text-gray-500">{user?.email || 'No email'}</p>
                       </div>
                     </div>
                   </div>
@@ -174,9 +233,26 @@ const Header = () => {
               
               {/* Mobile Profile Options */}
               <div className="border-t border-gray-100 mt-4 pt-4">
-                <div className="px-4 py-2">
-                  <p className="text-sm font-medium text-gray-900">{user.username}</p>
-                  <p className="text-xs text-gray-500">General User</p>
+                <div className="px-4 py-2 flex items-center space-x-3">
+                  {user?.profileImage ? (
+                    <div className="h-8 w-8 rounded-full overflow-hidden border-2 border-gray-200">
+                      <Image
+                        src={user.profileImage}
+                        alt="Profile picture"
+                        width={32}
+                        height={32}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <UserCircleIcon className="h-8 w-8 text-gray-400" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'Guest'}
+                    </p>
+                    <p className="text-xs text-gray-500">{user?.email || 'No email'}</p>
+                  </div>
                 </div>
                 <button
                   onClick={handleEditProfile}

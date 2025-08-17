@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { authAPI } from '@/lib/auth'
 
 type LoginFormData = {
   email: string
@@ -9,12 +11,14 @@ type LoginFormData = {
 }
 
 export default function LoginPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: ''
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<LoginFormData>>({})
+  const [apiError, setApiError] = useState('')
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -61,22 +65,32 @@ export default function LoginPage() {
     if (!validateForm()) return
 
     setIsLoading(true)
+    setApiError('')
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      console.log('🔄 Submitting login form...');
       
-      console.log('Login data:', formData)
-      alert('Login successful!')
-      
-      // Here you would typically:
-      // 1. Make API call to your backend
-      // 2. Store authentication token
-      // 3. Redirect to dashboard
+      // Call the login API
+      const result = await authAPI.login({
+        email: formData.email,
+        password: formData.password
+      })
+
+      console.log('📋 Login result:', result);
+
+      if (result.success) {
+        alert('✅ Login successful! Welcome back!')
+        // Redirect to home page after successful login
+        router.push('/home')
+      } else {
+        const errorMessage = result.message || 'Login failed. Please try again.';
+        console.error('Login failed:', errorMessage);
+        alert(`❌ ${errorMessage}`);
+      }
       
     } catch (error) {
-      console.error('Login error:', error)
-      alert('Login failed. Please try again.')
+      console.error('❌ Login error:', error)
+      alert('❌ Login failed. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -247,14 +261,18 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
-            </form>
 
-            
+              {apiError && (
+                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">{apiError}</p>
+                </div>
+              )}
+            </form>
 
             {/* Sign Up Link */}
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link href="/sign-up" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
                   Create one here
                 </Link>
