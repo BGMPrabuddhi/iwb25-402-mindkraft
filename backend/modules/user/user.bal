@@ -52,3 +52,38 @@ public type UpdateProfileResponse record {
     UserProfile? user?;
     string? errorCode?;
 };
+
+// Password Recovery Types
+public type ForgotPasswordRequest record {
+    string email;
+};
+
+public type ForgotPasswordResponse record {
+    boolean success;
+    string message;
+    string? errorCode?;
+};
+
+public type VerifyOtpRequest record {
+    string email;
+    string otp;
+};
+
+public type VerifyOtpResponse record {
+    boolean success;
+    string message;
+    string? resetToken?;
+    string? errorCode?;
+};
+
+public type ResetPasswordRequest record {
+    string resetToken;
+    string newPassword;
+    string confirmPassword;
+};
+
+public type ResetPasswordResponse record {
+    boolean success;
+    string message;
+    string? errorCode?;
+};

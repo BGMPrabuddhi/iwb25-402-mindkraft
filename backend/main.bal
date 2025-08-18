@@ -220,6 +220,63 @@ service /api on apiListener {
         };
     }
 
+    // ==================== PASSWORD RECOVERY ENDPOINTS ====================
+
+    // Request password reset OTP
+    resource function post auth/forgot\-password(user:ForgotPasswordRequest req) returns json {
+        user:ForgotPasswordResponse|error result = auth:requestPasswordReset(req);
+        if result is error {
+            log:printError("Password reset request failed", result);
+            return {
+                success: false,
+                message: "Failed to process password reset request",
+                errorCode: "reset_request_failed"
+            };
+        }
+        return {
+            success: result.success,
+            message: result.message,
+            errorCode: result?.errorCode
+        };
+    }
+
+    // Verify OTP
+    resource function post auth/verify\-otp(user:VerifyOtpRequest req) returns json {
+        user:VerifyOtpResponse|error result = auth:verifyOtp(req);
+        if result is error {
+            log:printError("OTP verification failed", result);
+            return {
+                success: false,
+                message: "Failed to verify OTP",
+                errorCode: "otp_verification_failed"
+            };
+        }
+        return {
+            success: result.success,
+            message: result.message,
+            resetToken: result?.resetToken,
+            errorCode: result?.errorCode
+        };
+    }
+
+    // Reset password
+    resource function post auth/reset\-password(user:ResetPasswordRequest req) returns json {
+        user:ResetPasswordResponse|error result = auth:resetPassword(req);
+        if result is error {
+            log:printError("Password reset failed", result);
+            return {
+                success: false,
+                message: "Failed to reset password",
+                errorCode: "password_reset_failed"
+            };
+        }
+        return {
+            success: result.success,
+            message: result.message,
+            errorCode: result?.errorCode
+        };
+    }
+
     // ==================== HAZARD REPORT ENDPOINTS ====================
 
     // Submit hazard report
@@ -310,142 +367,11 @@ service /api on apiListener {
     }
 }
 
-// Root service to handle direct /reports calls
-@http:ServiceConfig {
-    cors: {
-        allowOrigins: corsOrigins,
-        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowHeaders: ["Content-Type", "Authorization"]
-    }
-}
-service / on new http:Listener(serverPort + 1) {
-    
-    // CORS preflight handler
-    resource function options .(http:Caller caller, http:Request req) returns error? {
-        http:Response res = new;
-        res.statusCode = 200;
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        check caller->respond(res);
-    }
-
-    // Submit hazard report
-    resource function post reports(http:Caller caller, http:Request req) returns error? {
-        check reports:handleReportSubmission(caller, req);
-    }
-
-    // Get filtered hazard reports
-    resource function get reports(http:Caller caller, http:Request req) returns error? {
-        map<string[]> queryParams = req.getQueryParams();
-        string hazardType = queryParams["hazard_type"] is string[] ? queryParams.get("hazard_type")[0] : "";
-        string severity = queryParams["severity"] is string[] ? queryParams.get("severity")[0] : "";
-        string status = queryParams["status"] is string[] ? queryParams.get("status")[0] : "";
-        string fromLatStr = queryParams["from_lat"] is string[] ? queryParams.get("from_lat")[0] : "";
-        string fromLngStr = queryParams["from_lng"] is string[] ? queryParams.get("from_lng")[0] : "";
-        string toLatStr = queryParams["to_lat"] is string[] ? queryParams.get("to_lat")[0] : "";
-        string toLngStr = queryParams["to_lng"] is string[] ? queryParams.get("to_lng")[0] : "";
-        string pageStr = queryParams["page"] is string[] ? queryParams.get("page")[0] : "1";
-        string pageSizeStr = queryParams["page_size"] is string[] ? queryParams.get("page_size")[0] : "20";
-
-        int page = 1;
-        int pageSize = 20;
-        decimal? fromLat = ();
-        decimal? fromLng = ();
-        decimal? toLat = ();
-        decimal? toLng = ();
-
-        int|error pageConv = int:fromString(pageStr);
-        if pageConv is int { page = pageConv; }
-        int|error pageSizeConv = int:fromString(pageSizeStr);
-        if pageSizeConv is int { pageSize = pageSizeConv; }
-
-        if fromLatStr != "" {
-            decimal|error conv = decimal:fromString(fromLatStr);
-            if conv is decimal { fromLat = conv; }
-        }
-        if fromLngStr != "" {
-            decimal|error conv = decimal:fromString(fromLngStr);
-            if conv is decimal { fromLng = conv; }
-        }
-        if toLatStr != "" {
-            decimal|error conv = decimal:fromString(toLatStr);
-            if conv is decimal { toLat = conv; }
-        }
-        if toLngStr != "" {
-            decimal|error conv = decimal:fromString(toLngStr);
-            if conv is decimal { toLng = conv; }
-        }
-
-        var reportsResult = database:getFilteredHazardReports(
-            hazardType, severity, status, fromLat, fromLng, toLat, toLng, page, pageSize
-        );
-        
-        if reportsResult is error {
-            check caller->respond({"status": "error", "message": reportsResult.toString()});
-        } else {
-            json response = {
-                reports: <json>reportsResult,
-                total_count: reportsResult.length(),
-                page: page,
-                page_size: pageSize
-            };
-            check caller->respond(response);
-        }
-    }
-
-    // Serve uploaded images
-    resource function get images/[string filename](http:Caller caller, http:Request req) returns error? {
-        string filePath = reports:getUploadDir() + "/" + filename;
-        
-        boolean|file:Error fileExists = file:test(filePath, file:EXISTS);
-        if fileExists is file:Error || !fileExists {
-            http:Response res = new;
-            res.statusCode = 404;
-            res.setPayload({"error": "Image not found"});
-            check caller->respond(res);
-            return;
-        }
-
-        string contentType = reports:getImageContentType(filename);
-        byte[] imageBytes = check io:fileReadBytes(filePath);
-        
-        http:Response res = new;
-        res.setHeader("Content-Type", contentType);
-        res.setHeader("Cache-Control", "public, max-age=31536000");
-        res.setBinaryPayload(imageBytes);
-        check caller->respond(res);
-    }
-
-    // Health check
-    resource function get health() returns json {
-        boolean connected = database:testConnection();
-        if !connected {
-            return {
-                "status": "error", 
-                "message": "Database connection failed",
-                "service": "SafeRoute Direct API",
-                "version": "1.0.0",
-                "database_status": "disconnected"
-            };
-        }
-        
-        return {
-            "status": "ok", 
-            "message": "Database connected successfully",
-            "service": "SafeRoute Direct API",
-            "version": "1.0.0",
-            "database_status": "connected"
-        };
-    }
-}
-
 // Initialize database on startup
 public function main() returns error? {
     check database:initializeDatabase();
     log:printInfo("Database initialized successfully");
-    log:printInfo("API server started on port " + serverPort.toString());
-    log:printInfo("Direct server started on port " + (serverPort + 1).toString());
+    log:printInfo("SafeRoute API server started on port " + serverPort.toString());
 }
 
 // Helper functions

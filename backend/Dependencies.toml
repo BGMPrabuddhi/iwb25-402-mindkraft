@@ -275,6 +275,18 @@ dependencies = [
 
 [[package]]
 org = "ballerina"
+name = "random"
+version = "1.6.0"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "time"}
+]
+modules = [
+	{org = "ballerina", packageName = "random", moduleName = "random"}
+]
+
+[[package]]
+org = "ballerina"
 name = "sql"
 version = "1.16.0"
 dependencies = [
@@ -377,6 +389,7 @@ dependencies = [
 	{org = "ballerina", name = "jwt"},
 	{org = "ballerina", name = "log"},
 	{org = "ballerina", name = "mime"},
+	{org = "ballerina", name = "random"},
 	{org = "ballerina", name = "sql"},
 	{org = "ballerina", name = "time"},
 	{org = "ballerina", name = "uuid"},
@@ -388,6 +401,7 @@ modules = [
 	{org = "saferoute", packageName = "backend", moduleName = "backend"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.auth"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.database"},
+	{org = "saferoute", packageName = "backend", moduleName = "backend.email"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.reports"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.types"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.user"}
