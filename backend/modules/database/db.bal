@@ -66,7 +66,7 @@ public function testConnection() returns boolean {
 }
 
 public function initializeDatabase() returns error? {
-    // Fix: Add check for all execute calls
+    // Create users table
     _ = check dbClient->execute(`
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -86,6 +86,20 @@ public function initializeDatabase() returns error? {
         )
     `);
     
+    // Add password_reset_otps table
+    _ = check dbClient->execute(`
+        CREATE TABLE IF NOT EXISTS password_reset_otps (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            otp VARCHAR(6) NOT NULL,
+            expiration_time BIGINT NOT NULL,
+            is_used BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(email)
+        )
+    `);
+    
+    // Create hazard_reports table
     _ = check dbClient->execute(`
         CREATE TABLE IF NOT EXISTS hazard_reports (
             id SERIAL PRIMARY KEY,
@@ -103,8 +117,15 @@ public function initializeDatabase() returns error? {
         )
     `);
     
+    // Create indexes for users
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_coordinates ON users(latitude, longitude)`);
+    
+    // Create indexes for password_reset_otps
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_password_reset_otps_email ON password_reset_otps(email)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_password_reset_otps_expiration ON password_reset_otps(expiration_time)`);
+    
+    // Create indexes for hazard_reports
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_type ON hazard_reports(hazard_type)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_severity ON hazard_reports(severity_level)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_coordinates ON hazard_reports(latitude, longitude)`);
