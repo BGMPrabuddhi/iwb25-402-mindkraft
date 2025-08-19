@@ -3,6 +3,9 @@ import ballerinax/postgresql.driver as _;
 import ballerina/sql;
 import ballerina/log;
 
+
+public type DatabaseError distinct error;
+
 public type User record {
     int id;
     string first_name;
@@ -16,7 +19,8 @@ public type User record {
     string state;
     string country;
     string full_address;
-    string created_at?;
+    string? profile_image;
+    string? created_at;
 };
 
 configurable string host = ?;
@@ -62,7 +66,7 @@ public function testConnection() returns boolean {
 }
 
 public function initializeDatabase() returns error? {
-    // Create users table
+    // Fix: Add check for all execute calls
     _ = check dbClient->execute(`
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -82,7 +86,6 @@ public function initializeDatabase() returns error? {
         )
     `);
     
-    // Create hazard_reports table
     _ = check dbClient->execute(`
         CREATE TABLE IF NOT EXISTS hazard_reports (
             id SERIAL PRIMARY KEY,
@@ -100,17 +103,17 @@ public function initializeDatabase() returns error? {
         )
     `);
     
-    // Create indexes
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_coordinates ON users(latitude, longitude)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_type ON hazard_reports(hazard_type)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_severity ON hazard_reports(severity_level)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_coordinates ON hazard_reports(latitude, longitude)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_status ON hazard_reports(status)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_created_at ON hazard_reports(created_at)`);
     
     log:printInfo("Database tables and indexes created successfully");
 }
 
-// Insert new hazard report
 public function insertHazardReport(
     string title,
     string description,
@@ -131,7 +134,7 @@ public function insertHazardReport(
     `;
     
     stream<record {int id;}, sql:Error?> resultStream = dbClient->query(insertQuery);
-    record {| record {int id;} value; |}|sql:Error? nextRow = resultStream.next();
+    record {| record {int id;} value; |}|sql:Error? nextRow = check resultStream.next();
     error? closeErr = resultStream.close();
     
     if closeErr is error {
@@ -143,11 +146,111 @@ public function insertHazardReport(
         log:printInfo("Report inserted with ID: " + id.toString());
         return id;
     } else {
-        return error("Failed to retrieve inserted report ID");
+        return error DatabaseError("Failed to retrieve inserted report ID");
     }
 }
 
-// Get filtered hazard reports (without types: dependency)
+public function getAllReports() returns record {|
+    int id;
+    string title;
+    string? description;
+    string hazard_type;
+    string severity_level;
+    string[] images;
+    record {|
+        decimal lat;
+        decimal lng;
+        string? address;
+    |}? location;
+    string created_at;
+    string status;
+    string? updated_at;
+|}[]|error {
+    
+    sql:ParameterizedQuery selectQuery = `
+        SELECT id, title, description, hazard_type, severity_level, images, 
+               latitude, longitude, address, created_at, status, updated_at
+        FROM hazard_reports
+        ORDER BY created_at DESC
+    `;
+    
+    stream<record {|
+        int id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+        string status;
+        string? updated_at;
+    |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    record {|
+        int id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        record {|
+            decimal lat;
+            decimal lng;
+            string? address;
+        |}? location;
+        string created_at;
+        string status;
+        string? updated_at;
+    |}[] reports = [];
+    
+    // Fix: Add error handling for the from clause
+    error? fromResult = from var row in resultStream
+        do {
+            record {|
+                decimal lat;
+                decimal lng;
+                string? address;
+            |}? location = ();
+
+            if row.latitude is decimal && row.longitude is decimal {
+                decimal validLat = <decimal>row.latitude;
+                decimal validLng = <decimal>row.longitude;
+                location = {
+                    lat: validLat,
+                    lng: validLng,
+                    address: row.address
+                };
+            }
+
+            reports.push({
+                id: row.id,
+                title: row.title,
+                description: row.description,
+                hazard_type: row.hazard_type,
+                severity_level: row.severity_level,
+                images: row.images,
+                location: location,
+                created_at: row.created_at,
+                status: row.status,
+                updated_at: row.updated_at
+            });
+        };
+    
+    if fromResult is error {
+        return fromResult;
+    }
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    return reports;
+}
+
 public function getFilteredHazardReports(
     string hazardType,
     string severity,
@@ -177,7 +280,7 @@ public function getFilteredHazardReports(
     
     sql:ParameterizedQuery baseQuery = `
         SELECT id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status 
+               latitude, longitude, address, created_at, status, updated_at
         FROM hazard_reports WHERE 1=1
     `;
     
@@ -191,6 +294,11 @@ public function getFilteredHazardReports(
     
     if status != "" && status != "all" {
         baseQuery = sql:queryConcat(baseQuery, ` AND status = ${status}`);
+    }
+    
+    if fromLat is decimal && fromLng is decimal && toLat is decimal && toLng is decimal {
+        baseQuery = sql:queryConcat(baseQuery, ` AND latitude BETWEEN ${fromLat} AND ${toLat}`);
+        baseQuery = sql:queryConcat(baseQuery, ` AND longitude BETWEEN ${fromLng} AND ${toLng}`);
     }
     
     baseQuery = sql:queryConcat(baseQuery, ` ORDER BY created_at DESC`);
@@ -209,6 +317,7 @@ public function getFilteredHazardReports(
         string? address;
         string created_at;
         string status;
+        string? updated_at;
     |}, sql:Error?> resultStream = dbClient->query(baseQuery);
     
     record {|
@@ -228,7 +337,8 @@ public function getFilteredHazardReports(
         string? updated_at;
     |}[] reports = [];
     
-    check from var row in resultStream
+    // Fix: Add error handling for the from clause
+    error? fromResult = from var row in resultStream
         do {
             record {|
                 decimal lat;
@@ -244,9 +354,6 @@ public function getFilteredHazardReports(
                     lng: validLng,
                     address: row.address
                 };
-            } else {
-                location = ();
-                log:printWarn("Hazard report missing location data: id=" + row.id.toString());
             }
 
             reports.push({
@@ -259,9 +366,288 @@ public function getFilteredHazardReports(
                 location: location,
                 created_at: row.created_at,
                 status: row.status,
-                updated_at: ()
+                updated_at: row.updated_at
             });
         };
     
+    if fromResult is error {
+        return fromResult;
+    }
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
     return reports;
+}
+
+public function updateHazardReport(
+    int reportId,
+    string title,
+    string description,
+    string hazardType,
+    string severityLevel
+) returns record {|
+    int id;
+    string title;
+    string? description;
+    string hazard_type;
+    string severity_level;
+    string[] images;
+    record {|
+        decimal lat;
+        decimal lng;
+        string? address;
+    |}? location;
+    string created_at;
+    string status;
+    string? updated_at;
+|}|error {
+    
+    sql:ParameterizedQuery updateQuery = `
+        UPDATE hazard_reports 
+        SET title = ${title}, 
+            description = ${description}, 
+            hazard_type = ${hazardType}, 
+            severity_level = ${severityLevel},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${reportId}
+        RETURNING id, title, description, hazard_type, severity_level, status, images, 
+                  latitude, longitude, address, created_at, updated_at
+    `;
+    
+    stream<record {|
+        int id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+        string status;
+        string? updated_at;
+    |}, sql:Error?> resultStream = dbClient->query(updateQuery);
+    
+    // Fix: Properly handle the stream result
+    record {| record {|
+        int id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+        string status;
+        string? updated_at;
+    |} value; |}|sql:Error? streamResult = check resultStream.next();
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    if streamResult is record {| record {|
+        int id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+        string status;
+        string? updated_at;
+    |} value; |} {
+        record {|
+            int id;
+            string title;
+            string? description;
+            string hazard_type;
+            string severity_level;
+            string[] images;
+            decimal? latitude;
+            decimal? longitude;
+            string? address;
+            string created_at;
+            string status;
+            string? updated_at;
+        |} row = streamResult.value;
+        
+        record {|
+            decimal lat;
+            decimal lng;
+            string? address;
+        |}? location = ();
+
+        if row.latitude is decimal && row.longitude is decimal {
+            decimal validLat = <decimal>row.latitude;
+            decimal validLng = <decimal>row.longitude;
+            location = {
+                lat: validLat,
+                lng: validLng,
+                address: row.address
+            };
+        }
+
+        log:printInfo("Report updated with ID: " + reportId.toString());
+        return {
+            id: row.id,
+            title: row.title,
+            description: row.description,
+            hazard_type: row.hazard_type,
+            severity_level: row.severity_level,
+            images: row.images,
+            location: location,
+            created_at: row.created_at,
+            status: row.status,
+            updated_at: row.updated_at
+        };
+    } else {
+        return error DatabaseError("Report not found or update failed");
+    }
+}
+
+public function deleteHazardReport(int reportId) returns boolean|error {
+    sql:ParameterizedQuery deleteQuery = `
+        DELETE FROM hazard_reports 
+        WHERE id = ${reportId}
+    `;
+    
+    // Fix: Add check for execute
+    sql:ExecutionResult result = check dbClient->execute(deleteQuery);
+    
+    if result.affectedRowCount > 0 {
+        log:printInfo("Report deleted with ID: " + reportId.toString());
+        return true;
+    } else {
+        return error DatabaseError("Report not found or delete failed");
+    }
+}
+
+public function deleteOldReports() returns int|error {
+    sql:ParameterizedQuery deleteQuery = `
+        DELETE FROM hazard_reports 
+        WHERE created_at < NOW() - INTERVAL '24 hours'
+    `;
+    
+    // Fix: Add check for execute
+    sql:ExecutionResult result = check dbClient->execute(deleteQuery);
+    
+    int deletedCount = <int>result.affectedRowCount;
+    if deletedCount > 0 {
+        log:printInfo("Automatically deleted " + deletedCount.toString() + " reports older than 24 hours");
+    }
+    return deletedCount;
+}
+
+public function insertUser(
+    string firstName,
+    string lastName,
+    string email,
+    string passwordHash,
+    string location,
+    decimal latitude,
+    decimal longitude,
+    string city,
+    string state,
+    string country,
+    string fullAddress,
+    string? profileImage
+) returns int|error {
+    sql:ParameterizedQuery insertQuery = `
+        INSERT INTO users (
+            first_name, last_name, email, password_hash, location, 
+            latitude, longitude, city, state, country, full_address, profile_image
+        ) VALUES (
+            ${firstName}, ${lastName}, ${email}, ${passwordHash}, ${location},
+            ${latitude}, ${longitude}, ${city}, ${state}, ${country}, ${fullAddress}, ${profileImage}
+        ) RETURNING id;
+    `;
+    
+    stream<record {int id;}, sql:Error?> resultStream = dbClient->query(insertQuery);
+    // Fix: Handle stream result properly
+    record {| record {int id;} value; |}|sql:Error? nextRow = check resultStream.next();
+    error? closeErr = resultStream.close();
+    
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    if nextRow is record {| record {int id;} value; |} {
+        int id = nextRow.value.id;
+        log:printInfo("User inserted with ID: " + id.toString());
+        return id;
+    } else {
+        return error DatabaseError("Failed to retrieve inserted user ID");
+    }
+}
+
+public function getUserByEmail(string email) returns User|error {
+    sql:ParameterizedQuery selectQuery = `
+        SELECT id, first_name, last_name, email, password_hash, location,
+               latitude, longitude, city, state, country, full_address, 
+               profile_image, created_at
+        FROM users 
+        WHERE email = ${email}
+    `;
+    
+    stream<User, sql:Error?> resultStream = dbClient->query(selectQuery);
+    // Fix: Handle stream result properly
+    record {| User value; |}|sql:Error? row = check resultStream.next();
+    error? closeErr = resultStream.close();
+    
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    if row is record {| User value; |} {
+        return row.value;
+    } else {
+        return error DatabaseError("User not found");
+    }
+}
+
+public function updateUser(int userId, User updatedUser) returns User|error {
+    sql:ParameterizedQuery updateQuery = `
+        UPDATE users 
+        SET first_name = ${updatedUser.first_name},
+            last_name = ${updatedUser.last_name},
+            location = ${updatedUser.location},
+            latitude = ${updatedUser.latitude},
+            longitude = ${updatedUser.longitude},
+            city = ${updatedUser.city},
+            state = ${updatedUser.state},
+            country = ${updatedUser.country},
+            full_address = ${updatedUser.full_address},
+            profile_image = ${updatedUser.profile_image}
+        WHERE id = ${userId}
+        RETURNING id, first_name, last_name, email, password_hash, location,
+                  latitude, longitude, city, state, country, full_address, 
+                  profile_image, created_at
+    `;
+    
+    stream<User, sql:Error?> resultStream = dbClient->query(updateQuery);
+    // Fix: Handle stream result properly
+    record {| User value; |}|sql:Error? row = check resultStream.next();
+    error? closeErr = resultStream.close();
+    
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    if row is record {| User value; |} {
+        log:printInfo("User updated with ID: " + userId.toString());
+        return row.value;
+    } else {
+        return error DatabaseError("User not found or update failed");
+    }
 }

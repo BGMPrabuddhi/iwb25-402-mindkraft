@@ -8,17 +8,12 @@ import ballerina/task;
 import saferoute/backend.types;
 import saferoute/backend.database;
 
-// Configuration
 configurable string uploadDir = "uploads";
 
-// Constants
 const string[] ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
 const int MAX_FILE_SIZE = 10485760; // 10MB
 
-// Global cleanup task reference
 task:JobId? cleanupTaskId = ();
-
-// ==================== INITIALIZATION ====================
 
 public function initializeUploadDirectory() returns error? {
     boolean|file:Error dirExists = file:test(uploadDir, file:EXISTS);
@@ -45,8 +40,6 @@ public function getUploadDir() returns string {
     return uploadDir;
 }
 
-// ==================== CLEANUP JOB ====================
-
 class CleanupJob {
     *task:Job;
     
@@ -62,30 +55,25 @@ class CleanupJob {
     }
 }
 
-// ==================== FILE HANDLING ====================
-
 public function saveImageFile(mime:Entity part) returns string|error {
     mime:ContentDisposition contentDisposition = part.getContentDisposition();
+    // Fix: ContentDisposition.fileName is not optional, remove ?:
     string fileName = contentDisposition.fileName;
     
     if fileName.trim() == "" {
         return error("No filename provided");
     }
     
-    // Validate file extension
     string fileExtension = getFileExtension(fileName);
     if !isValidImageExtension(fileExtension) {
         return error("Invalid file type. Allowed types: " + string:'join(", ", ...ALLOWED_IMAGE_EXTENSIONS));
     }
     
-    // Generate unique filename
     string uniqueFileName = uuid:createType4AsString() + fileExtension;
     string filePath = uploadDir + "/" + uniqueFileName;
     
-    // Read and save file
     byte[]|mime:ParserError bytesResult = part.getByteArray();
     if bytesResult is byte[] {
-        // Validate file size
         if bytesResult.length() > MAX_FILE_SIZE {
             return error("File size exceeds maximum limit of 10MB");
         }
@@ -119,8 +107,6 @@ public function getImageContentType(string filename) returns string {
     }
 }
 
-// ==================== REPORT HANDLERS ====================
-
 public function handleReportSubmission(http:Caller caller, http:Request req) returns error? {
     http:Response res = createCorsResponse();
     string contentType = req.getContentType();
@@ -136,18 +122,46 @@ public function handleReportSubmission(http:Caller caller, http:Request req) ret
 public function handleGetReports(http:Caller caller, http:Request req) returns error? {
     http:Response res = createCorsResponse();
 
-    types:HazardReport[]|error reportsResult = database:getAllReports();
+    var reportsResult = database:getAllReports();
     
-    if reportsResult is types:HazardReport[] {
+    if reportsResult is error {
+        log:printError("Failed to retrieve reports: " + reportsResult.message());
+        res.setPayload(createErrorResponse("Failed to retrieve reports: " + reportsResult.message()));
+    } else {
+        types:HazardReport[] typedReports = [];
+        foreach var r in reportsResult {
+            types:Location? location = ();
+            // Fix: Properly handle optional location
+            if r.location is record {| decimal lat; decimal lng; string? address; |} {
+                record {| decimal lat; decimal lng; string? address; |} loc = <record {| decimal lat; decimal lng; string? address; |}>r.location;
+                location = {
+                    lat: loc.lat,
+                    lng: loc.lng,
+                    address: loc.address
+                };
+            }
+            
+            types:HazardReport report = {
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                hazard_type: r.hazard_type,
+                severity_level: r.severity_level,
+                status: r.status,
+                images: r.images,
+                location: location,
+                created_at: r.created_at,
+                updated_at: r.updated_at
+            };
+            typedReports.push(report);
+        }
+        
         types:ReportsResponse response = {
             status: "success",
             message: "Reports retrieved successfully",
-            reports: reportsResult
+            reports: typedReports
         };
         res.setPayload(response);
-    } else {
-        log:printError("Failed to retrieve reports: " + reportsResult.message());
-        res.setPayload(createErrorResponse("Failed to retrieve reports: " + reportsResult.message()));
     }
     
     check caller->respond(res);
@@ -170,36 +184,57 @@ public function handleUpdateReport(http:Caller caller, http:Request req, int rep
         return;
     }
     
-    // Validate required fields
-    ValidationResult validation = validateUpdateReportData(updateData);
-    if !validation.isValid {
-        res.setPayload(createErrorResponse(validation.errorMessage));
+    if (updateData?.title is ()) || (updateData?.hazard_type is ()) || (updateData?.severity_level is ()) {
+        res.setPayload(createErrorResponse("Missing required fields"));
         check caller->respond(res);
         return;
     }
     
-    string title = updateData.title ?: "";
-    string description = updateData.description ?: "";
-    string hazardType = updateData.hazard_type ?: "";
-    string severityLevel = updateData.severity_level ?: "";
+    string title = updateData?.title ?: "";
+    string description = updateData?.description ?: "";
+    string hazardType = updateData?.hazard_type ?: "";
+    string severityLevel = updateData?.severity_level ?: "";
     
-    types:HazardReport|error result = database:updateHazardReport(reportId, title, description, hazardType, severityLevel);
+    var result = database:updateHazardReport(reportId, title, description, hazardType, severityLevel);
     
-    if result is types:HazardReport {
+    if result is error {
+        log:printError("Failed to update report: " + result.message());
+        res.setPayload(createErrorResponse("Failed to update report: " + result.message()));
+    } else {
+        types:Location? location = ();
+        // Fix: Properly handle optional location
+        if result.location is record {| decimal lat; decimal lng; string? address; |} {
+            record {| decimal lat; decimal lng; string? address; |} loc = <record {| decimal lat; decimal lng; string? address; |}>result.location;
+            location = {
+                lat: loc.lat,
+                lng: loc.lng,
+                address: loc.address
+            };
+        }
+        
+        types:HazardReport reportData = {
+            id: result.id,
+            title: result.title,
+            description: result.description,
+            hazard_type: result.hazard_type,
+            severity_level: result.severity_level,
+            status: result.status,
+            images: result.images,
+            location: location,
+            created_at: result.created_at,
+            updated_at: result.updated_at
+        };
+        
         types:UpdateReportResponse response = {
             status: "success",
             message: "Report updated successfully",
-            data: result
+            data: reportData
         };
         res.setPayload(response);
-    } else {
-        log:printError("Failed to update report: " + result.message());
-        res.setPayload(createErrorResponse("Failed to update report: " + result.message()));
     }
     
     check caller->respond(res);
 }
-
 public function handleDeleteReport(http:Caller caller, http:Request req, int reportId) returns error? {
     http:Response res = createCorsResponse();
     
@@ -220,7 +255,22 @@ public function handleDeleteReport(http:Caller caller, http:Request req, int rep
     check caller->respond(res);
 }
 
-// ==================== PRIVATE HANDLER FUNCTIONS ====================
+type MultipartData record {
+    string title;
+    string description;
+    string hazardType;
+    string severityLevel;
+    string latitude;
+    string longitude;
+    string address;
+    string[] imageNames;
+};
+
+type LocationData record {
+    decimal? latitude;
+    decimal? longitude;
+    string? address;
+};
 
 function handleMultipartSubmission(http:Caller caller, http:Request req, http:Response res) returns error? {
     mime:Entity[]|http:ClientError bodyPartsResult = req.getBodyParts();
@@ -228,18 +278,14 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
     if bodyPartsResult is mime:Entity[] {
         MultipartData data = extractMultipartData(bodyPartsResult);
         
-        // Validate required fields
-        ValidationResult validation = validateReportData(data);
-        if !validation.isValid {
-            res.setPayload(createErrorResponse(validation.errorMessage));
+        if data.title == "" || data.hazardType == "" || data.severityLevel == "" {
+            res.setPayload(createErrorResponse("Missing required fields: title, hazard_type, severity_level"));
             check caller->respond(res);
             return;
         }
         
-        // Convert location data
         LocationData location = parseLocationData(data.latitude, data.longitude, data.address);
         
-        // Insert into database
         int|error result = database:insertHazardReport(
             data.title, 
             data.description, 
@@ -255,7 +301,6 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
             string[] imageUrls = data.imageNames.map(name => "http://localhost:8080/api/images/" + name);
             
             log:printInfo("Report created successfully with ID: " + result.toString());
-            log:printInfo("Summary: " + data.imageNames.length().toString() + " images, Location: " + data.address);
             
             types:ApiResponse response = {
                 status: "success",
@@ -268,8 +313,7 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
         } else {
             log:printError("Database error: " + result.toString());
             res.setPayload(createErrorResponse("Database error: " + result.toString()));
-        }
-    } else {
+        }} else {
         res.setPayload(createErrorResponse("Invalid multipart payload"));
     }
     
@@ -292,7 +336,7 @@ function handleJsonSubmission(http:Caller caller, http:Request req, http:Respons
     }
     
     string[] emptyImages = [];
-    string description = report["description"] is string ? report["description"] : "";
+    string description = report?.description ?: "";
     
     int|error result = database:insertHazardReport(
         report.title,
@@ -320,30 +364,6 @@ function handleJsonSubmission(http:Caller caller, http:Request req, http:Respons
     
     check caller->respond(res);
 }
-
-// ==================== HELPER FUNCTIONS ====================
-
-type MultipartData record {
-    string title;
-    string description;
-    string hazardType;
-    string severityLevel;
-    string latitude;
-    string longitude;
-    string address;
-    string[] imageNames;
-};
-
-type LocationData record {
-    decimal? latitude;
-    decimal? longitude;
-    string? address;
-};
-
-type ValidationResult record {
-    boolean isValid;
-    string errorMessage;
-};
 
 function extractMultipartData(mime:Entity[] bodyParts) returns MultipartData {
     MultipartData data = {
@@ -428,34 +448,12 @@ function parseLocationData(string latitude, string longitude, string address) re
     };
 }
 
-function validateReportData(MultipartData data) returns ValidationResult {
-    if data.title == "" || data.hazardType == "" || data.severityLevel == "" {
-        return {
-            isValid: false,
-            errorMessage: "Missing required fields: title, hazard_type, severity_level"
-        };
-    }
-    
-    return {isValid: true, errorMessage: ""};
-}
-
-function validateUpdateReportData(types:UpdateReportPayload updateData) returns ValidationResult {
-    if updateData.title is () || updateData.hazard_type is () || updateData.severity_level is () {
-        return {
-            isValid: false,
-            errorMessage: "Missing required fields: title, hazard_type, severity_level"
-        };
-    }
-    
-    return {isValid: true, errorMessage: ""};
-}
-
 function getFileExtension(string filename) returns string {
     int? lastDotIndex = filename.lastIndexOf(".");
     if lastDotIndex is int && lastDotIndex > 0 {
         return filename.substring(lastDotIndex);
     }
-    return ".jpg"; // Default extension
+    return ".jpg";
 }
 
 function isValidImageExtension(string extension) returns boolean {
