@@ -4,12 +4,17 @@ import ballerina/mime;
 import ballerina/file;
 import ballerina/io;
 import ballerina/uuid;
+import ballerina/task;
 import saferoute/backend.types;
 import saferoute/backend.database;
 
 configurable string uploadDir = "uploads";
 
-// Initialize upload directory
+const string[] ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+const int MAX_FILE_SIZE = 10485760; // 10MB
+
+task:JobId? cleanupTaskId = ();
+
 public function initializeUploadDirectory() returns error? {
     boolean|file:Error dirExists = file:test(uploadDir, file:EXISTS);
     if dirExists is file:Error || !dirExists {
@@ -18,22 +23,50 @@ public function initializeUploadDirectory() returns error? {
     }
 }
 
-// Save uploaded image file
-function saveImageFile(mime:Entity part) returns string|error {
-    mime:ContentDisposition contentDisposition = part.getContentDisposition();
-    string fileName = "";
-    if contentDisposition.fileName is string {
-        fileName = contentDisposition.fileName;
+public function initializeCleanupTask() returns error? {
+    task:JobId? taskId = check task:scheduleJobRecurByFrequency(new CleanupJob(), 3600000);
+    cleanupTaskId = taskId;
+    log:printInfo("Initialized automatic report cleanup task - runs every hour");
+}
+
+public function stopCleanupTask() returns error? {
+    if cleanupTaskId is task:JobId {
+        check task:unscheduleJob(<task:JobId>cleanupTaskId);
+        log:printInfo("Stopped automatic report cleanup task");
     }
+}
+
+public function getUploadDir() returns string {
+    return uploadDir;
+}
+
+class CleanupJob {
+    *task:Job;
+    
+    public function execute() {
+        do {
+            int deletedCount = check database:deleteOldReports();
+            if deletedCount > 0 {
+                log:printInfo("Cleanup task completed: deleted " + deletedCount.toString() + " old reports");
+            }
+        } on fail error e {
+            log:printError("Cleanup task failed: " + e.message());
+        }
+    }
+}
+
+public function saveImageFile(mime:Entity part) returns string|error {
+    mime:ContentDisposition contentDisposition = part.getContentDisposition();
+    // Fix: ContentDisposition.fileName is not optional, remove ?:
+    string fileName = contentDisposition.fileName;
     
     if fileName.trim() == "" {
         return error("No filename provided");
     }
     
-    string fileExtension = ".jpg";
-    int? lastDotIndex = fileName.lastIndexOf(".");
-    if lastDotIndex is int && lastDotIndex > 0 {
-        fileExtension = fileName.substring(lastDotIndex);
+    string fileExtension = getFileExtension(fileName);
+    if !isValidImageExtension(fileExtension) {
+        return error("Invalid file type. Allowed types: " + string:'join(", ", ...ALLOWED_IMAGE_EXTENSIONS));
     }
     
     string uniqueFileName = uuid:createType4AsString() + fileExtension;
@@ -41,6 +74,10 @@ function saveImageFile(mime:Entity part) returns string|error {
     
     byte[]|mime:ParserError bytesResult = part.getByteArray();
     if bytesResult is byte[] {
+        if bytesResult.length() > MAX_FILE_SIZE {
+            return error("File size exceeds maximum limit of 10MB");
+        }
+        
         check io:fileWriteBytes(filePath, bytesResult);
         log:printInfo("Image uploaded: " + fileName + " -> " + uniqueFileName);
         return uniqueFileName;
@@ -49,32 +86,29 @@ function saveImageFile(mime:Entity part) returns string|error {
     }
 }
 
-// Get image content type based on file extension
 public function getImageContentType(string filename) returns string {
-    if filename.endsWith(".jpg") || filename.endsWith(".jpeg") {
-        return "image/jpeg";
-    } else if filename.endsWith(".png") {
-        return "image/png";
-    } else if filename.endsWith(".gif") {
-        return "image/gif";
-    } else if filename.endsWith(".webp") {
-        return "image/webp";
+    string extension = getFileExtension(filename).toLowerAscii();
+    match extension {
+        ".jpg"|".jpeg" => {
+            return "image/jpeg";
+        }
+        ".png" => {
+            return "image/png";
+        }
+        ".gif" => {
+            return "image/gif";
+        }
+        ".webp" => {
+            return "image/webp";
+        }
+        _ => {
+            return "application/octet-stream";
+        }
     }
-    return "application/octet-stream";
 }
 
-// Get upload directory path
-public function getUploadDir() returns string {
-    return uploadDir;
-}
-
-// Report handling functionality
 public function handleReportSubmission(http:Caller caller, http:Request req) returns error? {
-    http:Response res = new;
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-
+    http:Response res = createCorsResponse();
     string contentType = req.getContentType();
     log:printInfo("Content-Type: " + contentType);
 
@@ -85,166 +119,234 @@ public function handleReportSubmission(http:Caller caller, http:Request req) ret
     }
 }
 
-function handleMultipartSubmission(http:Caller caller, http:Request req, http:Response res) returns error? {
-    string[] imageNames = [];
-    mime:Entity[]|http:ClientError bodyPartsResult = req.getBodyParts();
-    string latitude = "";
-    string longitude = "";
-    string address = "";
+public function handleGetReports(http:Caller caller, http:Request req) returns error? {
+    http:Response res = createCorsResponse();
+
+    var reportsResult = database:getAllReports();
     
-    if bodyPartsResult is mime:Entity[] {
-        string title = "";
-        string hazardType = "";
-        string severityLevel = "";
-        string description = "";
-        
-        foreach mime:Entity part in bodyPartsResult {
-            mime:ContentDisposition contentDisposition = part.getContentDisposition();
-            string partName = contentDisposition.name;
-            
-            if partName == "images" {
-                string|error savedFileName = saveImageFile(part);
-                if savedFileName is string {
-                    imageNames.push(savedFileName);
-                    log:printInfo("Image saved: " + savedFileName);
-                } else {
-                    log:printError("Image save failed: " + savedFileName.message());
-                    res.setPayload({"status": "error", "message": savedFileName.message()});
-                    check caller->respond(res);
-                    return;
-                }
-            } else if partName == "title" {
-                string|mime:ParserError textResult = part.getText();
-                if textResult is string {
-                    title = textResult;
-                    log:printInfo("Title: " + title);
-                }
-            } else if partName == "hazard_type" {
-                string|mime:ParserError textResult = part.getText();
-                if textResult is string {
-                    hazardType = textResult;
-                    log:printInfo("Hazard Type: " + hazardType);
-                }
-            } else if partName == "severity_level" {
-                string|mime:ParserError textResult = part.getText();
-                if textResult is string {
-                    severityLevel = textResult;
-                    log:printInfo("Severity: " + severityLevel);
-                }
-            } else if partName == "description" {
-                string|mime:ParserError textResult = part.getText();
-                if textResult is string {
-                    description = textResult;
-                    log:printInfo("Description: " + description);
-                }
-            } else if partName == "latitude" {
-                string|mime:ParserError textResult = part.getText();
-                if textResult is string {
-                    latitude = textResult;
-                    log:printInfo("Latitude: " + latitude);
-                }
-            } else if partName == "longitude" {
-                string|mime:ParserError textResult = part.getText();
-                if textResult is string {
-                    longitude = textResult;
-                    log:printInfo("Longitude: " + longitude);
-                }
-            } else if partName == "address" {
-                string|mime:ParserError textResult = part.getText();
-                if textResult is string {
-                    address = textResult;
-                    log:printInfo("Address: " + address);
-                }
+    if reportsResult is error {
+        log:printError("Failed to retrieve reports: " + reportsResult.message());
+        res.setPayload(createErrorResponse("Failed to retrieve reports: " + reportsResult.message()));
+    } else {
+        types:HazardReport[] typedReports = [];
+        foreach var r in reportsResult {
+            types:Location? location = ();
+            // Fix: Properly handle optional location
+            if r.location is record {| decimal lat; decimal lng; string? address; |} {
+                record {| decimal lat; decimal lng; string? address; |} loc = <record {| decimal lat; decimal lng; string? address; |}>r.location;
+                location = {
+                    lat: loc.lat,
+                    lng: loc.lng,
+                    address: loc.address
+                };
             }
+            
+            types:HazardReport report = {
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                hazard_type: r.hazard_type,
+                severity_level: r.severity_level,
+                status: r.status,
+                images: r.images,
+                location: location,
+                created_at: r.created_at,
+                updated_at: r.updated_at
+            };
+            typedReports.push(report);
         }
         
-        // Validate required fields
-        if title == "" || hazardType == "" || severityLevel == "" {
-            res.setPayload({"status": "error", "message": "Missing required fields: title, hazard_type, severity_level"});
+        types:ReportsResponse response = {
+            status: "success",
+            message: "Reports retrieved successfully",
+            reports: typedReports
+        };
+        res.setPayload(response);
+    }
+    
+    check caller->respond(res);
+}
+
+public function handleUpdateReport(http:Caller caller, http:Request req, int reportId) returns error? {
+    http:Response res = createCorsResponse();
+
+    json|error body = req.getJsonPayload();
+    if body is error {
+        res.setPayload(createErrorResponse("Invalid JSON payload"));
+        check caller->respond(res);
+        return;
+    }
+    
+    types:UpdateReportPayload|error updateData = body.cloneWithType(types:UpdateReportPayload);
+    if updateData is error {
+        res.setPayload(createErrorResponse("Invalid update data"));
+        check caller->respond(res);
+        return;
+    }
+    
+    if (updateData?.title is ()) || (updateData?.hazard_type is ()) || (updateData?.severity_level is ()) {
+        res.setPayload(createErrorResponse("Missing required fields"));
+        check caller->respond(res);
+        return;
+    }
+    
+    string title = updateData?.title ?: "";
+    string description = updateData?.description ?: "";
+    string hazardType = updateData?.hazard_type ?: "";
+    string severityLevel = updateData?.severity_level ?: "";
+    
+    var result = database:updateHazardReport(reportId, title, description, hazardType, severityLevel);
+    
+    if result is error {
+        log:printError("Failed to update report: " + result.message());
+        res.setPayload(createErrorResponse("Failed to update report: " + result.message()));
+    } else {
+        types:Location? location = ();
+        // Fix: Properly handle optional location
+        if result.location is record {| decimal lat; decimal lng; string? address; |} {
+            record {| decimal lat; decimal lng; string? address; |} loc = <record {| decimal lat; decimal lng; string? address; |}>result.location;
+            location = {
+                lat: loc.lat,
+                lng: loc.lng,
+                address: loc.address
+            };
+        }
+        
+        types:HazardReport reportData = {
+            id: result.id,
+            title: result.title,
+            description: result.description,
+            hazard_type: result.hazard_type,
+            severity_level: result.severity_level,
+            status: result.status,
+            images: result.images,
+            location: location,
+            created_at: result.created_at,
+            updated_at: result.updated_at
+        };
+        
+        types:UpdateReportResponse response = {
+            status: "success",
+            message: "Report updated successfully",
+            data: reportData
+        };
+        res.setPayload(response);
+    }
+    
+    check caller->respond(res);
+}
+public function handleDeleteReport(http:Caller caller, http:Request req, int reportId) returns error? {
+    http:Response res = createCorsResponse();
+    
+    boolean|error result = database:deleteHazardReport(reportId);
+    
+    if result is boolean && result {
+        types:DeleteReportResponse response = {
+            status: "success",
+            message: "Report deleted successfully"
+        };
+        res.setPayload(response);
+    } else {
+        string errorMsg = result is error ? result.message() : "Failed to delete report";
+        log:printError("Failed to delete report: " + errorMsg);
+        res.setPayload(createErrorResponse("Failed to delete report: " + errorMsg));
+    }
+    
+    check caller->respond(res);
+}
+
+type MultipartData record {
+    string title;
+    string description;
+    string hazardType;
+    string severityLevel;
+    string latitude;
+    string longitude;
+    string address;
+    string[] imageNames;
+};
+
+type LocationData record {
+    decimal? latitude;
+    decimal? longitude;
+    string? address;
+};
+
+function handleMultipartSubmission(http:Caller caller, http:Request req, http:Response res) returns error? {
+    mime:Entity[]|http:ClientError bodyPartsResult = req.getBodyParts();
+    
+    if bodyPartsResult is mime:Entity[] {
+        MultipartData data = extractMultipartData(bodyPartsResult);
+        
+        if data.title == "" || data.hazardType == "" || data.severityLevel == "" {
+            res.setPayload(createErrorResponse("Missing required fields: title, hazard_type, severity_level"));
             check caller->respond(res);
             return;
         }
         
-        // Convert location strings to decimals for database
-        decimal? latDecimal = ();
-        decimal? lngDecimal = ();
+        LocationData location = parseLocationData(data.latitude, data.longitude, data.address);
         
-        if latitude != "" {
-            decimal|error latResult = decimal:fromString(latitude);
-            if latResult is decimal {
-                latDecimal = latResult;
-            }
-        }
-        
-        if longitude != "" {
-            decimal|error lngResult = decimal:fromString(longitude);
-            if lngResult is decimal {
-                lngDecimal = lngResult;
-            }
-        }
-        
-        // Try to insert into database
-        int|error result = database:insertHazardReport(title, description, hazardType, severityLevel, imageNames, latDecimal, lngDecimal, address);
+        int|error result = database:insertHazardReport(
+            data.title, 
+            data.description, 
+            data.hazardType, 
+            data.severityLevel, 
+            data.imageNames, 
+            location.latitude, 
+            location.longitude, 
+            location.address
+        );
         
         if result is int {
-            string[] imageUrls = imageNames.map(name => "http://localhost:8080/api/images/" + name);
+            string[] imageUrls = data.imageNames.map(name => "http://localhost:8080/api/images/" + name);
             
             log:printInfo("Report created successfully with ID: " + result.toString());
-            log:printInfo("Summary: " + imageNames.length().toString() + " images, Location: " + address);
             
             types:ApiResponse response = {
                 status: "success",
-                message: "Report submitted successfully with " + imageNames.length().toString() + " images",
+                message: "Report submitted successfully with " + data.imageNames.length().toString() + " images",
                 report_id: result,
-                images_uploaded: imageNames.length(),
+                images_uploaded: data.imageNames.length(),
                 image_urls: imageUrls
             };
             res.setPayload(response);
-            check caller->respond(res);
         } else {
             log:printError("Database error: " + result.toString());
-            res.setPayload({"status": "error", "message": "Database error: " + result.toString()});
-            check caller->respond(res);
-        }
-    } else {
-        res.setPayload({"status": "error", "message": "Invalid multipart payload"});
-        check caller->respond(res);
+            res.setPayload(createErrorResponse("Database error: " + result.toString()));
+        }} else {
+        res.setPayload(createErrorResponse("Invalid multipart payload"));
     }
+    
+    check caller->respond(res);
 }
 
 function handleJsonSubmission(http:Caller caller, http:Request req, http:Response res) returns error? {
     json|error body = req.getJsonPayload();
     if body is error {
-        res.setPayload({"status": "error", "message": "Invalid JSON payload"});
+        res.setPayload(createErrorResponse("Invalid JSON payload"));
         check caller->respond(res);
         return;
     }
     
     types:HazardReportPayload|error report = body.cloneWithType(types:HazardReportPayload);
     if report is error {
-        res.setPayload({"status": "error", "message": "Invalid report data"});
+        res.setPayload(createErrorResponse("Invalid report data"));
         check caller->respond(res);
         return;
     }
     
     string[] emptyImages = [];
-    decimal? latitude = ();
-    decimal? longitude = ();
-    string? address = ();
-    
-
-    // Handle optional description safely
-    string? reportDescription = report["description"] is string ? report["description"] : "";
+    string description = report?.description ?: "";
     
     int|error result = database:insertHazardReport(
         report.title,
-        reportDescription ?: "",
+        description,
         report.hazard_type,
         report.severity_level,
         emptyImages,
-        latitude,
-        longitude,
-        address
+        (),
+        (),
+        ()
     );
     
     if result is int {
@@ -256,9 +358,119 @@ function handleJsonSubmission(http:Caller caller, http:Request req, http:Respons
             image_urls: []
         };
         res.setPayload(response);
-        check caller->respond(res);
     } else {
-        res.setPayload({"status": "error", "message": result.toString()});
-        check caller->respond(res);
+        res.setPayload(createErrorResponse(result.toString()));
     }
+    
+    check caller->respond(res);
+}
+
+function extractMultipartData(mime:Entity[] bodyParts) returns MultipartData {
+    MultipartData data = {
+        title: "",
+        description: "",
+        hazardType: "",
+        severityLevel: "",
+        latitude: "",
+        longitude: "",
+        address: "",
+        imageNames: []
+    };
+    
+    foreach mime:Entity part in bodyParts {
+        mime:ContentDisposition contentDisposition = part.getContentDisposition();
+        string partName = contentDisposition.name;
+        
+        match partName {
+            "images" => {
+                string|error savedFileName = saveImageFile(part);
+                if savedFileName is string {
+                    data.imageNames.push(savedFileName);
+                    log:printInfo("Image saved: " + savedFileName);
+                } else {
+                    log:printError("Image save failed: " + savedFileName.message());
+                }
+            }
+            "title" => {
+                data.title = getTextFromPart(part);
+            }
+            "hazard_type" => {
+                data.hazardType = getTextFromPart(part);
+            }
+            "severity_level" => {
+                data.severityLevel = getTextFromPart(part);
+            }
+            "description" => {
+                data.description = getTextFromPart(part);
+            }
+            "latitude" => {
+                data.latitude = getTextFromPart(part);
+            }
+            "longitude" => {
+                data.longitude = getTextFromPart(part);
+            }
+            "address" => {
+                data.address = getTextFromPart(part);
+            }
+        }
+    }
+    
+    return data;
+}
+
+function getTextFromPart(mime:Entity part) returns string {
+    string|mime:ParserError textResult = part.getText();
+    return textResult is string ? textResult : "";
+}
+
+function parseLocationData(string latitude, string longitude, string address) returns LocationData {
+    decimal? latDecimal = ();
+    decimal? lngDecimal = ();
+    
+    if latitude != "" {
+        decimal|error latResult = decimal:fromString(latitude);
+        if latResult is decimal {
+            latDecimal = latResult;
+        }
+    }
+    
+    if longitude != "" {
+        decimal|error lngResult = decimal:fromString(longitude);
+        if lngResult is decimal {
+            lngDecimal = lngResult;
+        }
+    }
+    
+    return {
+        latitude: latDecimal,
+        longitude: lngDecimal,
+        address: address != "" ? address : ()
+    };
+}
+
+function getFileExtension(string filename) returns string {
+    int? lastDotIndex = filename.lastIndexOf(".");
+    if lastDotIndex is int && lastDotIndex > 0 {
+        return filename.substring(lastDotIndex);
+    }
+    return ".jpg";
+}
+
+function isValidImageExtension(string extension) returns boolean {
+    return ALLOWED_IMAGE_EXTENSIONS.some(ext => ext.toLowerAscii() == extension.toLowerAscii());
+}
+
+function createCorsResponse() returns http:Response {
+    http:Response res = new;
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return res;
+}
+
+function createErrorResponse(string message) returns json {
+    return {
+        "status": "error", 
+        "message": message
+    };
 }

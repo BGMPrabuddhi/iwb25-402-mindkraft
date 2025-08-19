@@ -111,7 +111,7 @@ const Header = () => {
             <Link href="/" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
               Home
             </Link>
-            <Link href="/reports" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
+            <Link href="/reports-history" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
              Report History
             </Link>
           </nav>
