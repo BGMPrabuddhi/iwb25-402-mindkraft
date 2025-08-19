@@ -127,6 +127,66 @@ service /api on apiListener {
         };
     }
 
+    // ==================== PASSWORD RECOVERY ENDPOINTS ====================
+
+    // Request password reset OTP
+    resource function post auth/forgot\-password(user:ForgotPasswordRequest req) returns json {
+        user:ForgotPasswordResponse|error result = auth:requestPasswordReset(req);
+        if result is error {
+            log:printError("Password reset request failed", result);
+            return {
+                success: false,
+                message: "Failed to process password reset request",
+                errorCode: "reset_request_failed"
+            };
+        }
+        return {
+            success: result.success,
+            message: result.message,
+            errorCode: result?.errorCode
+        };
+    }
+
+    // Verify OTP
+    resource function post auth/verify\-otp(user:VerifyOtpRequest req) returns json {
+        user:VerifyOtpResponse|error result = auth:verifyOtp(req);
+        if result is error {
+            log:printError("OTP verification failed", result);
+            return {
+                success: false,
+                message: "Failed to verify OTP",
+                errorCode: "otp_verification_failed"
+            };
+        }
+        return {
+            success: result.success,
+            message: result.message,
+            resetToken: result?.resetToken,
+            errorCode: result?.errorCode
+        };
+    }
+
+    // Reset password
+    resource function post auth/reset\-password(user:ResetPasswordRequest req) returns json {
+        user:ResetPasswordResponse|error result = auth:resetPassword(req);
+        if result is error {
+            log:printError("Password reset failed", result);
+            return {
+                success: false,
+                message: "Failed to reset password",
+                errorCode: "password_reset_failed"
+            };
+        }
+        return {
+            success: result.success,
+            message: result.message,
+            errorCode: result?.errorCode
+        };
+    }
+
+    // ==================== HAZARD REPORT ENDPOINTS ====================
+
+    // Submit hazard report
     resource function post reports(http:Caller caller, http:Request req) returns error? {
         check reports:handleReportSubmission(caller, req);
     }
@@ -225,11 +285,11 @@ service / on new http:Listener(serverPort + 1) {
     }
 }
 
+// Initialize database on startup
 public function main() returns error? {
     check database:initializeDatabase();
     log:printInfo("Database initialized successfully");
-    log:printInfo("API server started on port " + serverPort.toString());
-    log:printInfo("Direct server started on port " + (serverPort + 1).toString());
+    log:printInfo("SafeRoute API server started on port " + serverPort.toString());
 }
 
 type ReportQueryParams record {

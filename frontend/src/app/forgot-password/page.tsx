@@ -5,21 +5,19 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
 
-type LoginFormData = {
+type ForgotPasswordFormData = {
   email: string
-  password: string
 }
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState<LoginFormData>({
-    email: '',
-    password: ''
+  const [formData, setFormData] = useState<ForgotPasswordFormData>({
+    email: ''
   })
   const [isLoading, setIsLoading] = useState(false)
-  const [errors, setErrors] = useState<Partial<LoginFormData>>({})
-  const [apiError, setApiError] = useState('')
+  const [errors, setErrors] = useState<Partial<ForgotPasswordFormData>>({})
   const [isVisible, setIsVisible] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   useEffect(() => {
     setIsVisible(true)
@@ -32,7 +30,7 @@ export default function LoginPage() {
       [name]: value
     }))
     // Clear error when user starts typing
-    if (errors[name as keyof LoginFormData]) {
+    if (errors[name as keyof ForgotPasswordFormData]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
@@ -41,18 +39,12 @@ export default function LoginPage() {
   }
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<LoginFormData> = {}
+    const newErrors: Partial<ForgotPasswordFormData> = {}
 
     if (!formData.email) {
       newErrors.email = 'Email is required'
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid'
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required'
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters'
     }
 
     setErrors(newErrors)
@@ -65,35 +57,61 @@ export default function LoginPage() {
     if (!validateForm()) return
 
     setIsLoading(true)
-    setApiError('')
     
     try {
-      console.log('🔄 Submitting login form...');
+      console.log('🔄 Submitting forgot password form...');
       
-      // Call the login API
-      const result = await authAPI.login({
-        email: formData.email,
-        password: formData.password
+      // Call the forgot password API
+      const result = await authAPI.requestPasswordReset({
+        email: formData.email
       })
 
-      console.log('📋 Login result:', result);
+      console.log('📋 Forgot password result:', result);
 
       if (result.success) {
-        alert('✅ Login successful! Welcome back!')
-        // Redirect to home page after successful login
-        router.push('/home')
+        setShowSuccess(true)
+        // Store email for next step
+        sessionStorage.setItem('reset_email', formData.email)
+        // Redirect to OTP verification page after 3 seconds
+        setTimeout(() => {
+          router.push('/verify-otp')
+        }, 3000)
       } else {
-        const errorMessage = result.message || 'Login failed. Please try again.';
-        console.error('Login failed:', errorMessage);
+        const errorMessage = result.message || 'Failed to send reset email. Please try again.';
+        console.error('Forgot password failed:', errorMessage);
         alert(`❌ ${errorMessage}`);
       }
       
     } catch (error) {
-      console.error('❌ Login error:', error)
-      alert('❌ Login failed. Please try again.')
+      console.error('❌ Forgot password error:', error)
+      alert('❌ Failed to send reset email. Please try again.')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (showSuccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8 text-center">
+          <div className="animate-bounce">
+            <div className="inline-block p-4 bg-gradient-to-r from-green-500 to-blue-600 rounded-full mb-4">
+              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M12 2v20" />
+              </svg>
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">📧 Email Sent!</h1>
+          <p className="text-lg text-gray-600 mb-6">
+            We've sent an OTP to <span className="font-semibold text-blue-600">{formData.email}</span>
+          </p>
+          <p className="text-sm text-gray-500">
+            Redirecting to OTP verification page...
+          </p>
+          <div className="animate-spin mx-auto w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -105,32 +123,16 @@ export default function LoginPage() {
         <div className="absolute -bottom-8 left-20 w-72 h-72 bg-gradient-to-br from-pink-200 to-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
       </div>
 
-      {/* Floating particles */}
-      <div className="absolute inset-0">
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-2 h-2 bg-white rounded-full opacity-20 animate-float"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${3 + Math.random() * 2}s`
-            }}
-          ></div>
-        ))}
-      </div>
-
-      {/* Back to Home */}
+      {/* Back to Login */}
       <div className="absolute top-6 left-6 z-20">
         <Link 
-          href="/" 
+          href="/login" 
           className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-all duration-300 transform hover:scale-105"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          <span className="font-medium">Back to Home</span>
+          <span className="font-medium">Back to Login</span>
         </Link>
       </div>
 
@@ -142,17 +144,17 @@ export default function LoginPage() {
           <div className="text-center transform transition-all duration-700 delay-200">
             <div className="inline-block p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-4 animate-pulse-slow">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
             </div>
             <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2 animate-gradient">
-              MindKraft
+              SafeRoute
             </h1>
-            <h2 className="text-2xl font-semibold text-gray-700 mb-2 animate-fade-in-up">Welcome Back!</h2>
-            <p className="text-gray-600 animate-fade-in-up animation-delay-300">Sign in to your account to continue your journey</p>
+            <h2 className="text-2xl font-semibold text-gray-700 mb-2 animate-fade-in-up">Forgot Password?</h2>
+            <p className="text-gray-600 animate-fade-in-up animation-delay-300">Enter your email to receive an OTP for password reset</p>
           </div>
 
-          {/* Login Form */}
+          {/* Forgot Password Form */}
           <div className="bg-white/80 backdrop-blur-lg py-8 px-6 shadow-2xl rounded-2xl border border-white/20 transform transition-all duration-700 delay-400 hover:shadow-3xl hover:scale-105">
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="group">
@@ -184,55 +186,6 @@ export default function LoginPage() {
                 )}
               </div>
 
-              <div className="group">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 0h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
-                      errors.password ? 'border-red-300 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
-                    placeholder="Enter your password"
-                  />
-                </div>
-                {errors.password && (
-                  <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.password}</p>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center group">
-                  <input
-                    id="remember-me"
-                    name="remember-me"
-                    type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded transition-all duration-300 hover:scale-110"
-                  />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 transition-colors duration-300 group-hover:text-blue-600">
-                    Remember me
-                  </label>
-                </div>
-
-                <div className="text-sm">
-                  <Link href="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
-                    Forgot your password?
-                  </Link>
-                </div>
-              </div>
-
               <div>
                 <button
                   type="submit"
@@ -249,32 +202,26 @@ export default function LoginPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span className="animate-pulse">Signing in...</span>
+                      <span className="animate-pulse">Sending OTP...</span>
                     </div>
                   ) : (
                     <span className="flex items-center">
-                      Sign In
+                      Send Reset OTP
                       <svg className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M12 2v20" />
                       </svg>
                     </span>
                   )}
                 </button>
               </div>
-
-              {apiError && (
-                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-sm text-red-600">{apiError}</p>
-                </div>
-              )}
             </form>
 
-            {/* Sign Up Link */}
+            {/* Back to Login Link */}
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Don&apos;t have an account?{' '}
-                <Link href="/sign-up" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
-                  Create one here
+                Remember your password?{' '}
+                <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
+                  Sign in here
                 </Link>
               </p>
             </div>
@@ -282,7 +229,7 @@ export default function LoginPage() {
 
           {/* Features */}
           <div className="text-center transform transition-all duration-700 delay-600">
-            <p className="text-sm text-gray-500 mb-4 animate-fade-in-up">Trusted by thousands of users worldwide</p>
+            <p className="text-sm text-gray-500 mb-4 animate-fade-in-up">Secure password reset process</p>
             <div className="flex justify-center space-x-8 text-sm text-gray-400">
               <span className="flex items-center space-x-2 hover:text-blue-500 transition-colors duration-300 transform hover:scale-110">
                 <span className="animate-bounce">🔒</span>
@@ -293,8 +240,8 @@ export default function LoginPage() {
                 <span>Fast</span>
               </span>
               <span className="flex items-center space-x-2 hover:text-green-500 transition-colors duration-300 transform hover:scale-110">
-                <span className="animate-bounce animation-delay-1000">🎯</span>
-                <span>Reliable</span>
+                <span className="animate-bounce animation-delay-1000">📧</span>
+                <span>Email OTP</span>
               </span>
             </div>
           </div>
@@ -307,10 +254,6 @@ export default function LoginPage() {
           33% { transform: translate(30px, -50px) scale(1.1); }
           66% { transform: translate(-20px, 20px) scale(0.9); }
           100% { transform: translate(0px, 0px) scale(1); }
-        }
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
         }
         @keyframes gradient {
           0%, 100% { background-size: 200% 200%; background-position: left center; }
@@ -335,7 +278,6 @@ export default function LoginPage() {
         }
         
         .animate-blob { animation: blob 7s infinite; }
-        .animate-float { animation: float 3s ease-in-out infinite; }
         .animate-gradient { animation: gradient 3s ease infinite; }
         .animate-fade-in-up { animation: fade-in-up 0.6s ease-out; }
         .animate-fade-in-down { animation: fade-in-down 0.3s ease-out; }

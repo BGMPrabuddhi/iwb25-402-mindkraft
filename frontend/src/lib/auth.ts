@@ -49,6 +49,41 @@ export interface UserProfile {
   errorCode?: string;
 }
 
+// Password Recovery Types
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  success: boolean;
+  message: string;
+  errorCode?: string;
+}
+
+export interface VerifyOtpRequest {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyOtpResponse {
+  success: boolean;
+  message: string;
+  resetToken?: string;
+  errorCode?: string;
+}
+
+export interface ResetPasswordRequest {
+  resetToken: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  success: boolean;
+  message: string;
+  errorCode?: string;
+}
+
 export interface UpdateProfileRequest {
   firstName: string;
   lastName: string;
@@ -311,6 +346,98 @@ export class AuthAPI {
       return localStorage.getItem(TOKEN_COOKIE_NAME);
     }
     return null;
+  }
+
+  // Password Recovery Methods
+  
+  // Request password reset OTP
+  async requestPasswordReset(data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
+    try {
+      console.log('🔄 Requesting password reset...', { email: data.email });
+      
+      const response: AxiosResponse = await axios.post('/api/auth/forgot-password', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      });
+      
+      console.log('✅ Password reset request response:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('❌ Password reset request error:', error);
+      
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      
+      return {
+        success: false,
+        message: 'Network error occurred during password reset request',
+        errorCode: 'network_error'
+      };
+    }
+  }
+
+  // Verify OTP for password reset
+  async verifyOtp(data: VerifyOtpRequest): Promise<VerifyOtpResponse> {
+    try {
+      console.log('🔄 Verifying OTP...', { email: data.email, otp: '***' });
+      
+      const response: AxiosResponse = await axios.post('/api/auth/verify-otp', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      });
+      
+      console.log('✅ OTP verification response:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('❌ OTP verification error:', error);
+      
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      
+      return {
+        success: false,
+        message: 'Network error occurred during OTP verification',
+        errorCode: 'network_error'
+      };
+    }
+  }
+
+  // Reset password with new password
+  async resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+    try {
+      console.log('🔄 Resetting password...');
+      
+      const response: AxiosResponse = await axios.post('/api/auth/reset-password', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      });
+      
+      console.log('✅ Password reset response:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('❌ Password reset error:', error);
+      
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      
+      return {
+        success: false,
+        message: 'Network error occurred during password reset',
+        errorCode: 'network_error'
+      };
+    }
   }
 
   // Set auth token in storage
