@@ -5,6 +5,7 @@
 \c saferoute_db;
 
 -- Drop existing tables if they exist
+DROP TABLE IF EXISTS password_reset_otps CASCADE;
 DROP TABLE IF EXISTS hazard_reports CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
@@ -24,6 +25,17 @@ CREATE TABLE users (
     full_address TEXT NOT NULL,
     profile_image TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create password_reset_otps table
+CREATE TABLE password_reset_otps (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    otp VARCHAR(6) NOT NULL,
+    expiration_time BIGINT NOT NULL,
+    is_used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(email)
 );
 
 -- Create hazard_reports table
@@ -48,6 +60,10 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_coordinates ON users(latitude, longitude);
 CREATE INDEX idx_users_location ON users(location);
 CREATE INDEX idx_users_city_country ON users(city, country);
+
+-- Create indexes for password_reset_otps table
+CREATE INDEX idx_password_reset_otps_email ON password_reset_otps(email);
+CREATE INDEX idx_password_reset_otps_expiration ON password_reset_otps(expiration_time);
 
 -- Create indexes for hazard_reports table
 CREATE INDEX idx_hazard_reports_type ON hazard_reports(hazard_type);
