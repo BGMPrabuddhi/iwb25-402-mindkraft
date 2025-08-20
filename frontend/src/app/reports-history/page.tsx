@@ -55,13 +55,14 @@ const ReportsHistoryPage = () => {
 
 	const fetchReports = async () => {
 		try {
-			const response = await reportsAPI.getReports();
+			const response = await reportsAPI.getUserReports();
 			console.log('API Response:', response); // Debug log
 			console.log('Reports array:', response.reports); // Debug log
 			setReports(response.reports || []); // Ensure it's an array
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error('Fetch error:', err); // Debug log
-			setError(err.message || "Failed to fetch reports.");
+			const error = err as { message?: string }
+			setError(error?.message || "Failed to fetch reports.");
 		}
 	};
 
@@ -119,8 +120,9 @@ const ReportsHistoryPage = () => {
 				severity_level: 'medium'
 			});
 			showSnackbar("Report updated successfully!");
-		} catch (err: any) {
-			showSnackbar(err.message || "Failed to update report", 'error');
+		} catch (err: unknown) {
+			const error = err as { message?: string }
+			showSnackbar(error?.message || "Failed to update report", 'error');
 		} finally {
 			setUpdateLoading(false);
 		}
@@ -146,8 +148,9 @@ const ReportsHistoryPage = () => {
 			setShowDeleteModal(false);
 			setSelectedReport(null);
 			showSnackbar("Report deleted successfully!");
-		} catch (err: any) {
-			showSnackbar(err.message || "Failed to delete report", 'error');
+		} catch (err: unknown) {
+			const error = err as { message?: string }
+			showSnackbar(error?.message || "Failed to delete report", 'error');
 		} finally {
 			setDeleteLoading(null);
 		}
@@ -197,7 +200,7 @@ const ReportsHistoryPage = () => {
 							</svg>
 						</div>
 						<h3 className="section-title mb-2">No Reports Yet</h3>
-						<p className="text-gray-500 mb-6">You haven't submitted any hazard reports yet.</p>
+						<p className="text-gray-500 mb-6">You haven&apos;t submitted any hazard reports yet.</p>
 						<button
 							onClick={() => router.push('/home')}
 							className="btn-primary"

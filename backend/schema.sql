@@ -41,6 +41,7 @@ CREATE TABLE password_reset_otps (
 -- Create hazard_reports table
 CREATE TABLE hazard_reports (
     id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     hazard_type VARCHAR(100) NOT NULL,
@@ -52,7 +53,8 @@ CREATE TABLE hazard_reports (
     longitude DECIMAL(11, 8),
     address TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Create indexes for users table
@@ -66,6 +68,7 @@ CREATE INDEX idx_password_reset_otps_email ON password_reset_otps(email);
 CREATE INDEX idx_password_reset_otps_expiration ON password_reset_otps(expiration_time);
 
 -- Create indexes for hazard_reports table
+CREATE INDEX idx_hazard_reports_user_id ON hazard_reports(user_id);
 CREATE INDEX idx_hazard_reports_type ON hazard_reports(hazard_type);
 CREATE INDEX idx_hazard_reports_severity ON hazard_reports(severity_level);
 CREATE INDEX idx_hazard_reports_status ON hazard_reports(status);

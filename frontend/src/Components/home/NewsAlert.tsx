@@ -2,83 +2,61 @@
 
 import { useState, useEffect } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
-
-interface NewsItem {
-  id: number
-  title: string
-  content: string
-  location: string
-  timestamp: Date
-  severity: 'high' | 'medium' | 'low'
-  type: 'accident' | 'Natural disaster' | 'construction' | 'traffic'
-}
+import { reportsAPI, HazardReport } from '@/lib/api'
 
 interface NewsAlertProps {
   userLocation?: string
 }
 
-const NewsAlert = ({ userLocation = 'Colombo' }: NewsAlertProps) => {
+const NewsAlert = ({ userLocation }: NewsAlertProps) => {
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0)
-  const [newsData, setNewsData] = useState<NewsItem[]>([])
+  const [nearbyReports, setNearbyReports] = useState<HazardReport[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [userLocationData, setUserLocationData] = useState<{
+    latitude: number;
+    longitude: number;
+    city: string;
+  } | null>(null)
 
-  // Mock news data - in real app, fetch from Ballerina backend
   useEffect(() => {
-    const fetchNews = async () => {
-      // Simulate API call delay
-      setTimeout(() => {
-        const mockNews: NewsItem[] = [
-          {
-            id: 1,
-            title: "Road Closure: Galle Road",
-            content: "Heavy flooding reported on Galle Road near Bambalapitiya. Traffic diverted to alternative routes.",
-            location: "Colombo",
-            timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 mins ago
-            severity: "high",
-            type: "Natural disaster"
-          },
-          {
-            id: 2,
-            title: "Traffic Accident: Kandy Road",
-            content: "Minor vehicle collision at Kiribathgoda junction. One lane blocked, traffic moving slowly.",
-            location: "Colombo",
-            timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-            severity: "medium",
-            type: "accident"
-          },
-          {
-            id: 3,
-            title: "Construction Work: Baseline Road",
-            content: "Ongoing road maintenance on Baseline Road from 6 AM to 4 PM. Use Galle Road as alternative.",
-            location: "Colombo",
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-            severity: "low",
-            type: "construction"
-          }
-        ]
-        setNewsData(mockNews)
+    const fetchNearbyReports = async () => {
+      setIsLoading(true)
+      setError(null)
+      
+      try {
+        const response = await reportsAPI.getNearbyReports(20) // 20km radius
+        setNearbyReports(response.reports || [])
+        setUserLocationData(response.user_location)
+      } catch (err: unknown) {
+        console.error('Error fetching nearby reports:', err)
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch nearby reports'
+        setError(errorMessage)
+        setNearbyReports([])
+      } finally {
         setIsLoading(false)
-      }, 1000)
+      }
     }
 
-    fetchNews()
-  }, [userLocation])
+    fetchNearbyReports()
+  }, [])
 
   const nextNews = () => {
     setCurrentNewsIndex((prev) => 
-      prev === newsData.length - 1 ? 0 : prev + 1
+      prev === nearbyReports.length - 1 ? 0 : prev + 1
     )
   }
 
   const prevNews = () => {
     setCurrentNewsIndex((prev) => 
-      prev === 0 ? newsData.length - 1 : prev - 1
+      prev === 0 ? nearbyReports.length - 1 : prev - 1
     )
   }
 
-  const formatTimeAgo = (timestamp: Date) => {
+  const formatTimeAgo = (timestamp: string) => {
     const now = new Date()
-    const diffInMinutes = Math.floor((now.getTime() - timestamp.getTime()) / (1000 * 60))
+    const past = new Date(timestamp)
+    const diffInMinutes = Math.floor((now.getTime() - past.getTime()) / (1000 * 60))
     
     if (diffInMinutes < 60) {
       return `${diffInMinutes} minutes ago`
@@ -109,7 +87,19 @@ const NewsAlert = ({ userLocation = 'Colombo' }: NewsAlertProps) => {
     )
   }
 
-  if (newsData.length === 0) {
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <div className="flex items-center justify-center mb-2">
+          <ExclamationTriangleIcon className="h-8 w-8 text-red-600" />
+        </div>
+        <h3 className="text-lg font-medium text-red-800 mb-1">Unable to Load Alerts</h3>
+        <p className="text-red-600">{error}</p>
+      </div>
+    )
+  }
+
+  if (nearbyReports.length === 0) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
         <div className="flex items-center justify-center mb-2">
@@ -118,12 +108,14 @@ const NewsAlert = ({ userLocation = 'Colombo' }: NewsAlertProps) => {
           </svg>
         </div>
         <h3 className="text-lg font-medium text-green-800 mb-1">All Clear!</h3>
-        <p className="text-green-600">No recent traffic alerts for {userLocation}</p>
+        <p className="text-green-600">
+          No recent traffic alerts within 20km of {userLocationData?.city || userLocation || 'your location'}
+        </p>
       </div>
     )
   }
 
-  const currentNews = newsData[currentNewsIndex]
+  const currentReport = nearbyReports[currentNewsIndex]
   
   const severityStyles = {
     high: {
@@ -155,7 +147,12 @@ const NewsAlert = ({ userLocation = 'Colombo' }: NewsAlertProps) => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
       </svg>
     ),
-    naturaldisaster: (
+    pothole: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+      </svg>
+    ),
+    "Natural disaster": (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
       </svg>
@@ -164,42 +161,46 @@ const NewsAlert = ({ userLocation = 'Colombo' }: NewsAlertProps) => {
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
       </svg>
-    ),
-    traffic: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
     )
   }
 
-  const styles = severityStyles[currentNews.severity]
+  const styles = severityStyles[currentReport.severity_level]
 
   return (
     <div className={`rounded-xl p-6 border-2 shadow-sm transition-all duration-300 ${styles.bg} ${styles.border}`}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
-          
+          <div className={styles.icon}>
+            {typeIcons[currentReport.hazard_type] || typeIcons.accident}
+          </div>
           <h2 className={`text-lg font-semibold ${styles.text}`}>Traffic Alert</h2>
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles.badge}`}>
-            {currentNews.severity.toUpperCase()}
+            {currentReport.severity_level.toUpperCase()}
           </span>
         </div>
         <div className="text-right">
-          <p className={`text-sm font-medium ${styles.text}`}>{userLocation}</p>
+          <p className={`text-sm font-medium ${styles.text}`}>
+            {userLocationData?.city || userLocation || 'Your Area'}
+          </p>
           <p className={`text-xs opacity-75 ${styles.text}`}>
-            {formatTimeAgo(currentNews.timestamp)}
+            {formatTimeAgo(currentReport.created_at)}
           </p>
         </div>
       </div>
       
       <div className="mb-6">
-        <h3 className={`font-semibold mb-2 ${styles.text}`}>{currentNews.title}</h3>
+        <h3 className={`font-semibold mb-2 ${styles.text}`}>{currentReport.title}</h3>
         <p className={`text-sm leading-relaxed ${styles.text} opacity-90`}>
-          {currentNews.content}
+          {currentReport.description || `${currentReport.hazard_type.replace('_', ' ')} reported in the area.`}
         </p>
+        {currentReport.location?.address && (
+          <p className={`text-xs mt-2 ${styles.text} opacity-75`}>
+            📍 {currentReport.location.address}
+          </p>
+        )}
       </div>
 
-      {newsData.length > 1 && (
+      {nearbyReports.length > 1 && (
         <div className="flex items-center justify-between">
           <button 
             onClick={prevNews}
@@ -210,7 +211,7 @@ const NewsAlert = ({ userLocation = 'Colombo' }: NewsAlertProps) => {
           </button>
           
           <div className="flex space-x-2">
-            {newsData.map((_, index) => (
+            {nearbyReports.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentNewsIndex(index)}
@@ -233,6 +234,12 @@ const NewsAlert = ({ userLocation = 'Colombo' }: NewsAlertProps) => {
           </button>
         </div>
       )}
+
+      <div className="mt-4 text-center">
+        <p className={`text-xs ${styles.text} opacity-75`}>
+          Showing {nearbyReports.length} alert{nearbyReports.length !== 1 ? 's' : ''} within 20km
+        </p>
+      </div>
     </div>
   )
 }

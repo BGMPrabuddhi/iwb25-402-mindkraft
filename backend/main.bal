@@ -191,6 +191,66 @@ service /api on apiListener {
         check reports:handleReportSubmission(caller, req);
     }
 
+    resource function get reports/user(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            return createErrorResponse("internal_error", "Failed to retrieve user profile");
+        }
+
+        var reportsResult = database:getReportsByUserId(profile.id);
+        if reportsResult is error {
+            return createErrorResponse("internal_error", "Failed to retrieve user reports");
+        }
+
+        return {
+            success: true,
+            reports: <json>reportsResult,
+            total_count: reportsResult.length()
+        };
+    }
+
+    resource function get reports/nearby(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            return createErrorResponse("internal_error", "Failed to retrieve user profile");
+        }
+
+        map<string[]> queryParams = req.getQueryParams();
+        decimal radiusKm = parseDecimalParam(getQueryParam(queryParams, "radius")) ?: 20.0;
+
+        var reportsResult = database:getNearbyReports(
+            profile.locationDetails.latitude, 
+            profile.locationDetails.longitude, 
+            radiusKm
+        );
+        
+        if reportsResult is error {
+            return createErrorResponse("internal_error", "Failed to retrieve nearby reports");
+        }
+
+        return {
+            success: true,
+            reports: <json>reportsResult,
+            total_count: reportsResult.length(),
+            user_location: {
+                latitude: profile.locationDetails.latitude,
+                longitude: profile.locationDetails.longitude,
+                city: profile.locationDetails.city
+            },
+            radius_km: radiusKm
+        };
+    }
+
     resource function get reports(http:Caller caller, http:Request req) returns error? {
         ReportQueryParams params = extractReportQueryParams(req);
         

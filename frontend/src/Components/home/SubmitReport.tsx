@@ -19,7 +19,7 @@ interface SubmitForm {
 
 declare global {
   interface Window {
-    google: any;
+    google: typeof google;
   }
 }
 
@@ -36,7 +36,6 @@ const SubmitReport = () => {
   })
 
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   
   // Map-related state
@@ -241,14 +240,8 @@ const SubmitReport = () => {
   }
   
   const confirmLocation = () => setShowMap(false)
-  
-  const removeLocation = () => {
-    setSubmitForm(prev => ({
-      ...prev,
-      location: undefined
-    }))
-  }
 
+  // Handle form submissions
   // Edit and Remove Location functionality
   const handleEditLocation = () => {
     console.log('Edit Location clicked');
@@ -340,11 +333,20 @@ const SubmitReport = () => {
     if (submitForm.title.trim().length > 255) {
       errors.push('Title must be 255 characters or less')
     }
+    if (!submitForm.hazard_type || submitForm.hazard_type.trim() === '') {
+      errors.push('Please select a hazard type')
+    }
     if (!submitForm.severity_level || submitForm.severity_level.trim() === '') {
       errors.push('Please select a severity level')
     }
     if (submitForm.description.length > 2000) {
       errors.push('Description must be 2000 characters or less')
+    }
+    if (!submitForm.location) {
+      errors.push('Please set a location for the hazard')
+    }
+    if (submitForm.images.length === 0) {
+      errors.push('Please add at least one photo of the hazard')
     }
     
     if (errors.length > 0) {
@@ -353,7 +355,6 @@ const SubmitReport = () => {
     }
 
     setIsLoading(true)
-    setError(null)
 
     try {
       const reportData: HazardReportData = {
@@ -361,7 +362,7 @@ const SubmitReport = () => {
         description: submitForm.description.trim() || undefined,
         hazard_type: submitForm.hazard_type as 'accident' | 'pothole' | 'Natural disaster' | 'construction',
         severity_level: submitForm.severity_level as 'low' | 'medium' | 'high',
-        images: submitForm.images.length > 0 ? submitForm.images : undefined,
+        images: submitForm.images,
         location: submitForm.location,
       }
 
@@ -389,7 +390,6 @@ const SubmitReport = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       console.error('Submit error:', error)
-      setError(errorMessage)
       alert(`Failed to submit report!\n\n${errorMessage}`)
     } finally {
       setIsLoading(false)
@@ -463,6 +463,8 @@ const SubmitReport = () => {
             </label>
             <select 
               required
+              aria-label="Hazard Type"
+              title="Select hazard type"
               value={submitForm.hazard_type}
               onChange={(e) => setSubmitForm(prev => ({...prev, hazard_type: e.target.value}))}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -482,6 +484,8 @@ const SubmitReport = () => {
             </label>
             <select 
               required
+              aria-label="Severity Level"
+              title="Select severity level"
               value={submitForm.severity_level}
               onChange={(e) => setSubmitForm(prev => ({...prev, severity_level: e.target.value}))}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -587,6 +591,8 @@ const SubmitReport = () => {
                         />
                         <button
                           type="button"
+                          title="Remove image"
+                          aria-label={`Remove image ${index + 1}`}
                           onClick={() => removeImage(index)}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
                           disabled={isLoading}
@@ -636,6 +642,9 @@ const SubmitReport = () => {
               <div className="flex items-center justify-between p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">Set Hazard Location</h3>
                 <button
+                  type="button"
+                  title="Close map"
+                  aria-label="Close location selector"
                   onClick={closeMapModal}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >

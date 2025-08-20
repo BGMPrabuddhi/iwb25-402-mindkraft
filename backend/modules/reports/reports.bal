@@ -7,6 +7,7 @@ import ballerina/uuid;
 import ballerina/task;
 import saferoute/backend.types;
 import saferoute/backend.database;
+import saferoute/backend.auth;
 
 configurable string uploadDir = "uploads";
 
@@ -273,6 +274,36 @@ type LocationData record {
 };
 
 function handleMultipartSubmission(http:Caller caller, http:Request req, http:Response res) returns error? {
+    // First validate authentication
+    string|http:HeaderNotFoundError authHeader = req.getHeader("Authorization");
+    if authHeader is http:HeaderNotFoundError {
+        res.setPayload(createErrorResponse("Authorization header required"));
+        check caller->respond(res);
+        return;
+    }
+
+    if !authHeader.startsWith("Bearer ") {
+        res.setPayload(createErrorResponse("Invalid authorization header format"));
+        check caller->respond(res);
+        return;
+    }
+
+    string token = authHeader.substring(7);
+    string|error userEmail = auth:validateJwtToken(token);
+    if userEmail is error {
+        res.setPayload(createErrorResponse("Invalid or expired token"));
+        check caller->respond(res);
+        return;
+    }
+
+    // Get user ID from email
+    database:User|error user = database:getUserByEmail(userEmail);
+    if user is error {
+        res.setPayload(createErrorResponse("User not found"));
+        check caller->respond(res);
+        return;
+    }
+
     mime:Entity[]|http:ClientError bodyPartsResult = req.getBodyParts();
     
     if bodyPartsResult is mime:Entity[] {
@@ -283,10 +314,17 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
             check caller->respond(res);
             return;
         }
+
+        if data.imageNames.length() == 0 {
+            res.setPayload(createErrorResponse("At least one image is required"));
+            check caller->respond(res);
+            return;
+        }
         
         LocationData location = parseLocationData(data.latitude, data.longitude, data.address);
         
         int|error result = database:insertHazardReport(
+            user.id,
             data.title, 
             data.description, 
             data.hazardType, 
@@ -313,7 +351,8 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
         } else {
             log:printError("Database error: " + result.toString());
             res.setPayload(createErrorResponse("Database error: " + result.toString()));
-        }} else {
+        }
+    } else {
         res.setPayload(createErrorResponse("Invalid multipart payload"));
     }
     
@@ -321,6 +360,36 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
 }
 
 function handleJsonSubmission(http:Caller caller, http:Request req, http:Response res) returns error? {
+    // First validate authentication
+    string|http:HeaderNotFoundError authHeader = req.getHeader("Authorization");
+    if authHeader is http:HeaderNotFoundError {
+        res.setPayload(createErrorResponse("Authorization header required"));
+        check caller->respond(res);
+        return;
+    }
+
+    if !authHeader.startsWith("Bearer ") {
+        res.setPayload(createErrorResponse("Invalid authorization header format"));
+        check caller->respond(res);
+        return;
+    }
+
+    string token = authHeader.substring(7);
+    string|error userEmail = auth:validateJwtToken(token);
+    if userEmail is error {
+        res.setPayload(createErrorResponse("Invalid or expired token"));
+        check caller->respond(res);
+        return;
+    }
+
+    // Get user ID from email
+    database:User|error user = database:getUserByEmail(userEmail);
+    if user is error {
+        res.setPayload(createErrorResponse("User not found"));
+        check caller->respond(res);
+        return;
+    }
+
     json|error body = req.getJsonPayload();
     if body is error {
         res.setPayload(createErrorResponse("Invalid JSON payload"));
@@ -339,6 +408,7 @@ function handleJsonSubmission(http:Caller caller, http:Request req, http:Respons
     string description = report?.description ?: "";
     
     int|error result = database:insertHazardReport(
+        user.id,
         report.title,
         description,
         report.hazard_type,
