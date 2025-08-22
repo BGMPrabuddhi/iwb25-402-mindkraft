@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
-import MapPopup from '@/Components/MapPopup' // Fixed import path (lowercase 'c')
+import MapPopup from '@/Components/MapPopup'
 import ImageGallery from '@/Components/ImageGallery'
+import ConfirmationDialog from '@/Components/ConfirmationDialog'
+
 interface Report {
   id: number
   title: string
@@ -18,7 +20,9 @@ interface Report {
     address?: string
   }
   created_at: string
-  status: string
+  status?: string
+  resolved_at?: string
+  original_report_id?: number
 }
 
 type TabType = 'submitted' | 'resolved'
@@ -27,43 +31,40 @@ export default function RDADashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [reports, setReports] = useState<Report[]>([])
+  const [resolvedReports, setResolvedReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
   const [reportsLoading, setReportsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>('submitted')
 
-
+  // Image gallery state
   const [imageGallery, setImageGallery] = useState<{
-  isOpen: boolean
-  images: string[]
-  initialIndex: number
-  reportTitle: string
-}>({
-  isOpen: false,
-  images: [],
-  initialIndex: 0,
-  reportTitle: ''
-})
-
-// Add function to open image gallery
-const openImageGallery = (images: string[], initialIndex: number = 0, reportTitle: string) => {
-  setImageGallery({
-    isOpen: true,
-    images,
-    initialIndex,
-    reportTitle
-  })
-}
-
-// Add function to close image gallery
-const closeImageGallery = () => {
-  setImageGallery({
+    isOpen: boolean
+    images: string[]
+    initialIndex: number
+    reportTitle: string
+  }>({
     isOpen: false,
     images: [],
     initialIndex: 0,
     reportTitle: ''
   })
-}
-  // Add state for map popup
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean
+    reportId: number | null
+    action: string
+    title: string
+    message: string
+  }>({
+    isOpen: false,
+    reportId: null,
+    action: '',
+    title: '',
+    message: ''
+  })
+
+  // Map popup state
   const [mapPopup, setMapPopup] = useState<{
     isOpen: boolean
     latitude?: number
@@ -78,7 +79,61 @@ const closeImageGallery = () => {
     checkAccess()
   }, [])
 
-  // Add function to open map
+  // Image gallery functions
+  const openImageGallery = (images: string[], initialIndex: number = 0, reportTitle: string) => {
+    setImageGallery({
+      isOpen: true,
+      images,
+      initialIndex,
+      reportTitle
+    })
+  }
+
+  const closeImageGallery = () => {
+    setImageGallery({
+      isOpen: false,
+      images: [],
+      initialIndex: 0,
+      reportTitle: ''
+    })
+  }
+
+  // Confirmation dialog functions
+  const showConfirmDialog = (reportId: number, action: string, reportTitle: string) => {
+    let title = ''
+    let message = ''
+
+    if (action === 'resolved') {
+      title = 'Mark as Resolved'
+      message = `Are you sure you want to mark "${reportTitle}" as resolved? This will permanently move the report to the resolved reports table.`
+    }
+
+    setConfirmDialog({
+      isOpen: true,
+      reportId,
+      action,
+      title,
+      message
+    })
+  }
+
+  const handleConfirm = () => {
+    if (confirmDialog.reportId && confirmDialog.action) {
+      updateReportStatus(confirmDialog.reportId, confirmDialog.action)
+    }
+  }
+
+  const closeConfirmDialog = () => {
+    setConfirmDialog({
+      isOpen: false,
+      reportId: null,
+      action: '',
+      title: '',
+      message: ''
+    })
+  }
+
+  // Map functions
   const openMap = (report: Report) => {
     if (report.location) {
       setMapPopup({
@@ -91,7 +146,6 @@ const closeImageGallery = () => {
     }
   }
 
-  // Add function to close map
   const closeMap = () => {
     setMapPopup({ isOpen: false })
   }
@@ -113,18 +167,32 @@ const closeImageGallery = () => {
     }
   }
 
+  // Updated loadReports function to load both active and resolved reports
   const loadReports = async () => {
     setReportsLoading(true)
     try {
-      const response = await fetch('/api/rda/reports', {
+      // Load active reports
+      const activeResponse = await fetch('/api/rda/reports', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       })
-      const data = await response.json()
+      const activeData = await activeResponse.json()
       
-      if (data.success) {
-        setReports(data.reports)
+      // Load resolved reports
+      const resolvedResponse = await fetch('/api/rda/resolved-reports', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      })
+      const resolvedData = await resolvedResponse.json()
+      
+      if (activeData.success) {
+        setReports(activeData.reports)
+      }
+      
+      if (resolvedData.success) {
+        setResolvedReports(resolvedData.reports)
       }
     } catch (error) {
       console.error('Failed to load reports:', error)
@@ -145,7 +213,14 @@ const closeImageGallery = () => {
       })
 
       if (response.ok) {
-        loadReports()
+        loadReports() // This will reload both active and resolved reports
+        setConfirmDialog({
+          isOpen: false,
+          reportId: null,
+          action: '',
+          title: '',
+          message: ''
+        })
       } else {
         console.error('Failed to update report status')
       }
@@ -178,13 +253,12 @@ const closeImageGallery = () => {
     }
   }
 
-  const filteredReports = reports.filter(report => {
-    if (activeTab === 'submitted') {
-      return report.status === 'active' || report.status === 'in_progress' || report.status === 'pending'
-    } else {
-      return report.status === 'resolved'
-    }
-  })
+  // Fixed filtering logic
+  const filteredReports = activeTab === 'submitted' 
+    ? reports.filter(report => 
+        report.status === 'active' || report.status === 'in_progress' || report.status === 'pending'
+      )
+    : resolvedReports
 
   const relevantReports = filteredReports.filter(report => 
     report.hazard_type === 'pothole' || report.hazard_type === 'construction'
@@ -248,8 +322,7 @@ const closeImageGallery = () => {
             >
               Resolved Reports
               <span className="ml-2 bg-gray-100 text-gray-900 py-0.5 px-2.5 rounded-full text-xs">
-                {reports.filter(r => r.status === 'resolved' && 
-                  (r.hazard_type === 'pothole' || r.hazard_type === 'construction')).length}
+                {resolvedReports.filter(r => r.hazard_type === 'pothole' || r.hazard_type === 'construction').length}
               </span>
             </button>
           </nav>
@@ -300,9 +373,15 @@ const closeImageGallery = () => {
                     <span className={`px-2 py-1 text-xs rounded ${getSeverityColor(report.severity_level)}`}>
                       {report.severity_level}
                     </span>
-                    <span className={`px-2 py-1 text-xs rounded ${getStatusColor(report.status)}`}>
-                      {report.status}
-                    </span>
+                    {activeTab === 'submitted' ? (
+                      <span className={`px-2 py-1 text-xs rounded ${getStatusColor(report.status || '')}`}>
+                        {report.status}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-800">
+                        resolved
+                      </span>
+                    )}
                   </div>
                 </div>
                 
@@ -313,6 +392,9 @@ const closeImageGallery = () => {
                 <div className="space-y-2 text-sm text-gray-500 mb-4">
                   <p><strong>Type:</strong> {report.hazard_type}</p>
                   <p><strong>Reported:</strong> {new Date(report.created_at).toLocaleDateString()}</p>
+                  {activeTab === 'resolved' && report.resolved_at && (
+                    <p><strong>Resolved:</strong> {new Date(report.resolved_at).toLocaleDateString()}</p>
+                  )}
                   {report.location?.address && (
                     <p className="cursor-pointer hover:text-blue-600 transition-colors">
                       <strong>Location:</strong> 
@@ -324,35 +406,26 @@ const closeImageGallery = () => {
                       </button>
                     </p>
                   )}
-                  {/* Replace the existing images line with this */}
-{report.images.length > 0 && (
-  <p>
-    <strong>Images:</strong> 
-    <button
-      onClick={() => openImageGallery(report.images, 0, report.title)}
-      className="ml-1 text-blue-600 hover:text-blue-800 underline"
-    >
-      {report.images.length} attached (View Gallery)
-    </button>
-  </p>
-)}
+                  {report.images.length > 0 && (
+                    <p>
+                      <strong>Images:</strong> 
+                      <button
+                        onClick={() => openImageGallery(report.images, 0, report.title)}
+                        className="ml-1 text-blue-600 hover:text-blue-800 underline"
+                      >
+                        {report.images.length} attached (View Gallery)
+                      </button>
+                    </p>
+                  )}
                 </div>
 
-                {/* Action Buttons */}
+                {/* Action Buttons - Only for submitted reports */}
                 {activeTab === 'submitted' && (
                   <div className="flex space-x-2">
-                    {(report.status === 'pending' || report.status === 'active') && (
-                      <button
-                        onClick={() => updateReportStatus(report.id, 'in_progress')}
-                        className="flex-1 bg-yellow-600 text-white px-3 py-2 rounded text-sm hover:bg-yellow-700"
-                      >
-                        Mark In Progress
-                      </button>
-                    )}
                     {(report.status === 'pending' || report.status === 'active' || report.status === 'in_progress') && (
                       <button
-                        onClick={() => updateReportStatus(report.id, 'resolved')}
-                        className="flex-1 bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
+                        onClick={() => showConfirmDialog(report.id, 'resolved', report.title)}
+                        className="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
                       >
                         Mark Resolved
                       </button>
@@ -377,16 +450,28 @@ const closeImageGallery = () => {
         />
       )}
 
-      {/* Add this before the closing </div> */}
-{imageGallery.isOpen && (
-  <ImageGallery
-    isOpen={imageGallery.isOpen}
-    onClose={closeImageGallery}
-    images={imageGallery.images}
-    initialIndex={imageGallery.initialIndex}
-    reportTitle={imageGallery.reportTitle}
-  />
-)}
+      {/* Image Gallery */}
+      {imageGallery.isOpen && (
+        <ImageGallery
+          isOpen={imageGallery.isOpen}
+          onClose={closeImageGallery}
+          images={imageGallery.images}
+          initialIndex={imageGallery.initialIndex}
+          reportTitle={imageGallery.reportTitle}
+        />
+      )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={closeConfirmDialog}
+        onConfirm={handleConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText="Yes, Continue"
+        cancelText="Cancel"
+        type="info"
+      />
     </div>
   )
 }

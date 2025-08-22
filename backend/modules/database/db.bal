@@ -119,6 +119,28 @@ public function initializeDatabase() returns error? {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     `);
+
+     // Create resolved_hazard_reports table
+    _ = check dbClient->execute(`
+        CREATE TABLE IF NOT EXISTS resolved_hazard_reports (
+            id SERIAL PRIMARY KEY,
+            original_report_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            hazard_type VARCHAR(100) NOT NULL,
+            severity_level VARCHAR(50) NOT NULL,
+            images TEXT[] DEFAULT '{}',
+            latitude DECIMAL(10, 8),
+            longitude DECIMAL(11, 8),
+            address TEXT,
+            created_at TIMESTAMP NOT NULL,
+            resolved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            resolved_by INTEGER,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+        )
+    `);
     
     // Create indexes for users
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
@@ -136,6 +158,10 @@ public function initializeDatabase() returns error? {
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_status ON hazard_reports(status)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_created_at ON hazard_reports(created_at)`);
     
+        // Create indexes for resolved_hazard_reports
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_user_id ON resolved_hazard_reports(user_id)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_type ON resolved_hazard_reports(hazard_type)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_resolved_at ON resolved_hazard_reports(resolved_at)`);
     log:printInfo("Database tables and indexes created successfully");
 }
 
@@ -900,4 +926,202 @@ public function getNearbyReports(decimal userLat, decimal userLng, decimal radiu
     }
     
     return reports;
+}
+
+
+// Move report to resolved table and delete from active reports
+// Alternative without transactions
+public function resolveHazardReport(int reportId, int resolvedByUserId) returns boolean|error {
+    // Get the original report first
+    sql:ParameterizedQuery selectQuery = `
+        SELECT user_id, title, description, hazard_type, severity_level, images, 
+               latitude, longitude, address, created_at
+        FROM hazard_reports 
+        WHERE id = ${reportId}
+    `;
+    
+    stream<record {|
+        int user_id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+    |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    record {| record {|
+        int user_id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+    |} value; |}|sql:Error? streamResult = check resultStream.next();
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    if streamResult is sql:Error {
+        return error("Report not found (SQL error): " + streamResult.message());
+    }
+    
+    if streamResult is () {
+        return error("Report not found");
+    }
+    
+    record {|
+        int user_id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+    |} report = streamResult.value;
+    
+    // Insert into resolved_hazard_reports
+    sql:ParameterizedQuery insertQuery = `
+        INSERT INTO resolved_hazard_reports (
+            original_report_id, user_id, title, description, hazard_type, 
+            severity_level, images, latitude, longitude, address, created_at, resolved_by
+        ) VALUES (
+            ${reportId}, ${report.user_id}, ${report.title}, ${report.description}, 
+            ${report.hazard_type}, ${report.severity_level}, ${report.images}, 
+            ${report.latitude}, ${report.longitude}, ${report.address}, 
+            ${report.created_at}, ${resolvedByUserId}
+        )
+    `;
+    
+    sql:ExecutionResult insertResult = check dbClient->execute(insertQuery);
+    
+    if insertResult.affectedRowCount < 1 {
+        return error("Failed to insert resolved report");
+    }
+    
+    // Delete from hazard_reports
+    sql:ParameterizedQuery deleteQuery = `
+        DELETE FROM hazard_reports WHERE id = ${reportId}
+    `;
+    
+    sql:ExecutionResult deleteResult = check dbClient->execute(deleteQuery);
+    
+    if deleteResult.affectedRowCount < 1 {
+        return error("Failed to delete original report");
+    }
+    
+    log:printInfo("Report resolved and moved to resolved_hazard_reports table");
+    return true;
+}
+// Get resolved reports
+public function getResolvedReports() returns record {|
+   int id;
+   string title;
+   string? description;
+   string hazard_type;
+   string severity_level;
+   string[] images;
+   record {|
+       decimal lat;
+       decimal lng;
+       string? address;
+   |}? location;
+   string created_at;
+   string resolved_at;
+   int original_report_id;
+|}[]|error {
+   
+   sql:ParameterizedQuery selectQuery = `
+       SELECT id, original_report_id, title, description, hazard_type, severity_level, 
+              images, latitude, longitude, address, created_at, resolved_at
+       FROM resolved_hazard_reports
+       ORDER BY resolved_at DESC
+   `;
+   
+   stream<record {|
+       int id;
+       int original_report_id;
+       string title;
+       string? description;
+       string hazard_type;
+       string severity_level;
+       string[] images;
+       decimal? latitude;
+       decimal? longitude;
+       string? address;
+       string created_at;
+       string resolved_at;
+   |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+   
+   record {|
+       int id;
+       string title;
+       string? description;
+       string hazard_type;
+       string severity_level;
+       string[] images;
+       record {|
+           decimal lat;
+           decimal lng;
+           string? address;
+       |}? location;
+       string created_at;
+       string resolved_at;
+       int original_report_id;
+   |}[] reports = [];
+   
+   error? fromResult = from var row in resultStream
+       do {
+           record {|
+               decimal lat;
+               decimal lng;
+               string? address;
+           |}? location = ();
+
+           if row.latitude is decimal && row.longitude is decimal {
+               decimal validLat = <decimal>row.latitude;
+               decimal validLng = <decimal>row.longitude;
+               location = {
+                   lat: validLat,
+                   lng: validLng,
+                   address: row.address
+               };
+           }
+
+           reports.push({
+               id: row.id,
+               original_report_id: row.original_report_id,
+               title: row.title,
+               description: row.description,
+               hazard_type: row.hazard_type,
+               severity_level: row.severity_level,
+               images: row.images,
+               location: location,
+               created_at: row.created_at,
+               resolved_at: row.resolved_at
+           });
+       };
+   
+   if fromResult is error {
+       return fromResult;
+   }
+   
+   error? closeErr = resultStream.close();
+   if closeErr is error {
+       log:printError("Error closing result stream", closeErr);
+   }
+   
+   return reports;
 }
