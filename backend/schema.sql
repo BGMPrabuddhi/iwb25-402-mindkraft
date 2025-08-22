@@ -16,13 +16,9 @@ CREATE TABLE users (
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(500) NOT NULL,
-    location VARCHAR(500) NOT NULL,
     latitude DECIMAL(10, 8) NOT NULL,
     longitude DECIMAL(11, 8) NOT NULL,
-    city VARCHAR(100) NOT NULL,
-    state VARCHAR(100) NOT NULL,
-    country VARCHAR(100) NOT NULL,
-    full_address TEXT NOT NULL,
+    address TEXT NOT NULL,
     profile_image TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -60,8 +56,7 @@ CREATE TABLE hazard_reports (
 -- Create indexes for users table
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_coordinates ON users(latitude, longitude);
-CREATE INDEX idx_users_location ON users(location);
-CREATE INDEX idx_users_city_country ON users(city, country);
+CREATE INDEX idx_users_address ON users(address);
 
 -- Create indexes for password_reset_otps table
 CREATE INDEX idx_password_reset_otps_email ON password_reset_otps(email);

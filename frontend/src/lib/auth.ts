@@ -11,14 +11,10 @@ export interface RegisterRequest {
   lastName: string;
   email: string;
   password: string;
-  location?: string;
   locationDetails: {
     latitude: number;
     longitude: number;
-    city: string;
-    state: string;
-    country: string;
-    fullAddress: string;
+    address: string;
   };
 }
 
@@ -43,6 +39,11 @@ export interface UserProfile {
   lastName?: string;
   email?: string;
   location?: string;
+  locationDetails?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  };
   profileImage?: string;
   createdAt?: string;
   message?: string;
@@ -87,7 +88,11 @@ export interface ResetPasswordResponse {
 export interface UpdateProfileRequest {
   firstName: string;
   lastName: string;
-  location: string; // Required field
+  locationDetails: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  };
   profileImage?: string; // Base64 encoded image - optional
 }
 
@@ -365,11 +370,14 @@ export class AuthAPI {
       console.log('✅ Password reset request response:', response.data);
       return response.data;
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Password reset request error:', error);
       
-      if (error.response?.data) {
-        return error.response.data;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: unknown } };
+        if (axiosError.response?.data) {
+          return axiosError.response.data as ForgotPasswordResponse;
+        }
       }
       
       return {
@@ -395,11 +403,14 @@ export class AuthAPI {
       console.log('✅ OTP verification response:', response.data);
       return response.data;
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ OTP verification error:', error);
       
-      if (error.response?.data) {
-        return error.response.data;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: unknown } };
+        if (axiosError.response?.data) {
+          return axiosError.response.data as VerifyOtpResponse;
+        }
       }
       
       return {
@@ -425,11 +436,14 @@ export class AuthAPI {
       console.log('✅ Password reset response:', response.data);
       return response.data;
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Password reset error:', error);
       
-      if (error.response?.data) {
-        return error.response.data;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: unknown } };
+        if (axiosError.response?.data) {
+          return axiosError.response.data as ResetPasswordResponse;
+        }
       }
       
       return {
