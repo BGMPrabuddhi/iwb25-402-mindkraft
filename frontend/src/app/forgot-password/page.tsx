@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
+import Snackbar from '@/Components/Snackbar'
 
 type ForgotPasswordFormData = {
   email: string
@@ -18,6 +19,7 @@ export default function ForgotPasswordPage() {
   const [errors, setErrors] = useState<Partial<ForgotPasswordFormData>>({})
   const [isVisible, setIsVisible] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' })
 
   useEffect(() => {
     setIsVisible(true)
@@ -79,12 +81,12 @@ export default function ForgotPasswordPage() {
       } else {
         const errorMessage = result.message || 'Failed to send reset email. Please try again.';
         console.error('Forgot password failed:', errorMessage);
-        alert(`❌ ${errorMessage}`);
+        setSnackbar({ open: true, message: errorMessage, type: 'error' })
       }
       
     } catch (error) {
       console.error('❌ Forgot password error:', error)
-      alert('❌ Failed to send reset email. Please try again.')
+      setSnackbar({ open: true, message: 'Failed to send reset email. Please try again.', type: 'error' })
     } finally {
       setIsLoading(false)
     }
@@ -247,6 +249,8 @@ export default function ForgotPasswordPage() {
           </div>
         </div>
       </div>
+
+      <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
 
       <style jsx>{`
         @keyframes blob {

@@ -3,6 +3,7 @@ import { PhotoIcon, XMarkIcon, MapPinIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { reportsAPI, type HazardReportData } from '@/lib/api'
 import Script from 'next/script'
+import Snackbar from '@/Components/Snackbar'
 
 interface SubmitForm {
   title: string;
@@ -34,6 +35,7 @@ const SubmitReport = () => {
     images: [],
     location: undefined,
   })
+  const [snackbar, setSnackbar] = useState<{open: boolean; message: string; type: 'success' | 'error' | 'warning' | 'info'}>({ open: false, message: '', type: 'info' })
 
   const [isLoading, setIsLoading] = useState(false)
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
@@ -194,7 +196,7 @@ const SubmitReport = () => {
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by this browser.')
+      setSnackbar({ open: true, message: 'Geolocation is not supported by this browser.', type: 'error' })
       return
     }
 
@@ -217,7 +219,7 @@ const SubmitReport = () => {
       },
       (error) => {
         console.error('Error getting location:', error)
-        alert('Unable to retrieve your location. Please set it manually on the map.')
+        setSnackbar({ open: true, message: 'Unable to retrieve your location. Please set it manually on the map.', type: 'error' })
         setIsLoadingLocation(false)
       },
       {
@@ -287,7 +289,7 @@ const SubmitReport = () => {
     }
 
     if (errors.length > 0) {
-      alert('Image Upload Errors:\n\n' + errors.join('\n'))
+      setSnackbar({ open: true, message: 'Image Upload Errors: ' + errors.join(' | '), type: 'error' })
     }
 
     if (validFiles.length > 0) {
@@ -350,7 +352,7 @@ const SubmitReport = () => {
     }
     
     if (errors.length > 0) {
-      alert('Validation Errors:\n\n' + errors.join('\n'))
+      setSnackbar({ open: true, message: 'Validation Errors: ' + errors.join(' | '), type: 'error' })
       return
     }
 
@@ -378,7 +380,7 @@ const SubmitReport = () => {
       const formattedDate = new Date(timestamp).toLocaleString()
 
       const locationText = submitForm.location ? `\nLocation: ${submitForm.location.address || `${submitForm.location.lat.toFixed(6)}, ${submitForm.location.lng.toFixed(6)}`}` : ''
-      alert(`SUCCESS!\n\n${response.message}\n\nReport ID: ${response.report_id}\nImages uploaded: ${submitForm.images.length}${locationText}\nTimestamp: ${new Date(response.timestamp || '').toLocaleString()}`)
+      setSnackbar({ open: true, message: response.message || 'Report submitted successfully', type: 'success' })
       
       setSubmitForm({
         title: '',
@@ -392,8 +394,7 @@ const SubmitReport = () => {
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('Submit error:', error)
-      alert(`Failed to submit report!\n\n${errorMessage}`)
+      setSnackbar({ open: true, message: 'Failed to submit report: ' + errorMessage, type: 'error' })
     } finally {
       setIsLoading(false)
     }
@@ -411,7 +412,7 @@ const SubmitReport = () => {
           }}
           onError={() => {
             console.error('Failed to load Google Maps script')
-            alert('Failed to load Google Maps. Please check your API key and internet connection.')
+            setSnackbar({ open: true, message: 'Failed to load Google Maps. Please check your API key and internet connection.', type: 'error' })
           }}
         />
       )}
@@ -757,6 +758,7 @@ const SubmitReport = () => {
            </div>
          </div>
        )}
+       <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
      </div>
    </>
  )

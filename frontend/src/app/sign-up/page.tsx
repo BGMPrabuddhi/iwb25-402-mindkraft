@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
 import { googleMapsService, type LocationResult } from '@/lib/googleMaps'
+import Snackbar from '@/Components/Snackbar'
 
 type SignupFormData = {
     firstName: string
@@ -42,6 +43,7 @@ export default function SignupPage() {
   const [isGettingLocation, setIsGettingLocation] = useState(false)
   const [locationSuggestions, setLocationSuggestions] = useState<LocationResult[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' | 'warning' })
 
   useEffect(() => {
     setIsVisible(true)
@@ -109,7 +111,7 @@ export default function SignupPage() {
 
   const getCurrentLocation = async () => {
     if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-      alert('Google Maps API key is not configured. Please add your API key to environment variables.')
+      setSnackbar({ open: true, message: 'Google Maps API key is not configured.', type: 'warning' })
       return
     }
 
@@ -145,11 +147,8 @@ export default function SignupPage() {
       
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to get location'
-      console.error('❌ Location error:', errorMessage)
       setApiError(`Unable to get your location: ${errorMessage}. Please enter your location manually.`)
-      
-      // Show a user-friendly alert
-      alert(`Unable to get your location: ${errorMessage}. Please enter your location manually.`)
+      setSnackbar({ open: true, message: `Unable to get your location: ${errorMessage}`, type: 'error' })
     } finally {
       setIsGettingLocation(false)
     }
@@ -261,17 +260,14 @@ export default function SignupPage() {
       console.log('📋 Registration result:', result);
 
       if (result.success) {
-        alert('✅ Account created successfully! Please log in with your credentials.')
-        // Redirect to login page after successful registration
-        router.push('/login')
+        setSnackbar({ open: true, message: 'Account created successfully! Please log in.', type: 'success' })
+        setTimeout(() => router.push('/login'), 1200)
       } else {
-        const errorMessage = result.message || 'Registration failed. Please try again.';
-        console.error('Registration failed:', errorMessage);
-        alert(`❌ ${errorMessage}`);
+        const errorMessage = result.message || 'Registration failed. Please try again.'
+        setSnackbar({ open: true, message: errorMessage, type: 'error' })
       }
     } catch (error) {
-      console.error('❌ Signup error:', error)
-      alert('❌ Signup failed. Please try again.')
+      setSnackbar({ open: true, message: 'Signup failed. Please try again.', type: 'error' })
     } finally {
       setIsLoading(false)
     }
@@ -701,6 +697,8 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
+
+      <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type as any} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
 
       <style jsx>{`
         @keyframes blob {

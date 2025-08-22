@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
+import Snackbar from '@/Components/Snackbar'
 
 type LoginFormData = {
   email: string
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<Partial<LoginFormData>>({})
   const [apiError, setApiError] = useState('')
   const [isVisible, setIsVisible] = useState(false)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' })
 
   useEffect(() => {
     setIsVisible(true)
@@ -79,18 +81,17 @@ export default function LoginPage() {
       console.log('📋 Login result:', result);
 
       if (result.success) {
-        alert('✅ Login successful! Welcome back!')
-        // Redirect to home page after successful login
-        router.push('/home')
+        setSnackbar({ open: true, message: 'Login successful! Welcome back!', type: 'success' })
+        setTimeout(() => router.push('/home'), 1200)
       } else {
         const errorMessage = result.message || 'Login failed. Please try again.';
         console.error('Login failed:', errorMessage);
-        alert(`❌ ${errorMessage}`);
+        setSnackbar({ open: true, message: errorMessage, type: 'error' })
       }
       
     } catch (error) {
       console.error('❌ Login error:', error)
-      alert('❌ Login failed. Please try again.')
+      setSnackbar({ open: true, message: 'Login failed. Please try again.', type: 'error' })
     } finally {
       setIsLoading(false)
     }
@@ -300,6 +301,8 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
 
       <style jsx>{`
         @keyframes blob {

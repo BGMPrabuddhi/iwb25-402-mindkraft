@@ -15,6 +15,7 @@ interface FilterPanelProps {
   showMap: boolean
   filteredReports: Report[]
   googleMapsScriptLoaded: boolean // Add this prop
+  onNotify?: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void
 }
 
 const FilterPanel: React.FC<FilterPanelProps> = ({
@@ -26,7 +27,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   error,
   showMap,
   filteredReports,
-  googleMapsScriptLoaded // Add this to destructuring
+  googleMapsScriptLoaded, // Add this to destructuring
+  onNotify
 }) => {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
@@ -45,6 +47,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
           viewFilters={viewFilters}
           setViewFilters={setViewFilters}
           googleMapsScriptLoaded={googleMapsScriptLoaded} // Now this is defined
+          onNotify={onNotify}
         />
 
         {error && (

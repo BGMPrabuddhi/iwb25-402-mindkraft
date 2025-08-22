@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { UserCircleIcon, Bars3Icon, XMarkIcon, ChevronDownIcon, UserIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { authAPI, UserProfile } from '@/lib/auth'
+import logo from '@/Components/3d logo.png'
 
 const Header = () => {
   const router = useRouter()
@@ -95,14 +96,20 @@ const Header = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           
-          {/* Logo Section */}
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-md">
-              <span className="text-white font-bold text-xl">S</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-blue-600">SafeRoute</h1>
-              <p className="text-xs text-gray-500 -mt-1">Road Safety Platform</p>
+          {/* Logo Section (enhanced) */}
+          <Link href="/" className="group flex items-center">
+            <div className="flex flex-row gap-3 items-center  ">
+              <div className="relative h-24 w-24 sm:h-16 sm:w-16 drop-shadow-lg rounded-xl overflow-hidden ring-1  p-1 transition-all duration-300 group-hover:shadow-xl group-hover:scale-[1.04]">
+                <Image
+                  src={logo}
+                  alt="SafeRoute logo"
+                  fill
+                  sizes="64px"
+                  className="object-contain"
+                  priority
+                />
+              </div>
+              <span className="pt-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-blue-700 group-hover:text-blue-800 transition-colors">Road Safety Platform</span>
             </div>
           </Link>
 
@@ -227,7 +234,7 @@ const Header = () => {
               <Link href="/" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-md">
                 Home
               </Link>
-              <Link href="/reports" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-md">
+              <Link href="/reports-history" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-md">
                 Report History
               </Link>
               

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
+import Snackbar from '@/Components/Snackbar'
 
 export default function VerifyOtpPage() {
   const router = useRouter()
@@ -15,6 +16,7 @@ export default function VerifyOtpPage() {
   const [resendLoading, setResendLoading] = useState(false)
   const [countdown, setCountdown] = useState(60)
   const [canResend, setCanResend] = useState(false)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' })
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -102,9 +104,8 @@ export default function VerifyOtpPage() {
       if (result.success && result.resetToken) {
         // Store reset token for next step
         sessionStorage.setItem('reset_token', result.resetToken)
-        alert('✅ OTP verified successfully!')
-        // Redirect to reset password page
-        router.push('/reset-password')
+        setSnackbar({ open: true, message: 'OTP verified successfully!', type: 'success' })
+        setTimeout(() => router.push('/reset-password'), 1000)
       } else {
         const errorMessage = result.message || 'Invalid OTP. Please try again.';
         console.error('OTP verification failed:', errorMessage);
@@ -127,7 +128,7 @@ export default function VerifyOtpPage() {
       const result = await authAPI.requestPasswordReset({ email })
       
       if (result.success) {
-        alert('✅ New OTP sent to your email!')
+        setSnackbar({ open: true, message: 'New OTP sent to your email!', type: 'success' })
         setOtp(['', '', '', '', '', ''])
         setCountdown(60)
         setCanResend(false)
@@ -305,6 +306,8 @@ export default function VerifyOtpPage() {
           </div>
         </div>
       </div>
+
+      <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
 
       <style jsx>{`
         @keyframes blob {
