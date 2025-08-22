@@ -115,6 +115,11 @@ class ReportsAPI {
   // Submit a new hazard report (with optional images and location)
   async submitReport(reportData: HazardReportData): Promise<ApiResponse> {
     try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
       // If no images, use JSON
       if (!reportData.images || reportData.images.length === 0) {
         const response = await fetch(`${this.baseUrl}/reports`, {
@@ -122,6 +127,7 @@ class ReportsAPI {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify(reportData),
         });
@@ -151,11 +157,14 @@ class ReportsAPI {
 
       const response = await fetch(`${this.baseUrl}/reports`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData, // No Content-Type header - browser will set it with boundary
       });
 
       return await this.handleResponse<ApiResponse>(response);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error('Network error: Unable to connect to the server. Please check if the backend is running.');
       }
@@ -224,11 +233,17 @@ class ReportsAPI {
     timestamp: string;
   }> {
     try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
       const response = await fetch(`${this.baseUrl}/reports/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(updateData),
       });
@@ -244,11 +259,84 @@ class ReportsAPI {
 
   async deleteReport(id: number): Promise<{ message: string; timestamp: string }> {
     try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
       const response = await fetch(`${this.baseUrl}/reports/${id}`, {
         method: 'DELETE',
-        headers: { 'Accept': 'application/json' },
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
       return await this.handleResponse<{ message: string; timestamp: string }>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get user's own reports
+  async getUserReports(): Promise<HazardReportsListResponse> {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/reports/user`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return await this.handleResponse<HazardReportsListResponse>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get nearby reports based on user's location
+  async getNearbyReports(radiusKm: number = 20): Promise<{
+    success: boolean;
+    reports: HazardReport[];
+    total_count: number;
+    user_location: {
+      latitude: number;
+      longitude: number;
+      city: string;
+    };
+    radius_km: number;
+  }> {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const params = new URLSearchParams();
+      params.append('radius', radiusKm.toString());
+
+      const response = await fetch(`${this.baseUrl}/reports/nearby?${params}`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return await this.handleResponse<{
+        success: boolean;
+        reports: HazardReport[];
+        total_count: number;
+        user_location: {
+          latitude: number;
+          longitude: number;
+          city: string;
+        };
+        radius_km: number;
+      }>(response);
     } catch (error) {
       throw error;
     }

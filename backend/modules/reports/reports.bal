@@ -5,8 +5,10 @@ import ballerina/file;
 import ballerina/io;
 import ballerina/uuid;
 import ballerina/task;
+import ballerina/time; 
 import saferoute/backend.types;
 import saferoute/backend.database;
+import saferoute/backend.auth;
 
 configurable string uploadDir = "uploads";
 
@@ -273,6 +275,36 @@ type LocationData record {
 };
 
 function handleMultipartSubmission(http:Caller caller, http:Request req, http:Response res) returns error? {
+    // First validate authentication
+    string|http:HeaderNotFoundError authHeader = req.getHeader("Authorization");
+    if authHeader is http:HeaderNotFoundError {
+        res.setPayload(createErrorResponse("Authorization header required"));
+        check caller->respond(res);
+        return;
+    }
+
+    if !authHeader.startsWith("Bearer ") {
+        res.setPayload(createErrorResponse("Invalid authorization header format"));
+        check caller->respond(res);
+        return;
+    }
+
+    string token = authHeader.substring(7);
+    string|error userEmail = auth:validateJwtToken(token);
+    if userEmail is error {
+        res.setPayload(createErrorResponse("Invalid or expired token"));
+        check caller->respond(res);
+        return;
+    }
+
+    // Get user ID from email
+    database:User|error user = database:getUserByEmail(userEmail);
+    if user is error {
+        res.setPayload(createErrorResponse("User not found"));
+        check caller->respond(res);
+        return;
+    }
+
     mime:Entity[]|http:ClientError bodyPartsResult = req.getBodyParts();
     
     if bodyPartsResult is mime:Entity[] {
@@ -283,10 +315,17 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
             check caller->respond(res);
             return;
         }
+
+        if data.imageNames.length() == 0 {
+            res.setPayload(createErrorResponse("At least one image is required"));
+            check caller->respond(res);
+            return;
+        }
         
         LocationData location = parseLocationData(data.latitude, data.longitude, data.address);
         
         int|error result = database:insertHazardReport(
+            user.id,
             data.title, 
             data.description, 
             data.hazardType, 
@@ -297,23 +336,29 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
             location.address
         );
         
-        if result is int {
-            string[] imageUrls = data.imageNames.map(name => "http://localhost:8080/api/images/" + name);
-            
-            log:printInfo("Report created successfully with ID: " + result.toString());
-            
-            types:ApiResponse response = {
-                status: "success",
-                message: "Report submitted successfully with " + data.imageNames.length().toString() + " images",
-                report_id: result,
-                images_uploaded: data.imageNames.length(),
-                image_urls: imageUrls
-            };
-            res.setPayload(response);
-        } else {
+       if result is int {
+    // Get current timestamp
+    time:Utc currentTime = time:utcNow();
+    string timestamp = time:utcToString(currentTime);
+    
+    string[] imageUrls = data.imageNames.map(name => "http://localhost:8080/api/images/" + name);
+    
+    log:printInfo("Report created successfully with ID: " + result.toString());
+    
+    types:ApiResponse response = {
+        status: "success",
+        message: "Report submitted successfully with " + data.imageNames.length().toString() + " images",
+        report_id: result,
+        images_uploaded: data.imageNames.length(),
+        image_urls: imageUrls,
+        timestamp: timestamp  // Add this line
+    };
+    res.setPayload(response);
+} else {
             log:printError("Database error: " + result.toString());
             res.setPayload(createErrorResponse("Database error: " + result.toString()));
-        }} else {
+        }
+    } else {
         res.setPayload(createErrorResponse("Invalid multipart payload"));
     }
     
@@ -321,6 +366,36 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
 }
 
 function handleJsonSubmission(http:Caller caller, http:Request req, http:Response res) returns error? {
+    // First validate authentication
+    string|http:HeaderNotFoundError authHeader = req.getHeader("Authorization");
+    if authHeader is http:HeaderNotFoundError {
+        res.setPayload(createErrorResponse("Authorization header required"));
+        check caller->respond(res);
+        return;
+    }
+
+    if !authHeader.startsWith("Bearer ") {
+        res.setPayload(createErrorResponse("Invalid authorization header format"));
+        check caller->respond(res);
+        return;
+    }
+
+    string token = authHeader.substring(7);
+    string|error userEmail = auth:validateJwtToken(token);
+    if userEmail is error {
+        res.setPayload(createErrorResponse("Invalid or expired token"));
+        check caller->respond(res);
+        return;
+    }
+
+    // Get user ID from email
+    database:User|error user = database:getUserByEmail(userEmail);
+    if user is error {
+        res.setPayload(createErrorResponse("User not found"));
+        check caller->respond(res);
+        return;
+    }
+
     json|error body = req.getJsonPayload();
     if body is error {
         res.setPayload(createErrorResponse("Invalid JSON payload"));
@@ -339,6 +414,7 @@ function handleJsonSubmission(http:Caller caller, http:Request req, http:Respons
     string description = report?.description ?: "";
     
     int|error result = database:insertHazardReport(
+        user.id,
         report.title,
         description,
         report.hazard_type,
