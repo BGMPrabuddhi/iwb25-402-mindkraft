@@ -1,4 +1,3 @@
-// src/app/rda-dashboard/page.tsx
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -27,6 +26,15 @@ interface Report {
 
 type TabType = 'submitted' | 'resolved'
 
+// Sri Lanka's 25 districts
+const SRI_LANKA_DISTRICTS = [
+  'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo',
+  'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara',
+  'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar',
+  'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya',
+  'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
+].sort()
+
 export default function RDADashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -35,6 +43,11 @@ export default function RDADashboard() {
   const [loading, setLoading] = useState(true)
   const [reportsLoading, setReportsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>('submitted')
+  
+  // Filter states
+  const [selectedDistrict, setSelectedDistrict] = useState<string>('all')
+  const [selectedSeverity, setSelectedSeverity] = useState<string>('all')
+  const [selectedType, setSelectedType] = useState<string>('all')
 
   // Image gallery state
   const [imageGallery, setImageGallery] = useState<{
@@ -79,6 +92,22 @@ export default function RDADashboard() {
     checkAccess()
   }, [])
 
+  // Function to extract district from address
+  const extractDistrict = (address: string): string => {
+    if (!address) return 'Unknown'
+    
+    const addressLower = address.toLowerCase()
+    
+    // Check each district name in the address
+    for (const district of SRI_LANKA_DISTRICTS) {
+      if (addressLower.includes(district.toLowerCase())) {
+        return district
+      }
+    }
+    
+    return 'Unknown'
+  }
+
   // Image gallery functions
   const openImageGallery = (images: string[], initialIndex: number = 0, reportTitle: string) => {
     setImageGallery({
@@ -100,6 +129,8 @@ export default function RDADashboard() {
 
   // Confirmation dialog functions
   const showConfirmDialog = (reportId: number, action: string, reportTitle: string) => {
+    console.log('FRONTEND: showConfirmDialog called', { reportId, action, reportTitle });
+    
     let title = ''
     let message = ''
 
@@ -115,11 +146,28 @@ export default function RDADashboard() {
       title,
       message
     })
+    
+    console.log('FRONTEND: Confirmation dialog state set', {
+      isOpen: true,
+      reportId,
+      action,
+      title,
+      message
+    });
   }
 
   const handleConfirm = () => {
+    console.log('FRONTEND: handleConfirm called');
+    console.log('FRONTEND: confirmDialog state:', confirmDialog);
+    
     if (confirmDialog.reportId && confirmDialog.action) {
+      console.log('FRONTEND: About to call updateReportStatus', {
+        reportId: confirmDialog.reportId,
+        action: confirmDialog.action
+      });
       updateReportStatus(confirmDialog.reportId, confirmDialog.action)
+    } else {
+      console.error('FRONTEND: Missing reportId or action', confirmDialog);
     }
   }
 
@@ -169,51 +217,85 @@ export default function RDADashboard() {
 
   // Updated loadReports function to load both active and resolved reports
   const loadReports = async () => {
+    console.log('FRONTEND: loadReports called');
     setReportsLoading(true)
+    
     try {
+      const token = localStorage.getItem('auth_token');
+      console.log('FRONTEND: Loading reports with token:', !!token);
+      
       // Load active reports
+      console.log('FRONTEND: Fetching active reports...');
       const activeResponse = await fetch('/api/rda/reports', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          'Authorization': `Bearer ${token}`
         }
       })
+      console.log('FRONTEND: Active reports response status:', activeResponse.status);
+      
       const activeData = await activeResponse.json()
+      console.log('FRONTEND: Active reports data:', activeData);
       
       // Load resolved reports
+      console.log('FRONTEND: Fetching resolved reports...');
       const resolvedResponse = await fetch('/api/rda/resolved-reports', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          'Authorization': `Bearer ${token}`
         }
       })
+      console.log('FRONTEND: Resolved reports response status:', resolvedResponse.status);
+      
       const resolvedData = await resolvedResponse.json()
+      console.log('FRONTEND: Resolved reports data:', resolvedData);
       
       if (activeData.success) {
+        console.log('FRONTEND: Setting active reports count:', activeData.reports.length);
         setReports(activeData.reports)
       }
       
       if (resolvedData.success) {
+        console.log('FRONTEND: Setting resolved reports count:', resolvedData.reports.length);
         setResolvedReports(resolvedData.reports)
       }
     } catch (error) {
-      console.error('Failed to load reports:', error)
+      console.error('FRONTEND: Failed to load reports:', error)
     } finally {
       setReportsLoading(false)
     }
   }
 
   const updateReportStatus = async (reportId: number, newStatus: string) => {
+    console.log('FRONTEND: updateReportStatus called', { reportId, newStatus });
+    
     try {
-      const response = await fetch(`/api/rda/reports/${reportId}/status`, {
+      const token = localStorage.getItem('auth_token');
+      console.log('FRONTEND: Auth token exists:', !!token);
+      
+      const url = `/api/rda/reports/${reportId}/status`;
+      const payload = { status: newStatus };
+      
+      console.log('FRONTEND: Making PUT request to:', url);
+      console.log('FRONTEND: Request payload:', payload);
+      
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify(payload)
       })
 
+      console.log('FRONTEND: Response status:', response.status);
+      console.log('FRONTEND: Response ok:', response.ok);
+      
+      const responseData = await response.json();
+      console.log('FRONTEND: Response data:', responseData);
+
       if (response.ok) {
-        loadReports() // This will reload both active and resolved reports
+        console.log('FRONTEND: Report status updated successfully');
+        console.log('FRONTEND: About to reload reports');
+        loadReports()
         setConfirmDialog({
           isOpen: false,
           reportId: null,
@@ -221,11 +303,13 @@ export default function RDADashboard() {
           title: '',
           message: ''
         })
+        console.log('FRONTEND: Confirmation dialog closed');
       } else {
-        console.error('Failed to update report status')
+        console.error('FRONTEND: Failed to update report status - Response not ok');
+        console.error('FRONTEND: Error response:', responseData);
       }
     } catch (error) {
-      console.error('Error updating report status:', error)
+      console.error('FRONTEND: Error updating report status:', error);
     }
   }
 
@@ -253,16 +337,41 @@ export default function RDADashboard() {
     }
   }
 
-  // Fixed filtering logic
+  // Enhanced filtering logic
   const filteredReports = activeTab === 'submitted' 
     ? reports.filter(report => 
         report.status === 'active' || report.status === 'in_progress' || report.status === 'pending'
       )
     : resolvedReports
 
-  const relevantReports = filteredReports.filter(report => 
-    report.hazard_type === 'pothole' || report.hazard_type === 'construction'
-  )
+  const relevantReports = filteredReports
+    .filter(report => report.hazard_type === 'pothole' || report.hazard_type === 'construction')
+    .filter(report => {
+      // District filter
+      if (selectedDistrict !== 'all') {
+        const reportDistrict = extractDistrict(report.location?.address || '')
+        if (reportDistrict !== selectedDistrict) return false
+      }
+      
+      // Severity filter
+      if (selectedSeverity !== 'all' && report.severity_level !== selectedSeverity) {
+        return false
+      }
+      
+      // Type filter
+      if (selectedType !== 'all' && report.hazard_type !== selectedType) {
+        return false
+      }
+      
+      return true
+    })
+
+  // Reset filters function
+  const resetFilters = () => {
+    setSelectedDistrict('all')
+    setSelectedSeverity('all')
+    setSelectedType('all')
+  }
 
   if (loading) {
     return (
@@ -329,6 +438,72 @@ export default function RDADashboard() {
         </div>
       </div>
 
+      {/* Filters Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <h3 className="text-lg font-medium text-gray-900">Filters</h3>
+            
+            {/* District Filter */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">District:</label>
+              <select
+                value={selectedDistrict}
+                onChange={(e) => setSelectedDistrict(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Districts</option>
+                {SRI_LANKA_DISTRICTS.map(district => (
+                  <option key={district} value={district}>{district}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Severity Filter */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Severity:</label>
+              <select
+                value={selectedSeverity}
+                onChange={(e) => setSelectedSeverity(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Severities</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+
+            {/* Type Filter */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Type:</label>
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Types</option>
+                <option value="pothole">Pothole</option>
+                <option value="construction">Construction</option>
+              </select>
+            </div>
+
+            {/* Reset Filters */}
+            <button
+              onClick={resetFilters}
+              className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
+            >
+              Reset Filters
+            </button>
+
+            {/* Filter Results Count */}
+            <div className="text-sm text-gray-600 ml-auto">
+              Showing {relevantReports.length} of {filteredReports.filter(r => r.hazard_type === 'pothole' || r.hazard_type === 'construction').length} reports
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -360,7 +535,7 @@ export default function RDADashboard() {
               </svg>
             </div>
             <p className="text-gray-500">
-              No {activeTab === 'submitted' ? 'submitted' : 'resolved'} pothole or construction reports found
+              No {activeTab === 'submitted' ? 'submitted' : 'resolved'} reports found matching the selected filters
             </p>
           </div>
         ) : (
@@ -391,6 +566,7 @@ export default function RDADashboard() {
                 
                 <div className="space-y-2 text-sm text-gray-500 mb-4">
                   <p><strong>Type:</strong> {report.hazard_type}</p>
+                  <p><strong>District:</strong> {extractDistrict(report.location?.address || '')}</p>
                   <p><strong>Reported:</strong> {new Date(report.created_at).toLocaleDateString()}</p>
                   {activeTab === 'resolved' && report.resolved_at && (
                     <p><strong>Resolved:</strong> {new Date(report.resolved_at).toLocaleDateString()}</p>
@@ -424,7 +600,10 @@ export default function RDADashboard() {
                   <div className="flex space-x-2">
                     {(report.status === 'pending' || report.status === 'active' || report.status === 'in_progress') && (
                       <button
-                        onClick={() => showConfirmDialog(report.id, 'resolved', report.title)}
+                        onClick={() => {
+                          console.log('FRONTEND: Mark Resolved button clicked for report:', report.id);
+                          showConfirmDialog(report.id, 'resolved', report.title);
+                        }}
                         className="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
                       >
                         Mark Resolved

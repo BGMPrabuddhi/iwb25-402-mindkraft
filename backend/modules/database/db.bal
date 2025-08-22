@@ -579,7 +579,11 @@ public function deleteHazardReport(int reportId) returns boolean|error {
     `;
     
     // Fix: Add check for execute
-    sql:ExecutionResult result = check dbClient->execute(deleteQuery);
+   sql:ExecutionResult|error insertResult = dbClient->execute(insertQuery);
+if insertResult is error {
+    log:printError("DATABASE: Full insert error: " + insertResult.toString());
+    return error("Failed to insert resolved report: " + insertResult.message());
+}
     
     if result.affectedRowCount > 0 {
         log:printInfo("Report deleted with ID: " + reportId.toString());
@@ -930,8 +934,10 @@ public function getNearbyReports(decimal userLat, decimal userLng, decimal radiu
 
 
 // Move report to resolved table and delete from active reports
-// Alternative without transactions
+// Move report to resolved table and delete from active reports
 public function resolveHazardReport(int reportId, int resolvedByUserId) returns boolean|error {
+    log:printInfo("DATABASE: resolveHazardReport called - Report ID: " + reportId.toString() + ", User ID: " + resolvedByUserId.toString());
+    
     // Get the original report first
     sql:ParameterizedQuery selectQuery = `
         SELECT user_id, title, description, hazard_type, severity_level, images, 
@@ -939,6 +945,8 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
         FROM hazard_reports 
         WHERE id = ${reportId}
     `;
+    
+    log:printInfo("DATABASE: Executing select query for report: " + reportId.toString());
     
     stream<record {|
         int user_id;
@@ -968,16 +976,20 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
     
     error? closeErr = resultStream.close();
     if closeErr is error {
-        log:printError("Error closing result stream", closeErr);
+        log:printError("DATABASE: Error closing result stream: " + closeErr.message());
     }
     
     if streamResult is sql:Error {
+        log:printError("DATABASE: SQL error finding report: " + streamResult.message());
         return error("Report not found (SQL error): " + streamResult.message());
     }
     
     if streamResult is () {
+        log:printError("DATABASE: Report not found with ID: " + reportId.toString());
         return error("Report not found");
     }
+    
+    log:printInfo("DATABASE: Report found: " + streamResult.value.title);
     
     record {|
         int user_id;
@@ -993,6 +1005,8 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
     |} report = streamResult.value;
     
     // Insert into resolved_hazard_reports
+    log:printInfo("DATABASE: Inserting into resolved_hazard_reports...");
+    
     sql:ParameterizedQuery insertQuery = `
         INSERT INTO resolved_hazard_reports (
             original_report_id, user_id, title, description, hazard_type, 
@@ -1006,23 +1020,29 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
     `;
     
     sql:ExecutionResult insertResult = check dbClient->execute(insertQuery);
+    log:printInfo("DATABASE: Insert result - Affected rows: " + insertResult.affectedRowCount.toString());
     
     if insertResult.affectedRowCount < 1 {
+        log:printError("DATABASE: Failed to insert resolved report");
         return error("Failed to insert resolved report");
     }
     
     // Delete from hazard_reports
+    log:printInfo("DATABASE: Deleting from hazard_reports...");
+    
     sql:ParameterizedQuery deleteQuery = `
         DELETE FROM hazard_reports WHERE id = ${reportId}
     `;
     
     sql:ExecutionResult deleteResult = check dbClient->execute(deleteQuery);
+    log:printInfo("DATABASE: Delete result - Affected rows: " + deleteResult.affectedRowCount.toString());
     
     if deleteResult.affectedRowCount < 1 {
+        log:printError("DATABASE: Failed to delete original report");
         return error("Failed to delete original report");
     }
     
-    log:printInfo("Report resolved and moved to resolved_hazard_reports table");
+    log:printInfo("DATABASE: Report successfully resolved and moved - ID: " + reportId.toString());
     return true;
 }
 // Get resolved reports

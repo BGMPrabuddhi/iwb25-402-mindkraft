@@ -1,9 +1,12 @@
-// src/app/api/rda/resolved-reports/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  console.log('API ROUTE: GET resolved reports called');
+  
   try {
     const authHeader = request.headers.get('authorization');
+    console.log('API ROUTE: Auth header for resolved reports:', !!authHeader);
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({
         success: false,
@@ -12,8 +15,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }, { status: 401 });
     }
 
-    console.log('🔄 RDA API: Fetching resolved reports...');
-    
     const response = await fetch('http://localhost:8080/api/resolved-reports', {
       method: 'GET',
       headers: {
@@ -22,13 +23,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       },
     });
 
+    console.log('API ROUTE: Resolved reports backend response:', response.status);
+    
     const data = await response.json();
-    console.log('✅ RDA API: Resolved reports fetched:', data);
+    console.log('API ROUTE: Resolved reports data:', data);
 
     return NextResponse.json(data, { status: response.status });
 
   } catch (error: unknown) {
-    console.error('❌ Resolved reports API error:', error);
+    console.error('API ROUTE: Resolved reports error:', error);
     
     return NextResponse.json({
       success: false,

@@ -68,34 +68,33 @@ service /api on apiListener {
         return createSuccessAuthResponse(result);
     }
 
-    // In your main.bal file, update the /me endpoint
-// In your main.bal file, update the /me endpoint
-resource function get me(http:Request req) returns json {
-    string|error email = validateAuthHeader(req);
-    if email is error {
-        return createErrorResponse("unauthorized", "Authentication required");
+    resource function get me(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            log:printError("Failed to get user profile", profile);
+            return createErrorResponse("internal_error", "Failed to retrieve user profile");
+        }
+        
+        map<json> userResponse = createUserProfileResponse(profile);
+        return {
+            success: true,
+            id: userResponse["id"],
+            firstName: userResponse["firstName"],
+            lastName: userResponse["lastName"],
+            email: userResponse["email"],
+            userRole: profile.userRole,
+            location: userResponse["location"],
+            locationDetails: userResponse["locationDetails"],
+            createdAt: userResponse["createdAt"],
+            profileImage: userResponse.hasKey("profileImage") ? userResponse["profileImage"] : ()
+        };
     }
 
-    user:UserProfile|error profile = auth:getUserProfile(email);
-    if profile is error {
-        log:printError("Failed to get user profile", profile);
-        return createErrorResponse("internal_error", "Failed to retrieve user profile");
-    }
-    
-    map<json> userResponse = createUserProfileResponse(profile);
-    return {
-        success: true,
-        id: userResponse["id"],
-        firstName: userResponse["firstName"],
-        lastName: userResponse["lastName"],
-        email: userResponse["email"],
-        userRole: profile.userRole, // This should already be included
-        location: userResponse["location"],
-        locationDetails: userResponse["locationDetails"],
-        createdAt: userResponse["createdAt"],
-        profileImage: userResponse.hasKey("profileImage") ? userResponse["profileImage"] : ()
-    };
-}
     resource function put me(http:Request req, user:UpdateProfileRequest updateReq) returns json {
         string|error email = validateAuthHeader(req);
         if email is error {
@@ -129,9 +128,7 @@ resource function get me(http:Request req) returns json {
         };
     }
 
-    // ==================== PASSWORD RECOVERY ENDPOINTS ====================
-
-    // Request password reset OTP
+    // Password recovery endpoints
     resource function post auth/forgot\-password(user:ForgotPasswordRequest req) returns json {
         user:ForgotPasswordResponse|error result = auth:requestPasswordReset(req);
         if result is error {
@@ -149,7 +146,6 @@ resource function get me(http:Request req) returns json {
         };
     }
 
-    // Verify OTP
     resource function post auth/verify\-otp(user:VerifyOtpRequest req) returns json {
         user:VerifyOtpResponse|error result = auth:verifyOtp(req);
         if result is error {
@@ -168,7 +164,6 @@ resource function get me(http:Request req) returns json {
         };
     }
 
-    // Reset password
     resource function post auth/reset\-password(user:ResetPasswordRequest req) returns json {
         user:ResetPasswordResponse|error result = auth:resetPassword(req);
         if result is error {
@@ -186,9 +181,7 @@ resource function get me(http:Request req) returns json {
         };
     }
 
-    // ==================== HAZARD REPORT ENDPOINTS ====================
-
-    // Submit hazard report
+    // Hazard report endpoints
     resource function post reports(http:Caller caller, http:Request req) returns error? {
         check reports:handleReportSubmission(caller, req);
     }
@@ -279,74 +272,89 @@ resource function get me(http:Request req) returns json {
         check respondWithCorsHeaders(caller);
     }
 
-    // Update the PUT reports endpoint
-resource function put reports/[int reportId](http:Caller caller, http:Request req) returns error? {
-    string|error email = validateAuthHeader(req);
-    if email is error {
-        check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
-        return;
-    }
-
-    // Get user profile to get user ID
-    user:UserProfile|error profile = auth:getUserProfile(email);
-    if profile is error {
-        check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
-        return;
-    }
-
-    json|error payload = req.getJsonPayload();
-    if payload is error {
-        check caller->respond(createErrorResponse("invalid_request", "Invalid JSON payload"));
-        return;
-    }
-
-    // Check if this is a resolve action
-    if payload.status is string && payload.status == "resolved" {
-        boolean|error result = database:resolveHazardReport(reportId, profile.id);
-        if result is error {
-            check caller->respond(createErrorResponse("resolve_failed", result.message()));
-        } else {
-            check caller->respond({
-                "success": true,
-                "message": "Report resolved and moved to resolved reports",
-                "timestamp": getCurrentTimestamp()
-            });
+    // Updated PUT reports endpoint with debugging
+    resource function put reports/[int reportId](http:Caller caller, http:Request req) returns error? {
+        log:printInfo("BACKEND: PUT reports endpoint called for ID: " + reportId.toString());
+        
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            log:printError("BACKEND: Auth validation failed: " + email.message());
+            check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
+            return;
         }
-    } else {
-        // Handle other status updates normally
-        check reports:handleUpdateReport(caller, req, reportId);
-    }
-}
+        log:printInfo("BACKEND: Auth validated for user: " + email);
 
-// Add endpoint to get resolved reports
-resource function get resolved\-reports(http:Request req) returns json {
-    string|error email = validateAuthHeader(req);
-    if email is error {
-        return createErrorResponse("unauthorized", "Authentication required");
-    }
-    
-    var resolvedReports = database:getResolvedReports();
-    if resolvedReports is error {
-        return createErrorResponse("internal_error", "Failed to retrieve resolved reports");
+        // Get user profile to get user ID
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            log:printError("BACKEND: Failed to get user profile: " + profile.message());
+            check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
+            return;
+        }
+        log:printInfo("BACKEND: User profile retrieved, ID: " + profile.id.toString());
+
+        json|error payload = req.getJsonPayload();
+        if payload is error {
+            log:printError("BACKEND: Invalid JSON payload: " + payload.message());
+            check caller->respond(createErrorResponse("invalid_request", "Invalid JSON payload"));
+            return;
+        }
+        log:printInfo("BACKEND: Payload received: " + payload.toString());
+
+        // Check if this is a resolve action
+        if payload.status is string && payload.status == "resolved" {
+            log:printInfo("BACKEND: Processing resolve action for report: " + reportId.toString());
+            
+            boolean|error result = database:resolveHazardReport(reportId, profile.id);
+            if result is error {
+                log:printError("BACKEND: Resolve failed: " + result.message());
+                check caller->respond(createErrorResponse("resolve_failed", result.message()));
+            } else {log:printInfo("BACKEND: Report resolved successfully: " + reportId.toString());
+                check caller->respond({
+                    "success": true,
+                    "message": "Report resolved and moved to resolved reports",
+                    "timestamp": getCurrentTimestamp()
+                });
+            }
+        } else {
+            log:printInfo("BACKEND: Processing normal update for report: " + reportId.toString());
+            // Handle other status updates normally
+            check reports:handleUpdateReport(caller, req, reportId);
+        }
     }
 
-    return {
-        success: true,
-        reports: <json>resolvedReports,
-        total_count: resolvedReports.length()
-    };
-}
+    // Add endpoint to get resolved reports
+    resource function get resolved\-reports(http:Request req) returns json {
+        log:printInfo("BACKEND: GET resolved-reports endpoint called");
+        
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            log:printError("BACKEND: Auth validation failed for resolved reports: " + email.message());
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+        log:printInfo("BACKEND: Auth validated for resolved reports request");
+
+        var resolvedReports = database:getResolvedReports();
+        if resolvedReports is error {
+            log:printError("BACKEND: Failed to retrieve resolved reports: " + resolvedReports.message());
+            return createErrorResponse("internal_error", "Failed to retrieve resolved reports");
+        }
+
+        log:printInfo("BACKEND: Successfully retrieved resolved reports count: " + resolvedReports.length().toString());
+        return {
+            success: true,
+            reports: <json>resolvedReports,
+            total_count: resolvedReports.length()
+        };
+    }
 
     resource function delete reports/[int reportId](http:Caller caller, http:Request req) returns error? {
         check reports:handleDeleteReport(caller, req, reportId);
     }
 
     resource function get images/[string filename](http:Caller caller, http:Request req) returns error? {
-      
         check serveImage(caller, filename);
     }
-
-    
 }
 
 @http:ServiceConfig {
