@@ -82,6 +82,7 @@ public function initializeDatabase() returns error? {
             country VARCHAR(100) NOT NULL,
             full_address TEXT NOT NULL,
             profile_image TEXT,
+            user_role VARCHAR(50) DEFAULT 'user',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);

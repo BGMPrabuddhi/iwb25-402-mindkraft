@@ -13,6 +13,7 @@ type SignupFormData = {
     password: string
     confirmPassword: string
     location: string
+    userRole: string
 }
 
 type LocationData = {
@@ -32,7 +33,8 @@ export default function SignupPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    location: ''
+    location: '',
+    userRole: 'general'
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<SignupFormData>>({})
@@ -47,7 +49,7 @@ export default function SignupPage() {
     setIsVisible(true)
   }, [])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -87,10 +89,8 @@ export default function SignupPage() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required'
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters'
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters'
     }
 
     if (!formData.confirmPassword) {
@@ -119,7 +119,6 @@ export default function SignupPage() {
     try {
       const result = await googleMapsService.getCurrentLocation()
       
-      // Set the location data
       setLocationData({
         latitude: result.latitude,
         longitude: result.longitude,
@@ -129,26 +128,22 @@ export default function SignupPage() {
         country: result.country
       })
       
-      // Update form data with formatted address
       const formattedLocation = result.city && result.state && result.country 
         ? `${result.city}, ${result.state}, ${result.country}`
         : result.address
       
       setFormData(prev => ({ ...prev, location: formattedLocation }))
       
-      // Clear any location errors
       if (errors.location) {
         setErrors(prev => ({ ...prev, location: '' }))
       }
       
-      console.log('✅ Location obtained:', result)
+      console.log('Location obtained:', result)
       
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to get location'
-      console.error('❌ Location error:', errorMessage)
+      console.error('Location error:', errorMessage)
       setApiError(`Unable to get your location: ${errorMessage}. Please enter your location manually.`)
-      
-      // Show a user-friendly alert
       alert(`Unable to get your location: ${errorMessage}. Please enter your location manually.`)
     } finally {
       setIsGettingLocation(false)
@@ -174,7 +169,6 @@ export default function SignupPage() {
   }
 
   const selectLocationSuggestion = (suggestion: LocationResult) => {
-    // Simple: use the full address from Google Maps
     setFormData(prev => ({ ...prev, location: suggestion.address }))
     setLocationData({
       latitude: suggestion.latitude,
@@ -188,7 +182,6 @@ export default function SignupPage() {
     setShowSuggestions(false)
     setLocationSuggestions([])
     
-    // Clear any location errors
     if (errors.location) {
       setErrors(prev => ({ ...prev, location: '' }))
     }
@@ -203,14 +196,13 @@ export default function SignupPage() {
     setApiError('')
     
     try {
-      console.log('🔄 Submitting registration form...');
+      console.log('Submitting registration form...')
       
-      // If we don't have GPS/search location data, try to geocode the manual location
       let finalLocationDetails = locationData
       
       if (!locationData && formData.location.trim()) {
         try {
-          console.log('🔍 Attempting to geocode manual location:', formData.location);
+          console.log('Attempting to geocode manual location:', formData.location)
           const geocodedResults = await googleMapsService.searchLocation(formData.location)
           if (geocodedResults.length > 0) {
             finalLocationDetails = {
@@ -221,21 +213,20 @@ export default function SignupPage() {
               state: geocodedResults[0].state,
               country: geocodedResults[0].country
             }
-            console.log('✅ Successfully geocoded location:', finalLocationDetails);
+            console.log('Successfully geocoded location:', finalLocationDetails)
           }
         } catch (geocodeError) {
-          console.log('⚠️ Geocoding failed, using manual parsing:', geocodeError);
+          console.log('Geocoding failed, using manual parsing:', geocodeError)
         }
       }
       
-      // Call the registration API
       const result = await authAPI.register({
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
         location: formData.location,
-        // Always include locationDetails - use GPS/geocoded data if available, otherwise parse manual input
+        userRole: formData.userRole,
         locationDetails: finalLocationDetails ? {
           latitude: finalLocationDetails.latitude,
           longitude: finalLocationDetails.longitude,
@@ -244,7 +235,6 @@ export default function SignupPage() {
           country: finalLocationDetails.country,
           fullAddress: finalLocationDetails.address
         } : (() => {
-          // Parse manually entered location as last resort
           const locationParts = formData.location.split(',').map(part => part.trim()).filter(part => part.length > 0)
           
           return {
@@ -258,45 +248,36 @@ export default function SignupPage() {
         })()
       })
 
-      console.log('📋 Registration result:', result);
+      console.log('Registration result:', result)
 
       if (result.success) {
-        alert('✅ Account created successfully! Please log in with your credentials.')
-        // Redirect to login page after successful registration
+        alert('Account created successfully! Please log in with your credentials.')
         router.push('/login')
       } else {
-        const errorMessage = result.message || 'Registration failed. Please try again.';
-        console.error('Registration failed:', errorMessage);
-        alert(`❌ ${errorMessage}`);
+        const errorMessage = result.message || 'Registration failed. Please try again.'
+        console.error('Registration failed:', errorMessage)
+        alert(errorMessage)
       }
     } catch (error) {
-      console.error('❌ Signup error:', error)
-      alert('❌ Signup failed. Please try again.')
+      console.error('Signup error:', error)
+      alert('Signup failed. Please try again.')
     } finally {
       setIsLoading(false)
     }
   }
 
   const formatLocationDisplay = (suggestion: LocationResult) => {
-    // Clean up location suggestions to show in user-friendly format
     let displayText = suggestion.address
     
-    // For Sri Lankan locations, extract the most relevant part
     if (suggestion.country === 'Sri Lanka') {
       const addressParts = suggestion.address.split(',').map(part => part.trim())
       
-      // Filter out unwanted parts
       const filteredParts = addressParts.filter(part => {
-        // Remove Plus Codes (like "54VV+VP6", "75Q5+5RX", etc.)
         if (/^[A-Z0-9]{4}\+[A-Z0-9]{2,3}$/.test(part)) return false
-        // Remove "Sri Lanka" country name
         if (part.toLowerCase().includes('sri lanka')) return false
-        // Remove provinces (like "Southern Province", "Western Province", etc.)
         if (part.toLowerCase().includes('province')) return false
-        // Remove districts that are too general (like just "Galle" for Ampegama)
         if (part.toLowerCase() === 'galle' || part.toLowerCase() === 'colombo' || 
             part.toLowerCase() === 'kandy' || part.toLowerCase() === 'matara') {
-          // Only remove if there's a more specific location available
           const hasMoreSpecific = addressParts.some(otherPart => 
             otherPart.trim().toLowerCase() !== part.toLowerCase() && 
             !otherPart.toLowerCase().includes('province') &&
@@ -305,20 +286,16 @@ export default function SignupPage() {
           )
           return !hasMoreSpecific
         }
-        // Remove empty parts
         if (!part.trim()) return false
         return true
       })
       
-      // Use the most specific location (usually the first filtered part)
       if (filteredParts.length > 0) {
         displayText = `${filteredParts[0]}, Sri Lanka`
       } else {
-        // Fallback: use city name if available
         displayText = suggestion.city ? `${suggestion.city}, Sri Lanka` : suggestion.address
       }
     } else {
-      // For non-Sri Lankan locations, show City, Country format if possible
       if (suggestion.city && suggestion.country) {
         displayText = `${suggestion.city}, ${suggestion.country}`
       }
@@ -380,7 +357,7 @@ export default function SignupPage() {
               </svg>
             </div>
             <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2 animate-gradient">
-              MindKraft
+              SafeRoute
             </h1>
             <h2 className="text-2xl font-semibold text-gray-700 mb-2 animate-fade-in-up">Join Us Today!</h2>
             <p className="text-gray-600 animate-fade-in-up animation-delay-300">Create your account and start your journey</p>
@@ -461,6 +438,40 @@ export default function SignupPage() {
                 {errors.email && (
                   <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.email}</p>
                 )}
+              </div>
+
+              {/* User Role Selection Field */}
+              <div className="group">
+                <label htmlFor="userRole" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
+                  User Role
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <select
+                    id="userRole"
+                    name="userRole"
+                    value={formData.userRole}
+                    onChange={handleChange}
+                    className="appearance-none block w-full pl-10 pr-8 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white"
+                  >
+                    <option value="general">General User</option>
+                    <option value="rda">RDA Officer</option>
+                    <option value="driver">Bus Driver</option>
+                    <option value="transport_officer">Transport Officer</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Select your role: General User for reporting hazards, RDA Officer for resolving road issues, Bus Driver for emergency assistance, or Transport Officer for driver support.
+                </p>
               </div>
 
               {/* Location Field with GPS and Search */}
@@ -571,7 +582,7 @@ export default function SignupPage() {
                     onChange={handleChange}
                     className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
                       errors.password ? 'border-red-300 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
+                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all} rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
                     placeholder="Create a strong password"
                   />
                 </div>
@@ -579,7 +590,7 @@ export default function SignupPage() {
                   <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.password}</p>
                 )}
                 <p className="mt-2 text-xs text-gray-500">
-                  Must be at least 8 characters with uppercase, lowercase, and number
+                  Must be at least 6 characters
                 </p>
               </div>
               

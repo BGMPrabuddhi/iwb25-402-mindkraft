@@ -14,6 +14,7 @@ public type RegisterRequest record {
     string password;
     string location;
     LocationDetails locationDetails;
+    string userRole;
 };
 
 public type LoginRequest record {
@@ -35,6 +36,7 @@ public type UserProfile record {
     string email;
     string location;
     LocationDetails locationDetails;
+    string userRole;
     string? profileImage?;
     string createdAt?;
 };

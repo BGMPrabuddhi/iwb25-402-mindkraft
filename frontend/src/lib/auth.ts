@@ -20,6 +20,7 @@ export interface RegisterRequest {
     country: string;
     fullAddress: string;
   };
+  userRole: string;
 }
 
 export interface LoginRequest {

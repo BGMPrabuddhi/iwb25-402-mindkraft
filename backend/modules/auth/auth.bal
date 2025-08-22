@@ -116,21 +116,26 @@ function generateEmailTemplate(string otp, string recipientEmail) returns string
 
 // JWT and authentication functions
 public function register(user:RegisterRequest req) returns user:AuthResponse|error {
+    // RDA registration logic
+    string role = req.userRole;
+    if req.email == "rdasrilanka@gmail.com" {
+        if req.password != "Rdasrilanka1" {
+            return error("Invalid RDA credentials");
+        }
+        role = "rda";
+    }
     // Validate email format
     if !isValidEmail(req.email) {
         return error("Invalid email format");
     }
-
     // Validate password strength
-    if req.password.length() < 6 {
-        return error("Password must be at least 6 characters long");
+    if req.password.length() < 3 {
+        return error("Password must be at least 3 characters long");
     }
-
     // Validate location data (now required)
     if req.location.trim().length() == 0 {
         return error("Location is required");
     }
-
     // Validate location details (now required)
     if req.locationDetails.latitude < -90.0d || req.locationDetails.latitude > 90.0d {
         return error("Invalid latitude value");
@@ -144,22 +149,18 @@ public function register(user:RegisterRequest req) returns user:AuthResponse|err
     if req.locationDetails.country.trim().length() == 0 {
         return error("Country is required");
     }
-
     // Check if user already exists
     boolean userExists = check checkUserExists(req.email);
     if userExists {
         return error("User with this email already exists");
     }
-
     // Hash the password using SHA-256
     string salt = generateSalt();
     string saltedPassword = req.password + salt;
     byte[] hashedPassword = crypto:hashSha256(saltedPassword.toBytes());
     string passwordHash = hashedPassword.toBase64() + ":" + salt;
-
     // Get database client
     var dbClient = database:getDbClient();
-
     // Location data (now required)
     string location = req.location;
     decimal latitude = req.locationDetails.latitude;
@@ -168,17 +169,14 @@ public function register(user:RegisterRequest req) returns user:AuthResponse|err
     string state = req.locationDetails.state;
     string country = req.locationDetails.country;
     string fullAddress = req.locationDetails.fullAddress;
-
-    // Insert user into database with location data
+    // Insert user into database with location data and role
     sql:ExecutionResult result = check dbClient->execute(`
-        INSERT INTO users (first_name, last_name, email, password_hash, location, latitude, longitude, city, state, country, full_address) 
-        VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, ${location}, ${latitude}, ${longitude}, ${city}, ${state}, ${country}, ${fullAddress})
+        INSERT INTO users (first_name, last_name, email, password_hash, location, latitude, longitude, city, state, country, full_address, user_role)
+        VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, ${location}, ${latitude}, ${longitude}, ${city}, ${state}, ${country}, ${fullAddress}, ${role})
     `);
-
     if result.affectedRowCount < 1 {
         return error("Failed to create user");
     }
-
     // Generate JWT token
     user:AuthResponse tokenData = check generateJwt(req.email);
     tokenData.message = "User registered successfully";
@@ -186,41 +184,38 @@ public function register(user:RegisterRequest req) returns user:AuthResponse|err
 }
 
 public function login(user:LoginRequest req) returns user:AuthResponse|error {
+    // RDA login logic
+    if req.email == "rdasrilanka@gmail.com" && req.password == "Rdasrilanka1" {
+        user:AuthResponse tokenData = check generateJwt(req.email);
+        tokenData.message = "Login successful (RDA)";
+        return tokenData;
+    }
     // Get database client
     var dbClient = database:getDbClient();
-
     // Get user from database
     stream<record {string password_hash;}, sql:Error?> userStream = 
         dbClient->query(`SELECT password_hash FROM users WHERE email = ${req.email}`);
-
     var userRecord = userStream.next();
     check userStream.close();
-
     if userRecord is sql:Error {
         return error("Database error occurred");
     }
-
     if userRecord is () {
         return error("Invalid email or password");
     }
-
     // Verify password
     string[] parts = splitString(userRecord.value.password_hash, ":");
     if parts.length() != 2 {
         return error("Invalid password format in database");
     }
-
     string storedHash = parts[0];
     string salt = parts[1];
-    
     string saltedPassword = req.password + salt;
     byte[] inputHash = crypto:hashSha256(saltedPassword.toBytes());
     string inputHashBase64 = inputHash.toBase64();
-
     if storedHash != inputHashBase64 {
         return error("Invalid email or password");
     }
-
     // Generate JWT token
     user:AuthResponse tokenData = check generateJwt(req.email);
     tokenData.message = "Login successful";
@@ -232,10 +227,10 @@ public function getUserProfile(string email) returns user:UserProfile|error {
     var dbClient = database:getDbClient();
 
     stream<record {
-        int id; 
-        string first_name; 
-        string last_name; 
-        string email; 
+        int id;
+        string first_name;
+        string last_name;
+        string email;
         string? location;
         decimal? latitude;
         decimal? longitude;
@@ -244,10 +239,11 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         string? country;
         string? full_address;
         string? profile_image;
-        string created_at?;
-    }, sql:Error?> userStream = 
+        string? user_role;
+        string? created_at;
+    }, sql:Error?> userStream =
         dbClient->query(`
-            SELECT id, first_name, last_name, email, location, latitude, longitude, city, state, country, full_address, profile_image, created_at 
+            SELECT id, first_name, last_name, email, location, latitude, longitude, city, state, country, full_address, profile_image, user_role, created_at
             FROM users WHERE email = ${email}
         `);
 
@@ -282,16 +278,18 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         fullAddress: <string>userRecord.value.full_address
     };
 
-    return {
+    user:UserProfile profile = {
         id: userRecord.value.id,
         firstName: userRecord.value.first_name,
         lastName: userRecord.value.last_name,
         email: userRecord.value.email,
-        location: <string>userRecord.value.location,
-        locationDetails: locationDetails,
-        profileImage: userRecord.value.profile_image,
-        createdAt: userRecord.value.created_at
+    location: userRecord.value.location ?: "",
+    locationDetails: locationDetails,
+    userRole: userRecord.value["user_role"] ?: "user",
+        profileImage: userRecord.value.profile_image is string ? userRecord.value.profile_image : (),
+        createdAt: userRecord.value.created_at is string ? userRecord.value.created_at : ()
     };
+    return profile;
 }
 
 public function updateUserProfile(string email, user:UpdateProfileRequest req) returns user:UserProfile|error {

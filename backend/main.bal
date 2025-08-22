@@ -286,8 +286,11 @@ service /api on apiListener {
     }
 
     resource function get images/[string filename](http:Caller caller, http:Request req) returns error? {
+      
         check serveImage(caller, filename);
     }
+
+    
 }
 
 @http:ServiceConfig {
