@@ -3,7 +3,6 @@ import ballerinax/postgresql.driver as _;
 import ballerina/sql;
 import ballerina/log;
 
-
 public type DatabaseError distinct error;
 
 public type User record {
@@ -158,7 +157,7 @@ public function initializeDatabase() returns error? {
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_status ON hazard_reports(status)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_created_at ON hazard_reports(created_at)`);
     
-        // Create indexes for resolved_hazard_reports
+    // Create indexes for resolved_hazard_reports
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_user_id ON resolved_hazard_reports(user_id)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_type ON resolved_hazard_reports(hazard_type)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_resolved_at ON resolved_hazard_reports(resolved_at)`);
@@ -261,7 +260,6 @@ public function getAllReports() returns record {|
         int user_id;
     |}[] reports = [];
     
-    // Fix: Add error handling for the from clause
     error? fromResult = from var row in resultStream
         do {
             record {|
@@ -393,7 +391,6 @@ public function getFilteredHazardReports(
         string? updated_at;
     |}[] reports = [];
     
-    // Fix: Add error handling for the from clause
     error? fromResult = from var row in resultStream
         do {
             record {|
@@ -488,7 +485,6 @@ public function updateHazardReport(
         string? updated_at;
     |}, sql:Error?> resultStream = dbClient->query(updateQuery);
     
-    // Fix: Properly handle the stream result
     record {| record {|
         int id;
         string title;
@@ -578,12 +574,7 @@ public function deleteHazardReport(int reportId) returns boolean|error {
         WHERE id = ${reportId}
     `;
     
-    // Fix: Add check for execute
-   sql:ExecutionResult|error insertResult = dbClient->execute(insertQuery);
-if insertResult is error {
-    log:printError("DATABASE: Full insert error: " + insertResult.toString());
-    return error("Failed to insert resolved report: " + insertResult.message());
-}
+    sql:ExecutionResult result = check dbClient->execute(deleteQuery);
     
     if result.affectedRowCount > 0 {
         log:printInfo("Report deleted with ID: " + reportId.toString());
@@ -597,14 +588,14 @@ public function deleteOldReports() returns int|error {
     sql:ParameterizedQuery deleteQuery = `
         DELETE FROM hazard_reports 
         WHERE created_at < NOW() - INTERVAL '24 hours'
+        AND hazard_type NOT IN ('pothole', 'construction')
     `;
     
-    // Fix: Add check for execute
     sql:ExecutionResult result = check dbClient->execute(deleteQuery);
     
     int deletedCount = <int>result.affectedRowCount;
     if deletedCount > 0 {
-        log:printInfo("Automatically deleted " + deletedCount.toString() + " reports older than 24 hours");
+        log:printInfo("Automatically deleted " + deletedCount.toString() + " non-road reports older than 24 hours");
     }
     return deletedCount;
 }
@@ -634,7 +625,6 @@ public function insertUser(
     `;
     
     stream<record {int id;}, sql:Error?> resultStream = dbClient->query(insertQuery);
-    // Fix: Handle stream result properly
     record {| record {int id;} value; |}|sql:Error? nextRow = check resultStream.next();
     error? closeErr = resultStream.close();
     
@@ -661,7 +651,6 @@ public function getUserByEmail(string email) returns User|error {
     `;
     
     stream<User, sql:Error?> resultStream = dbClient->query(selectQuery);
-    // Fix: Handle stream result properly
     record {| User value; |}|sql:Error? row = check resultStream.next();
     error? closeErr = resultStream.close();
     
@@ -696,7 +685,6 @@ public function updateUser(int userId, User updatedUser) returns User|error {
     `;
     
     stream<User, sql:Error?> resultStream = dbClient->query(updateQuery);
-    // Fix: Handle stream result properly
     record {| User value; |}|sql:Error? row = check resultStream.next();
     error? closeErr = resultStream.close();
     
@@ -836,7 +824,6 @@ public function getNearbyReports(decimal userLat, decimal userLng, decimal radiu
     decimal distance_km;
 |}[]|error {
     
-    // Using Haversine formula for distance calculation
     sql:ParameterizedQuery selectQuery = `
         SELECT id, user_id, title, description, hazard_type, severity_level, images, 
                latitude, longitude, address, created_at, status, updated_at,
@@ -932,13 +919,34 @@ public function getNearbyReports(decimal userLat, decimal userLng, decimal radiu
     return reports;
 }
 
+public function getReportType(int reportId) returns string|error {
+    sql:ParameterizedQuery selectQuery = `
+        SELECT hazard_type FROM hazard_reports WHERE id = ${reportId}
+    `;
+    
+    stream<record {| string hazard_type; |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    record {| record {| string hazard_type; |} value; |}|sql:Error? streamResult = check resultStream.next();
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("DATABASE: Error closing result stream: " + closeErr.message());
+    }
+    
+    if streamResult is sql:Error {
+        return error("SQL error: " + streamResult.message());
+    }
+    
+    if streamResult is () {
+        return error("Report not found");
+    }
+    
+    return streamResult.value.hazard_type;
+}
 
-// Move report to resolved table and delete from active reports
-// Move report to resolved table and delete from active reports
 public function resolveHazardReport(int reportId, int resolvedByUserId) returns boolean|error {
     log:printInfo("DATABASE: resolveHazardReport called - Report ID: " + reportId.toString() + ", User ID: " + resolvedByUserId.toString());
     
-    // Get the original report first
     sql:ParameterizedQuery selectQuery = `
         SELECT user_id, title, description, hazard_type, severity_level, images, 
                latitude, longitude, address, created_at
@@ -1004,9 +1012,9 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
         string created_at;
     |} report = streamResult.value;
     
-    // Insert into resolved_hazard_reports
     log:printInfo("DATABASE: Inserting into resolved_hazard_reports...");
     
+    // Fix: Cast the created_at string to timestamp
     sql:ParameterizedQuery insertQuery = `
         INSERT INTO resolved_hazard_reports (
             original_report_id, user_id, title, description, hazard_type, 
@@ -1015,19 +1023,23 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
             ${reportId}, ${report.user_id}, ${report.title}, ${report.description}, 
             ${report.hazard_type}, ${report.severity_level}, ${report.images}, 
             ${report.latitude}, ${report.longitude}, ${report.address}, 
-            ${report.created_at}, ${resolvedByUserId}
+            ${report.created_at}::timestamp, ${resolvedByUserId}
         )
     `;
     
-    sql:ExecutionResult insertResult = check dbClient->execute(insertQuery);
+    sql:ExecutionResult|error insertResult = dbClient->execute(insertQuery);
+    if insertResult is error {
+        log:printError("DATABASE: Insert error: " + insertResult.toString());
+        return error("Failed to insert resolved report: " + insertResult.message());
+    }
+    
     log:printInfo("DATABASE: Insert result - Affected rows: " + insertResult.affectedRowCount.toString());
     
     if insertResult.affectedRowCount < 1 {
-        log:printError("DATABASE: Failed to insert resolved report");
+        log:printError("DATABASE: No rows inserted");
         return error("Failed to insert resolved report");
     }
     
-    // Delete from hazard_reports
     log:printInfo("DATABASE: Deleting from hazard_reports...");
     
     sql:ParameterizedQuery deleteQuery = `
@@ -1045,7 +1057,6 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
     log:printInfo("DATABASE: Report successfully resolved and moved - ID: " + reportId.toString());
     return true;
 }
-// Get resolved reports
 public function getResolvedReports() returns record {|
    int id;
    string title;

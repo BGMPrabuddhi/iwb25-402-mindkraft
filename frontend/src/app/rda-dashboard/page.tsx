@@ -77,6 +77,13 @@ export default function RDADashboard() {
     message: ''
   })
 
+  // Logout confirmation state
+  const [logoutDialog, setLogoutDialog] = useState<{
+    isOpen: boolean
+  }>({
+    isOpen: false
+  })
+
   // Map popup state
   const [mapPopup, setMapPopup] = useState<{
     isOpen: boolean
@@ -179,6 +186,21 @@ export default function RDADashboard() {
       title: '',
       message: ''
     })
+  }
+
+  // Logout functions
+  const handleLogout = () => {
+    setLogoutDialog({ isOpen: true })
+  }
+
+  const confirmLogout = () => {
+    localStorage.removeItem('auth_token')
+    setLogoutDialog({ isOpen: false })
+    router.push('/login')
+  }
+
+  const cancelLogout = () => {
+    setLogoutDialog({ isOpen: false })
   }
 
   // Map functions
@@ -311,11 +333,6 @@ export default function RDADashboard() {
     } catch (error) {
       console.error('FRONTEND: Error updating report status:', error);
     }
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token')
-    router.push('/login')
   }
 
   const getSeverityColor = (severity: string) => {
@@ -563,54 +580,67 @@ export default function RDADashboard() {
                 {report.description && (
                   <p className="text-gray-600 mb-4">{report.description}</p>
                 )}
-                
-                <div className="space-y-2 text-sm text-gray-500 mb-4">
+                  <div className="space-y-2 text-sm text-gray-500 mb-4">
                   <p><strong>Type:</strong> {report.hazard_type}</p>
                   <p><strong>District:</strong> {extractDistrict(report.location?.address || '')}</p>
-                  <p><strong>Reported:</strong> {new Date(report.created_at).toLocaleDateString()}</p>
-                  {activeTab === 'resolved' && report.resolved_at && (
-                    <p><strong>Resolved:</strong> {new Date(report.resolved_at).toLocaleDateString()}</p>
-                  )}
-                  {report.location?.address && (
-                    <p className="cursor-pointer hover:text-blue-600 transition-colors">
-                      <strong>Location:</strong> 
-                      <button
-                        onClick={() => openMap(report)}
-                        className="ml-1 text-blue-600 hover:text-blue-800 underline"
-                      >
-                        {report.location.address}
-                      </button>
-                    </p>
-                  )}
-                  {report.images.length > 0 && (
-                    <p>
-                      <strong>Images:</strong> 
-                      <button
-                        onClick={() => openImageGallery(report.images, 0, report.title)}
-                        className="ml-1 text-blue-600 hover:text-blue-800 underline"
-                      >
-                        {report.images.length} attached (View Gallery)
-                      </button>
-                    </p>
-                  )}
-                </div>
+  
+                {/* Updated date/time display */}
+                {activeTab === 'submitted' ? (
+                <p><strong>Submitted:</strong> {new Date(report.created_at).toLocaleString()}</p>
+               ) : (
+               <>
+                <p><strong>Submitted:</strong> {new Date(report.created_at).toLocaleString()}</p>
+                <p><strong>Resolved:</strong> {new Date(report.resolved_at).toLocaleString()}</p>
+               </>
+            )}
+  
+  {report.location?.address && (
+    <p className="cursor-pointer hover:text-blue-600 transition-colors">
+      <strong>Location:</strong> 
+      <button
+        onClick={() => openMap(report)}
+        className="ml-1 text-blue-600 hover:text-blue-800 underline"
+      >
+        {report.location.address}
+      </button>
+    </p>
+  )}
+  {report.images.length > 0 && (
+    <p>
+      <strong>Images:</strong> 
+      <button
+        onClick={() => openImageGallery(report.images, 0, report.title)}
+        className="ml-1 text-blue-600 hover:text-blue-800 underline"
+      >
+        {report.images.length} attached (View Gallery)
+      </button>
+    </p>
+  )}
+</div>
 
-                {/* Action Buttons - Only for submitted reports */}
-                {activeTab === 'submitted' && (
-                  <div className="flex space-x-2">
-                    {(report.status === 'pending' || report.status === 'active' || report.status === 'in_progress') && (
-                      <button
-                        onClick={() => {
-                          console.log('FRONTEND: Mark Resolved button clicked for report:', report.id);
-                          showConfirmDialog(report.id, 'resolved', report.title);
-                        }}
-                        className="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
-                      >
-                        Mark Resolved
-                      </button>
-                    )}
-                  </div>
-                )}
+{/* Action Buttons - Only for submitted reports */}
+{activeTab === 'submitted' && (
+  <div className="flex space-x-2">
+    {(report.status === 'pending' || report.status === 'active' || report.status === 'in_progress') && 
+     (report.hazard_type === 'pothole' || report.hazard_type === 'construction') && (
+      <button
+        onClick={() => {
+          console.log('FRONTEND: Mark Resolved button clicked for report:', report.id);
+          showConfirmDialog(report.id, 'resolved', report.title);
+        }}
+        className="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
+      >
+        Mark Resolved
+      </button>
+    )}
+    {(report.status === 'pending' || report.status === 'active' || report.status === 'in_progress') && 
+     report.hazard_type !== 'pothole' && report.hazard_type !== 'construction' && (
+      <div className="w-full text-center text-sm text-gray-500 py-2">
+        Auto-deletes after 24 hours
+      </div>
+    )}
+  </div>
+)}
               </div>
             ))}
           </div>
@@ -640,7 +670,7 @@ export default function RDADashboard() {
         />
       )}
 
-      {/* Confirmation Dialog */}
+      {/* Resolve Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
         onClose={closeConfirmDialog}
@@ -650,6 +680,18 @@ export default function RDADashboard() {
         confirmText="Yes, Continue"
         cancelText="Cancel"
         type="info"
+      />
+
+      {/* Logout Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={logoutDialog.isOpen}
+        onClose={cancelLogout}
+        onConfirm={confirmLogout}
+        title="Confirm Logout"
+        message="Are you sure you want to logout? You will need to login again to access the dashboard."
+        confirmText="Yes, Logout"
+        cancelText="Cancel"
+        type="warning"
       />
     </div>
   )
