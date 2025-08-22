@@ -5,6 +5,7 @@ import ballerina/file;
 import ballerina/io;
 import ballerina/uuid;
 import ballerina/task;
+import ballerina/time; 
 import saferoute/backend.types;
 import saferoute/backend.database;
 import saferoute/backend.auth;
@@ -335,20 +336,25 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
             location.address
         );
         
-        if result is int {
-            string[] imageUrls = data.imageNames.map(name => "http://localhost:8080/api/images/" + name);
-            
-            log:printInfo("Report created successfully with ID: " + result.toString());
-            
-            types:ApiResponse response = {
-                status: "success",
-                message: "Report submitted successfully with " + data.imageNames.length().toString() + " images",
-                report_id: result,
-                images_uploaded: data.imageNames.length(),
-                image_urls: imageUrls
-            };
-            res.setPayload(response);
-        } else {
+       if result is int {
+    // Get current timestamp
+    time:Utc currentTime = time:utcNow();
+    string timestamp = time:utcToString(currentTime);
+    
+    string[] imageUrls = data.imageNames.map(name => "http://localhost:8080/api/images/" + name);
+    
+    log:printInfo("Report created successfully with ID: " + result.toString());
+    
+    types:ApiResponse response = {
+        status: "success",
+        message: "Report submitted successfully with " + data.imageNames.length().toString() + " images",
+        report_id: result,
+        images_uploaded: data.imageNames.length(),
+        image_urls: imageUrls,
+        timestamp: timestamp  // Add this line
+    };
+    res.setPayload(response);
+} else {
             log:printError("Database error: " + result.toString());
             res.setPayload(createErrorResponse("Database error: " + result.toString()));
         }

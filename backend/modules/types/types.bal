@@ -32,6 +32,7 @@ public type ApiResponse record {|
     int? report_id?;
     int? images_uploaded?;
     string[]? image_urls?;
+    string? timestamp?;
 |};
 
 public type ReportsResponse record {|

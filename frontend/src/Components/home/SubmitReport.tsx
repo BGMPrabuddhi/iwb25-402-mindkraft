@@ -374,6 +374,9 @@ const SubmitReport = () => {
       
       console.log('Success response:', response)
       
+      const timestamp = response.timestamp || new Date().toISOString()
+      const formattedDate = new Date(timestamp).toLocaleString()
+
       const locationText = submitForm.location ? `\nLocation: ${submitForm.location.address || `${submitForm.location.lat.toFixed(6)}, ${submitForm.location.lng.toFixed(6)}`}` : ''
       alert(`SUCCESS!\n\n${response.message}\n\nReport ID: ${response.report_id}\nImages uploaded: ${submitForm.images.length}${locationText}\nTimestamp: ${new Date(response.timestamp || '').toLocaleString()}`)
       
