@@ -1,5 +1,4 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -252,19 +251,26 @@ export default function SignupPage() {
 
       if (result.success) {
         alert('Account created successfully! Please log in with your credentials.')
-        router.push('/login')
+      // Check if this is RDA registration
+      if (formData.email === 'rdasrilanka@gmail.com' || formData.userRole === 'rda') {
+        console.log('RDA user registered, redirecting to RDA dashboard')
+        router.push('/rda-dashboard')
       } else {
-        const errorMessage = result.message || 'Registration failed. Please try again.'
-        console.error('Registration failed:', errorMessage)
-        alert(errorMessage)
+        console.log('Regular user registered, redirecting to login')
+        router.push('/login')
       }
-    } catch (error) {
-      console.error('Signup error:', error)
-      alert('Signup failed. Please try again.')
-    } finally {
-      setIsLoading(false)
+    } else {
+      const errorMessage = result.message || 'Registration failed. Please try again.'
+      console.error('Registration failed:', errorMessage)
+      alert(errorMessage)
     }
+  } catch (error) {
+    console.error('Signup error:', error)
+    alert('Signup failed. Please try again.')
+  } finally {
+    setIsLoading(false)
   }
+}
 
   const formatLocationDisplay = (suggestion: LocationResult) => {
     let displayText = suggestion.address

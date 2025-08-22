@@ -819,7 +819,7 @@ public function getNearbyReports(decimal userLat, decimal userLng, decimal radiu
         HAVING distance_km <= ${radiusKm}
         ORDER BY distance_km ASC, created_at DESC
     `;
-    
+
     stream<record {|
         int id;
         int user_id;

@@ -68,32 +68,34 @@ service /api on apiListener {
         return createSuccessAuthResponse(result);
     }
 
-    resource function get me(http:Request req) returns json {
-        string|error email = validateAuthHeader(req);
-        if email is error {
-            return createErrorResponse("unauthorized", "Authentication required");
-        }
-
-        user:UserProfile|error profile = auth:getUserProfile(email);
-        if profile is error {
-            log:printError("Failed to get user profile", profile);
-            return createErrorResponse("internal_error", "Failed to retrieve user profile");
-        }
-        
-        map<json> userResponse = createUserProfileResponse(profile);
-        return {
-            success: true,
-            id: userResponse["id"],
-            firstName: userResponse["firstName"],
-            lastName: userResponse["lastName"],
-            email: userResponse["email"],
-            location: userResponse["location"],
-            locationDetails: userResponse["locationDetails"],
-            createdAt: userResponse["createdAt"],
-            profileImage: userResponse.hasKey("profileImage") ? userResponse["profileImage"] : ()
-        };
+    // In your main.bal file, update the /me endpoint
+// In your main.bal file, update the /me endpoint
+resource function get me(http:Request req) returns json {
+    string|error email = validateAuthHeader(req);
+    if email is error {
+        return createErrorResponse("unauthorized", "Authentication required");
     }
 
+    user:UserProfile|error profile = auth:getUserProfile(email);
+    if profile is error {
+        log:printError("Failed to get user profile", profile);
+        return createErrorResponse("internal_error", "Failed to retrieve user profile");
+    }
+    
+    map<json> userResponse = createUserProfileResponse(profile);
+    return {
+        success: true,
+        id: userResponse["id"],
+        firstName: userResponse["firstName"],
+        lastName: userResponse["lastName"],
+        email: userResponse["email"],
+        userRole: profile.userRole, // This should already be included
+        location: userResponse["location"],
+        locationDetails: userResponse["locationDetails"],
+        createdAt: userResponse["createdAt"],
+        profileImage: userResponse.hasKey("profileImage") ? userResponse["profileImage"] : ()
+    };
+}
     resource function put me(http:Request req, user:UpdateProfileRequest updateReq) returns json {
         string|error email = validateAuthHeader(req);
         if email is error {

@@ -59,43 +59,50 @@ export default function LoginPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validateForm()) return
+  // In your login component's handleSubmit function
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  
+  if (!validateForm()) return
 
-    setIsLoading(true)
-    setApiError('')
-    
-    try {
-      console.log('🔄 Submitting login form...');
+  setIsLoading(true)
+  setApiError('')
+  
+  try {
+    const result = await authAPI.login({
+      email: formData.email,
+      password: formData.password,
+    })
+
+    if (result.success) {
+      // Get user profile to check role
+      const profile = await authAPI.getProfile()
       
-      // Call the login API
-      const result = await authAPI.login({
-        email: formData.email,
-        password: formData.password
-      })
-
-      console.log('📋 Login result:', result);
-
-      if (result.success) {
-        alert('✅ Login successful! Welcome back!')
-        // Redirect to home page after successful login
-        router.push('/home')
+      if (profile.success) {
+        console.log('User profile:', profile)
+        
+        // Check for RDA role specifically
+        if (profile.userRole === 'rda' || formData.email === 'rdasrilanka@gmail.com') {
+          console.log('Redirecting to RDA dashboard')
+          router.push('/rda-dashboard')
+        } else {
+          console.log('Redirecting to regular dashboard')
+          router.push('/home') // or wherever normal users should go
+        }
       } else {
-        const errorMessage = result.message || 'Login failed. Please try again.';
-        console.error('Login failed:', errorMessage);
-        alert(`❌ ${errorMessage}`);
+        // Fallback redirect
+        router.push('/home')
       }
-      
-    } catch (error) {
-      console.error('❌ Login error:', error)
-      alert('❌ Login failed. Please try again.')
-    } finally {
-      setIsLoading(false)
+    } else {
+      setApiError(result.message || 'Login failed')
     }
+  } catch (error) {
+    console.error('Login error:', error)
+    setApiError('Login failed. Please try again.')
+  } finally {
+    setIsLoading(false)
   }
-
+}
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
       {/* Animated Background Elements */}
