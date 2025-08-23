@@ -251,6 +251,45 @@ service /api on apiListener {
         };
     }
 
+    resource function get reports/traffic\-alerts(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            return createErrorResponse("internal_error", "Failed to retrieve user profile");
+        }
+
+        var alertsResult = database:getCurrentTrafficAlerts(
+            profile.locationDetails.latitude, 
+            profile.locationDetails.longitude
+        );
+        
+        if alertsResult is error {
+            return createErrorResponse("internal_error", "Failed to retrieve current traffic alerts");
+        }
+
+        return {
+            success: true,
+            alerts: <json>alertsResult,
+            total_count: alertsResult.length(),
+            user_location: {
+                latitude: profile.locationDetails.latitude,
+                longitude: profile.locationDetails.longitude,
+                address: profile.locationDetails.address
+            },
+            criteria: {
+                radius_km: 25,
+                time_window_hours: 24
+            },
+            message: alertsResult.length() > 0 
+                ? "Current traffic alerts in your area" 
+                : "No current traffic alerts in your area"
+        };
+    }
+
     resource function get reports(http:Caller caller, http:Request req) returns error? {
         ReportQueryParams params = extractReportQueryParams(req);
         
