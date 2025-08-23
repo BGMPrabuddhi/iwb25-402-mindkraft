@@ -337,32 +337,32 @@ public function login(user:LoginRequest req) returns user:AuthResponse|error {
         return error("Invalid email or password");
     }
 
-    // Check if email is verified
+    // If email not verified, still allow login but (optionally) trigger a fresh OTP silently
+    string loginMessage = "Login successful";
     if !userRecord.value.is_email_verified {
-        // Send a new verification OTP
-        string otp = generateOtp();
-        int expirationTime = <int>time:utcNow()[0] + 600; // 10 minutes from now
-        
-        sql:ExecutionResult _ = check dbClient->execute(`
-            INSERT INTO email_verification_otps (email, otp, expiration_time, is_used) 
-            VALUES (${req.email}, ${otp}, ${expirationTime}, false)
-            ON CONFLICT (email) 
-            DO UPDATE SET otp = EXCLUDED.otp, expiration_time = EXCLUDED.expiration_time, is_used = false
-        `);
-
-        // Send OTP email for verification
-        error? emailResult = sendVerificationEmail(req.email, otp);
-        if emailResult is error {
-            log:printError("Failed to send verification email during login", emailResult);
-            // Continue despite email failure
+        // Attempt to refresh verification OTP asynchronously (errors ignored)
+        do {
+            string otp = generateOtp();
+            int expirationTime = <int>time:utcNow()[0] + 600;
+            sql:ExecutionResult _ = check dbClient->execute(`
+                INSERT INTO email_verification_otps (email, otp, expiration_time, is_used) 
+                VALUES (${req.email}, ${otp}, ${expirationTime}, false)
+                ON CONFLICT (email) 
+                DO UPDATE SET otp = EXCLUDED.otp, expiration_time = EXCLUDED.expiration_time, is_used = false
+            `);
+            error? emailResult = sendVerificationEmail(req.email, otp);
+            if emailResult is error {
+                log:printError("Failed to send verification email during login (non-blocking)", emailResult);
+            }
+        } on fail {
+            log:printError("Non-blocking email verification OTP refresh failed");
         }
-        
-        return error("Email not verified. A new verification code has been sent to your email.");
+        loginMessage = "Login successful (email not yet verified)";
     }
 
-    // Generate JWT token
+    // Generate JWT token regardless of verification status
     user:AuthResponse tokenData = check generateJwt(req.email);
-    tokenData.message = "Login successful";
+    tokenData.message = loginMessage;
     return tokenData;
 }
 

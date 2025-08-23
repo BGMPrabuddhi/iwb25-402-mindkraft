@@ -1,3 +1,10 @@
+import ballerina/time;
+import ballerina/sql;
+import saferoute/backend.database;
+import saferoute/backend.user;
+// (Functions like isValidEmail, checkUserExists, generateOtp, sendVerificationEmail, generateJwt
+// are defined in auth.bal within the same module, so no import alias needed.)
+
 // Email verification functions
 public function sendVerificationOtp(user:SendVerificationRequest req) returns user:SendVerificationResponse|error {
     // Validate email format

@@ -22,8 +22,8 @@ export default function VerifyEmail() {
     if (!email && typeof window !== 'undefined') {
       const storedEmail = sessionStorage.getItem('verification_email');
       if (!storedEmail) {
-        // No email to verify, redirect to signup
-        router.push('/sign-up');
+        // No email to verify, redirect to home
+        router.push('/home');
       }
     }
   }, [email, router]);

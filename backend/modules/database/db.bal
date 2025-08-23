@@ -77,7 +77,37 @@ public function initializeDatabase() returns error? {
             state VARCHAR(100) NOT NULL,
             country VARCHAR(100) NOT NULL,
             full_address TEXT NOT NULL,
+            -- Added email verification status column used by auth module
+            is_email_verified BOOLEAN DEFAULT false,
             profile_image TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Ensure column exists if table was created earlier without it
+    _ = check dbClient->execute(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT false
+    `);
+
+    // Create table for email verification OTPs (used in registration & email verification)
+    _ = check dbClient->execute(`
+        CREATE TABLE IF NOT EXISTS email_verification_otps (
+            email VARCHAR(255) PRIMARY KEY REFERENCES users(email) ON DELETE CASCADE,
+            otp VARCHAR(10) NOT NULL,
+            expiration_time INT NOT NULL,
+            is_used BOOLEAN DEFAULT false,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Create table for password reset OTPs
+    _ = check dbClient->execute(`
+        CREATE TABLE IF NOT EXISTS password_reset_otps (
+            email VARCHAR(255) PRIMARY KEY REFERENCES users(email) ON DELETE CASCADE,
+            otp VARCHAR(10) NOT NULL,
+            expiration_time INT NOT NULL,
+            is_used BOOLEAN DEFAULT false,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
@@ -106,6 +136,8 @@ public function initializeDatabase() returns error? {
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_type ON hazard_reports(hazard_type)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_severity ON hazard_reports(severity_level)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_coordinates ON hazard_reports(latitude, longitude)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_email_verification_expiry ON email_verification_otps(expiration_time)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_password_reset_expiry ON password_reset_otps(expiration_time)`);
     
     log:printInfo("Database tables and indexes created successfully");
 }
