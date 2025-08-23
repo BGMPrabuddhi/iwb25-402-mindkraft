@@ -84,6 +84,29 @@ export interface ResetPasswordResponse {
   errorCode?: string;
 }
 
+// Email Verification Types
+export interface SendVerificationRequest {
+  email: string;
+}
+
+export interface SendVerificationResponse {
+  success: boolean;
+  message: string;
+  errorCode?: string;
+}
+
+export interface VerifyEmailOtpRequest {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyEmailOtpResponse {
+  success: boolean;
+  message: string;
+  token?: string;
+  errorCode?: string;
+}
+
 export interface UpdateProfileRequest {
   firstName: string;
   lastName: string;
@@ -435,6 +458,74 @@ export class AuthAPI {
       return {
         success: false,
         message: 'Network error occurred during password reset',
+        errorCode: 'network_error'
+      };
+    }
+  }
+  
+  // Email Verification Methods
+  
+  // Request email verification OTP
+  async sendEmailVerification(data: SendVerificationRequest): Promise<SendVerificationResponse> {
+    try {
+      console.log('🔄 Requesting email verification...', { email: data.email });
+      
+      const response: AxiosResponse = await axios.post('/api/auth/send-email-verification', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      });
+      
+      console.log('✅ Email verification request response:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('❌ Email verification request error:', error);
+      
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      
+      return {
+        success: false,
+        message: 'Network error occurred during email verification request',
+        errorCode: 'network_error'
+      };
+    }
+  }
+  
+  // Verify email with OTP
+  async verifyEmail(data: VerifyEmailOtpRequest): Promise<VerifyEmailOtpResponse> {
+    try {
+      console.log('🔄 Verifying email with OTP...', { email: data.email });
+      
+      const response: AxiosResponse = await axios.post('/api/auth/verify-email', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      });
+      
+      console.log('✅ Email verification response:', response.data);
+      
+      // If verification is successful and returns a token, store it
+      if (response.data.success && response.data.token) {
+        this.setAuthToken(response.data.token);
+      }
+      
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('❌ Email verification error:', error);
+      
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      
+      return {
+        success: false,
+        message: 'Network error occurred during email verification',
         errorCode: 'network_error'
       };
     }

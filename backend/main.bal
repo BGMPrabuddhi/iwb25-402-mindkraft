@@ -276,6 +276,43 @@ service /api on apiListener {
             errorCode: result?.errorCode
         };
     }
+    
+    // Send email verification OTP
+    resource function post auth/send\-email\-verification(user:SendVerificationRequest req) returns json {
+        user:SendVerificationResponse|error result = auth:sendVerificationOtp(req);
+        if result is error {
+            log:printError("Send verification OTP failed", result);
+            return {
+                success: false,
+                message: "Failed to send verification code",
+                errorCode: "verification_send_failed"
+            };
+        }
+        return {
+            success: result.success,
+            message: result.message,
+            errorCode: result?.errorCode
+        };
+    }
+
+    // Verify email with OTP
+    resource function post auth/verify\-email(user:VerifyEmailOtpRequest req) returns json {
+        user:VerifyEmailOtpResponse|error result = auth:verifyEmailOtp(req);
+        if result is error {
+            log:printError("Email verification failed", result);
+            return {
+                success: false,
+                message: "Failed to verify email",
+                errorCode: "email_verification_failed"
+            };
+        }
+        return {
+            success: result.success,
+            message: result.message,
+            token: result?.token,
+            errorCode: result?.errorCode
+        };
+    }
 
     // ==================== HAZARD REPORT ENDPOINTS ====================
 

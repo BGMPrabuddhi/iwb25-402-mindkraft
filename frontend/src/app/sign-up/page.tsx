@@ -261,9 +261,11 @@ export default function SignupPage() {
       console.log('📋 Registration result:', result);
 
       if (result.success) {
-        alert('✅ Account created successfully! Please log in with your credentials.')
-        // Redirect to login page after successful registration
-        router.push('/login')
+        // Store the email in session storage for OTP verification
+        sessionStorage.setItem('verification_email', formData.email);
+        alert('✅ Account created successfully! Please verify your email with the OTP sent to your inbox.')
+        // Redirect to verify email page
+        router.push('/verify-email')
       } else {
         const errorMessage = result.message || 'Registration failed. Please try again.';
         console.error('Registration failed:', errorMessage);
