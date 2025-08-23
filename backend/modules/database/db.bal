@@ -127,8 +127,26 @@ public function initializeDatabase() returns error? {
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_coordinates ON hazard_reports(latitude, longitude)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_status ON hazard_reports(status)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_created_at ON hazard_reports(created_at)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_status_created_at ON hazard_reports(status, created_at)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_location_time ON hazard_reports(latitude, longitude, created_at)`);
     
-    log:printInfo("Database tables and indexes created successfully");
+    // Insert test user first (needed for foreign key constraints)
+    _ = check dbClient->execute(`
+        INSERT INTO users (
+            first_name, last_name, email, password_hash, 
+            latitude, longitude, address, created_at
+        ) 
+        VALUES (
+            'Test', 'User', 'test@saferoute.lk', 
+            '$2b$10$rFJyJVP3qJ8K.WqXVxfGWu.oJx.fI5Y3Ll6DnX9M5nKl8rG3hLV6u',
+            6.2879969, 80.1596041, 'Elpitiya, Southern Province, Sri Lanka',
+            NOW()
+        )
+        ON CONFLICT (email) DO UPDATE SET
+            latitude = EXCLUDED.latitude,
+            longitude = EXCLUDED.longitude,
+            address = EXCLUDED.address
+    `);
 }
 
 public function insertHazardReport(
@@ -871,6 +889,132 @@ public function getNearbyReports(decimal userLat, decimal userLng, decimal radiu
                 status: row.status,
                 updated_at: row.updated_at,
                 distance_km: row.distance_km
+            });
+        };
+    
+    if fromResult is error {
+        return fromResult;
+    }
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    return reports;
+}
+
+// Get current traffic alerts within 25km and submitted in last 24 hours
+public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) returns record {|
+    int id;
+    string title;
+    string? description;
+    string hazard_type;
+    string severity_level;
+    string[] images;
+    record {|
+        decimal lat;
+        decimal lng;
+        string? address;
+    |}? location;
+    string created_at;
+    string status;
+    string? updated_at;
+    int user_id;
+    decimal distance_km;
+|}[]|error {
+    
+    // Using Haversine formula for distance calculation and 24-hour time filter
+    // Using subquery to handle PostgreSQL's HAVING clause limitations
+    sql:ParameterizedQuery selectQuery = `
+        SELECT id, user_id, title, description, hazard_type, severity_level, images, 
+               latitude, longitude, address, created_at, status, updated_at, distance_km
+        FROM (
+            SELECT id, user_id, title, description, hazard_type, severity_level, images, 
+                   latitude, longitude, address, created_at, status, updated_at,
+                   (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
+                   cos(radians(longitude) - radians(${userLng})) + 
+                   sin(radians(${userLat})) * sin(radians(latitude)))) as distance_km
+            FROM hazard_reports
+            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+            AND created_at >= NOW() - INTERVAL '24 hours'
+        ) AS reports_with_distance
+        WHERE distance_km <= 25
+        ORDER BY severity_level DESC, distance_km ASC, created_at DESC
+    `;
+    
+    stream<record {|
+        int id;
+        int user_id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[]? images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+        string status;
+        string? updated_at;
+        float distance_km;
+    |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    record {|
+        int id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        record {|
+            decimal lat;
+            decimal lng;
+            string? address;
+        |}? location;
+        string created_at;
+        string status;
+        string? updated_at;
+        int user_id;
+        decimal distance_km;
+    |}[] reports = [];
+    
+    error? fromResult = from var row in resultStream
+        do {
+            record {|
+                decimal lat;
+                decimal lng;
+                string? address;
+            |}? location = ();
+
+            if row.latitude is decimal && row.longitude is decimal {
+                decimal validLat = <decimal>row.latitude;
+                decimal validLng = <decimal>row.longitude;
+                location = {
+                    lat: validLat,
+                    lng: validLng,
+                    address: row.address
+                };
+            }
+
+            decimal convertedDistance = <decimal>row.distance_km;
+
+            // Handle null images field
+            string[] safeImages = row.images ?: [];
+
+            reports.push({
+                id: row.id,
+                user_id: row.user_id,
+                title: row.title,
+                description: row.description,
+                hazard_type: row.hazard_type,
+                severity_level: row.severity_level,
+                images: safeImages,
+                location: location,
+                created_at: row.created_at,
+                status: row.status,
+                updated_at: row.updated_at,
+                distance_km: convertedDistance
             });
         };
     

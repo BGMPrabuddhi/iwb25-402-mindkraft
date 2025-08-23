@@ -10,46 +10,46 @@ interface NewsAlertProps {
 
 const NewsAlert = ({ userLocation }: NewsAlertProps) => {
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0)
-  const [nearbyReports, setNearbyReports] = useState<HazardReport[]>([])
+  const [trafficAlerts, setTrafficAlerts] = useState<HazardReport[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userLocationData, setUserLocationData] = useState<{
     latitude: number;
     longitude: number;
-    city: string;
+    address: string;
   } | null>(null)
 
   useEffect(() => {
-    const fetchNearbyReports = async () => {
+    const fetchTrafficAlerts = async () => {
       setIsLoading(true)
       setError(null)
       
       try {
-        const response = await reportsAPI.getNearbyReports(20) // 20km radius
-        setNearbyReports(response.reports || [])
+        const response = await reportsAPI.getCurrentTrafficAlerts()
+        setTrafficAlerts(response.alerts || [])
         setUserLocationData(response.user_location)
       } catch (err: unknown) {
-        console.error('Error fetching nearby reports:', err)
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch nearby reports'
+        console.error('Error fetching current traffic alerts:', err)
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch current traffic alerts'
         setError(errorMessage)
-        setNearbyReports([])
+        setTrafficAlerts([])
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchNearbyReports()
+    fetchTrafficAlerts()
   }, [])
 
   const nextNews = () => {
     setCurrentNewsIndex((prev) => 
-      prev === nearbyReports.length - 1 ? 0 : prev + 1
+      prev === trafficAlerts.length - 1 ? 0 : prev + 1
     )
   }
 
   const prevNews = () => {
     setCurrentNewsIndex((prev) => 
-      prev === 0 ? nearbyReports.length - 1 : prev - 1
+      prev === 0 ? trafficAlerts.length - 1 : prev - 1
     )
   }
 
@@ -99,7 +99,7 @@ const NewsAlert = ({ userLocation }: NewsAlertProps) => {
     )
   }
 
-  if (nearbyReports.length === 0) {
+  if (trafficAlerts.length === 0) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
         <div className="flex items-center justify-center mb-2">
@@ -109,15 +109,33 @@ const NewsAlert = ({ userLocation }: NewsAlertProps) => {
         </div>
         <h3 className="text-lg font-medium text-green-800 mb-1">All Clear!</h3>
         <p className="text-green-600">
-          No recent traffic alerts within 20km of {userLocationData?.city || userLocation || 'your location'}
+          No current traffic alerts within 25km of {userLocationData?.address ? userLocationData.address.split(',')[0] : userLocation || 'your location'}
+        </p>
+        <p className="text-xs text-green-500 mt-1">
+          Showing alerts from the last 24 hours
         </p>
       </div>
     )
   }
 
-  const currentReport = nearbyReports[currentNewsIndex]
+  const currentReport = trafficAlerts[currentNewsIndex]
   
-  const severityStyles = {
+  interface SeverityStyle {
+    bg: string;
+    border: string;
+    text: string;
+    badge: string;
+    icon: string;
+  }
+
+  const severityStyles: Record<string, SeverityStyle> = {
+    critical: {
+      bg: 'bg-red-50',
+      border: 'border-red-200',
+      text: 'text-red-800',
+      badge: 'bg-red-100 text-red-800',
+      icon: 'text-red-600'
+    },
     high: {
       bg: 'bg-red-50',
       border: 'border-red-200',
@@ -141,7 +159,7 @@ const NewsAlert = ({ userLocation }: NewsAlertProps) => {
     }
   }
 
-  const typeIcons = {
+  const typeIcons: Record<string, JSX.Element> = {
     accident: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -152,19 +170,39 @@ const NewsAlert = ({ userLocation }: NewsAlertProps) => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
       </svg>
     ),
-    "Natural disaster": (
+    flooding: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    debris: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+      </svg>
+    ),
+    traffic_jam: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+    road_closure: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636" />
       </svg>
     ),
     construction: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
       </svg>
+    ),
+    other: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+      </svg>
     )
   }
 
-  const styles = severityStyles[currentReport.severity_level]
+  const styles = severityStyles[currentReport.severity_level] || severityStyles.low
 
   return (
     <div className={`rounded-xl p-6 border-2 shadow-sm transition-all duration-300 ${styles.bg} ${styles.border}`}>
@@ -180,7 +218,7 @@ const NewsAlert = ({ userLocation }: NewsAlertProps) => {
         </div>
         <div className="text-right">
           <p className={`text-sm font-medium ${styles.text}`}>
-            {userLocationData?.city || userLocation || 'Your Area'}
+            {userLocationData?.address ? userLocationData.address.split(',')[0] : userLocation || 'Your Area'}
           </p>
           <p className={`text-xs opacity-75 ${styles.text}`}>
             {formatTimeAgo(currentReport.created_at)}
@@ -200,7 +238,7 @@ const NewsAlert = ({ userLocation }: NewsAlertProps) => {
         )}
       </div>
 
-      {nearbyReports.length > 1 && (
+      {trafficAlerts.length > 1 && (
         <div className="flex items-center justify-between">
           <button 
             onClick={prevNews}
@@ -211,7 +249,7 @@ const NewsAlert = ({ userLocation }: NewsAlertProps) => {
           </button>
           
           <div className="flex space-x-2">
-            {nearbyReports.map((_, index) => (
+            {trafficAlerts.map((_, index: number) => (
               <button
                 key={index}
                 onClick={() => setCurrentNewsIndex(index)}
@@ -237,7 +275,7 @@ const NewsAlert = ({ userLocation }: NewsAlertProps) => {
 
       <div className="mt-4 text-center">
         <p className={`text-xs ${styles.text} opacity-75`}>
-          Showing {nearbyReports.length} alert{nearbyReports.length !== 1 ? 's' : ''} within 20km
+          Showing {trafficAlerts.length} alert{trafficAlerts.length !== 1 ? 's' : ''} within 25km (last 24 hours)
         </p>
       </div>
     </div>
