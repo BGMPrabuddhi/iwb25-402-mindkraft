@@ -245,7 +245,7 @@ service /api on apiListener {
             user_location: {
                 latitude: profile.locationDetails.latitude,
                 longitude: profile.locationDetails.longitude,
-                city: profile.locationDetails.city
+                address: profile.locationDetails.address
             },
             radius_km: radiusKm
         };
@@ -443,14 +443,11 @@ function createUserProfileResponse(user:UserProfile profile) returns map<json> {
         firstName: profile.firstName,
         lastName: profile.lastName,
         email: profile.email,
-        location: profile.location,
+        location: profile.locationDetails.address, // Add location field for backward compatibility
         locationDetails: {
             latitude: profile.locationDetails.latitude,
             longitude: profile.locationDetails.longitude,
-            city: profile.locationDetails.city,
-            state: profile.locationDetails.state,
-            country: profile.locationDetails.country,
-            fullAddress: profile.locationDetails.fullAddress
+            address: profile.locationDetails.address
         },
         createdAt: profile.createdAt
     };

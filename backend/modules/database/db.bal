@@ -12,13 +12,9 @@ public type User record {
     string last_name;
     string email;
     string password_hash;
-    string location;
     decimal latitude;
     decimal longitude;
-    string city;
-    string state;
-    string country;
-    string full_address;
+    string address;
     string? profile_image;
     string? created_at;
 };
@@ -74,13 +70,9 @@ public function initializeDatabase() returns error? {
             last_name VARCHAR(100) NOT NULL,
             email VARCHAR(255) UNIQUE NOT NULL,
             password_hash VARCHAR(500) NOT NULL,
-            location VARCHAR(500) NOT NULL,
             latitude DECIMAL(10, 8) NOT NULL,
             longitude DECIMAL(11, 8) NOT NULL,
-            city VARCHAR(100) NOT NULL,
-            state VARCHAR(100) NOT NULL,
-            country VARCHAR(100) NOT NULL,
-            full_address TEXT NOT NULL,
+            address TEXT NOT NULL,
             profile_image TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -122,6 +114,7 @@ public function initializeDatabase() returns error? {
     // Create indexes for users
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_coordinates ON users(latitude, longitude)`);
+    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_address ON users(address)`);
     
     // Create indexes for password_reset_otps
     _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_password_reset_otps_email ON password_reset_otps(email)`);
@@ -583,22 +576,18 @@ public function insertUser(
     string lastName,
     string email,
     string passwordHash,
-    string location,
     decimal latitude,
     decimal longitude,
-    string city,
-    string state,
-    string country,
-    string fullAddress,
+    string address,
     string? profileImage
 ) returns int|error {
     sql:ParameterizedQuery insertQuery = `
         INSERT INTO users (
-            first_name, last_name, email, password_hash, location, 
-            latitude, longitude, city, state, country, full_address, profile_image
+            first_name, last_name, email, password_hash, 
+            latitude, longitude, address, profile_image
         ) VALUES (
-            ${firstName}, ${lastName}, ${email}, ${passwordHash}, ${location},
-            ${latitude}, ${longitude}, ${city}, ${state}, ${country}, ${fullAddress}, ${profileImage}
+            ${firstName}, ${lastName}, ${email}, ${passwordHash},
+            ${latitude}, ${longitude}, ${address}, ${profileImage}
         ) RETURNING id;
     `;
     
@@ -622,8 +611,8 @@ public function insertUser(
 
 public function getUserByEmail(string email) returns User|error {
     sql:ParameterizedQuery selectQuery = `
-        SELECT id, first_name, last_name, email, password_hash, location,
-               latitude, longitude, city, state, country, full_address, 
+        SELECT id, first_name, last_name, email, password_hash,
+               latitude, longitude, address, 
                profile_image, created_at
         FROM users 
         WHERE email = ${email}
@@ -650,17 +639,13 @@ public function updateUser(int userId, User updatedUser) returns User|error {
         UPDATE users 
         SET first_name = ${updatedUser.first_name},
             last_name = ${updatedUser.last_name},
-            location = ${updatedUser.location},
             latitude = ${updatedUser.latitude},
             longitude = ${updatedUser.longitude},
-            city = ${updatedUser.city},
-            state = ${updatedUser.state},
-            country = ${updatedUser.country},
-            full_address = ${updatedUser.full_address},
+            address = ${updatedUser.address},
             profile_image = ${updatedUser.profile_image}
         WHERE id = ${userId}
-        RETURNING id, first_name, last_name, email, password_hash, location,
-                  latitude, longitude, city, state, country, full_address, 
+        RETURNING id, first_name, last_name, email, password_hash,
+                  latitude, longitude, address, 
                   profile_image, created_at
     `;
     

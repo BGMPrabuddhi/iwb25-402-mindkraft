@@ -1,10 +1,7 @@
 public type LocationDetails record {
     decimal latitude;
     decimal longitude;
-    string city;
-    string state;
-    string country;
-    string fullAddress;
+    string address;
 };
 
 public type RegisterRequest record {
@@ -12,7 +9,6 @@ public type RegisterRequest record {
     string lastName;
     string email;
     string password;
-    string location;
     LocationDetails locationDetails;
 };
 
@@ -33,7 +29,6 @@ public type UserProfile record {
     string firstName;
     string lastName;
     string email;
-    string location;
     LocationDetails locationDetails;
     string? profileImage?;
     string createdAt?;
@@ -42,7 +37,7 @@ public type UserProfile record {
 public type UpdateProfileRequest record {
     string firstName;
     string lastName;
-    string location;
+    LocationDetails locationDetails;
     string? profileImage?; // Base64 encoded image - optional
 };
 
