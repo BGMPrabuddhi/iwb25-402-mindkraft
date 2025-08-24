@@ -295,14 +295,14 @@ const ProfileEditPage = () => {
           </div>
           <div>
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-brand-800">Edit Profile</h1>
-            <p className="text-brand-600 mt-2 text-sm md:text-base font-medium">Update your personal information and preferences</p>
+            <p className="text-brand-800 mt-2 text-sm md:text-base font-medium">Update your personal information and preferences</p>
           </div>
         </div>
 
         {/* Profile Form */}
         <div className="relative rounded-2xl border border-brand-200/70 shadow-lg shadow-brand-900/5 bg-white overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.06),transparent_70%)]" aria-hidden="true" />
-          <form onSubmit={handleSubmit} className="relative z-10 p-8 md:p-10 space-y-8 rounded-2xl bg-white/80 backdrop-blur-sm">
+          <form onSubmit={handleSubmit} className="relative z-10 p-8 md:p-10 space-y-8 rounded-2xl bg-white">
             {/* Profile Picture Section */}
             <div className="flex flex-col items-center space-y-5">
               <div className="relative group">
@@ -346,9 +346,9 @@ const ProfileEditPage = () => {
                   title="Upload profile picture"
                 />
               </div>
-              <p className="text-xs md:text-sm text-brand-600 text-center font-medium leading-relaxed">
+              <p className="text-xs md:text-sm text-brand-800 text-center font-medium leading-relaxed">
                 Click the camera icon to {currentProfileImage ? 'change' : 'upload'} your profile picture<br />
-                <span className="text-[11px] tracking-wide uppercase text-brand-500">Max size 5MB</span>
+                <span className="text-[11px] tracking-wide uppercase text-brand-800">Max size 5MB</span>
               </p>
             </div>
 
@@ -402,7 +402,7 @@ const ProfileEditPage = () => {
                 className="w-full px-4 py-3 rounded-xl bg-brand-50 border border-brand-200 text-brand-700 cursor-not-allowed"
                 placeholder="Email not available"
               />
-              <p className="text-[11px] text-brand-500 mt-2 font-medium tracking-wide">Email address cannot be changed. Contact support if you need to update your email.</p>
+              <p className="text-[11px] text-brand-800 mt-2 font-medium tracking-wide">Email address cannot be changed. Contact support if you need to update your email.</p>
             </div>
 
             {/* Location with Google Maps */}
@@ -412,7 +412,7 @@ const ProfileEditPage = () => {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MapPinIcon className="h-5 w-5 text-brand-500" />
+                  <MapPinIcon className="h-5 w-5 text-brand-800" />
                 </div>
                 <input
                   type="text"
@@ -430,7 +430,7 @@ const ProfileEditPage = () => {
                   type="button"
                   onClick={getCurrentLocation}
                   disabled={isGettingLocation}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-brand-500 hover:text-brand-700 transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-brand-800 hover:text-brand-900 transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Get current location using GPS"
                 >
                   {isGettingLocation ? (
@@ -459,7 +459,7 @@ const ProfileEditPage = () => {
                           className="w-full text-left px-3 py-2 hover:bg-brand-50 focus:bg-brand-50 focus:outline-none transition-colors duration-200 border-b border-brand-100 last:border-b-0 text-brand-800"
                         >
                           <div className="flex items-center space-x-2">
-                            <svg className="w-4 h-4 text-brand-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-brand-800 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
@@ -468,7 +468,7 @@ const ProfileEditPage = () => {
                                 {formatted.primary}
                               </div>
                               {formatted.secondary && (
-                                <div className="text-[11px] text-brand-500 truncate mt-1">
+                                <div className="text-[11px] text-brand-800 truncate mt-1">
                                   {formatted.secondary}
                                 </div>
                               )}
@@ -480,7 +480,7 @@ const ProfileEditPage = () => {
                   </div>
                 )}
               </div>
-              <p className="text-[11px] text-brand-500 mt-2 font-medium tracking-wide">Your location helps us provide location-based features. Use GPS or type to search.</p>
+              <p className="text-[11px] text-brand-800 mt-2 font-medium tracking-wide">Your location helps us provide location-based features. Use GPS or type to search.</p>
             </div>
 
             {/* Action Buttons */}
@@ -495,7 +495,7 @@ const ProfileEditPage = () => {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 px-6 py-3 rounded-xl font-semibold tracking-wide flex items-center justify-center gap-2 text-white bg-gradient-to-r from-brand-600 via-brand-500 to-brand-400 hover:from-brand-500 hover:via-brand-500 hover:to-brand-300 disabled:from-brand-600/50 disabled:via-brand-500/50 disabled:to-brand-400/50 disabled:cursor-not-allowed shadow-md ring-1 ring-brand-300 transition-all focus:outline-none focus:ring-2 focus:ring-brand-400/60"
+                className="flex-1 px-6 py-3 rounded-xl font-semibold tracking-wide flex items-center justify-center gap-2 text-black bg-green-500 hover:bg-green-600 disabled:cursor-not-allowed shadow-md ring-1 ring-brand-300 transition-all focus:outline-none focus:ring-2 focus:ring-brand-400/60"
               >
                 {saving ? (
                   <>
@@ -514,7 +514,7 @@ const ProfileEditPage = () => {
         </div>
         {/* Additional Info */}
         <div className="mt-8 text-center">
-          <p className="text-xs md:text-sm font-medium tracking-wide text-brand-600">Your profile information is secure and only used to improve your experience.</p>
+          <p className="text-xs md:text-sm font-medium tracking-wide text-brand-800">Your profile information is secure and only used to improve your experience.</p>
         </div>
       </div>
     </div>

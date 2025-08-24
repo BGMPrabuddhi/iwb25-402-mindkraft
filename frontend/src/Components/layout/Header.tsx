@@ -165,9 +165,9 @@ const Header = () => {
 
               {/* Profile Dropdown Menu */}
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 mt-5 w-80 rounded-xl shadow-xl  py-1 z-50 bg-white/50">
+                <div className="absolute right-0 mt-5 w-80 rounded-xl shadow-xl ring-1 ring-brand-200 py-1 z-50 bg-white">
                   {/* User Info Section */}
-                  <div className="px-4 py-3 border-b border-brand-700/60">
+                  <div className="px-4 py-3 border-b border-brand-200">
                     <div className="flex items-center space-x-3">
                       {user?.profileImage ? (
                         <div className="h-10 w-10 rounded-full overflow-hidden border-1 border-brand-600">
@@ -180,13 +180,13 @@ const Header = () => {
                           />
                         </div>
                       ) : (
-                        <UserCircleIcon className="h-10 w-10 text-brand-400" />
+                        <UserCircleIcon className="h-10 w-10 text-black" />
                       )}
                       <div>
-                        <p className="text-base md:text-lg font-semibold text-brand-100">
+                        <p className="text-base md:text-lg font-semibold text-black">
                           {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'Guest'}
                         </p>
-                        <p className="text-sm text-brand-300/70">{user?.email || 'No email'}</p>
+                        <p className="text-sm text-black">{user?.email || 'No email'}</p>
                       </div>
                     </div>
                   </div>
@@ -195,7 +195,7 @@ const Header = () => {
           <div className="py-1">
                     <button
                       onClick={handleEditProfile}
-            className="w-full text-left px-4 py-3 text-base md:text-lg text-brand-200 hover:bg-black/10 hover:text-brand-50 flex items-center space-x-3 transition-colors"
+            className="w-full text-left px-4 py-3 text-base md:text-lg text-brand-700 hover:bg-brand-50 hover:text-brand-900 flex items-center space-x-3 transition-colors"
                     >
                       <UserIcon className="h-5 w-5" />
                       <span>Edit Profile</span>
@@ -206,7 +206,7 @@ const Header = () => {
           <div className="border-t border-brand-700/60 py-1">
                     <button
                       onClick={handleLogout}
-            className="w-full text-left px-4 py-3 text-base md:text-lg text-red-700 hover:bg-red-500/10 flex items-center space-x-3 transition-colors"
+            className="w-full text-left px-4 py-3 text-base md:text-lg text-red-700 hover:bg-red-50 flex items-center space-x-3 transition-colors"
                     >
                       <ArrowRightOnRectangleIcon className="h-5 w-5" />
                       <span>Sign Out</span>
