@@ -327,68 +327,51 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-4 -left-4 w-72 h-72 bg-gradient-to-br from-blue-200 to-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -top-4 -right-4 w-72 h-72 bg-gradient-to-br from-yellow-200 to-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-gradient-to-br from-pink-200 to-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+    <div className="min-h-screen relative overflow-hidden bg-white text-gray-900">
+      {/* Decorative brand blobs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -left-20 w-[28rem] h-[28rem] rounded-full bg-gradient-to-br from-brand-600/35 via-brand-500/25 to-brand-400/20 blur-3xl animate-blob" />
+        <div className="absolute top-1/3 -right-24 w-[30rem] h-[30rem] rounded-full bg-gradient-to-tr from-brand-500/30 via-brand-400/25 to-brand-300/20 blur-3xl animate-blob animation-delay-2000" />
+        <div className="absolute -bottom-40 left-1/4 w-[34rem] h-[34rem] rounded-full bg-gradient-to-br from-brand-400/30 via-brand-500/20 to-brand-600/25 blur-3xl animate-blob animation-delay-4000" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_60%,rgba(10,209,200,0.18),transparent_65%)]" />
       </div>
 
-      {/* Floating particles */}
-      <div className="absolute inset-0">
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-2 h-2 bg-white rounded-full opacity-20 animate-float"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${3 + Math.random() * 2}s`
-            }}
-          ></div>
-        ))}
-      </div>
-
+      
       {/* Back to Home */}
       <div className="absolute top-6 left-6 z-20">
-        <Link 
-          href="/" 
-          className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-all duration-300 transform hover:scale-105"
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-brand-200 hover:text-black/30 transition-all duration-300 transform hover:scale-105"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          <span className="font-medium">Back to Home</span>
+          <span className="font-medium">Back</span>
         </Link>
       </div>
 
-      <div className="relative z-10 flex items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-        <div className={`max-w-md w-full space-y-8 transform transition-all duration-1000 ${
+      <div className="relative z-10 flex items-center justify-center min-h-screen py-16 px-1 sm:px-6 lg:px-8">
+        <div className={`max-w-md w-full space-y-9 transform transition-all duration-1000 ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           {/* Header */}
-          <div className="text-center transform transition-all duration-700 delay-200">
-            <div className="inline-block p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-4 animate-pulse-slow">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-            </div>
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2 animate-gradient">
-              MindKraft
+          <div className="text-center transition-all duration-700 delay-200">
+           
+            <h1 className="text-4xl font-extrabold leading-tight tracking-tight mb-3">
+              <span className="bg-clip-text text-transparent bg-green-500 animate-gradient bg-[length:200%_200%]">Create Account</span>
             </h1>
-            <h2 className="text-2xl font-semibold text-gray-700 mb-2 animate-fade-in-up">Join Us Today!</h2>
-            <p className="text-gray-600 animate-fade-in-up animation-delay-300">Create your account and start your journey</p>
+            <p className="text-sm font-medium uppercase tracking-wider text-black/45 mb-2 animate-fade-in-up">Join the SafeRoute Community</p>
+            <p className="text-brand-100/80 text-sm animate-fade-in-up text-black/65 animation-delay-300">Report hazards, get alerts & travel smarter.</p>
           </div>
           
           {/* Sign Up Form */}
-          <div className="bg-white/80 backdrop-blur-lg py-8 px-6 shadow-2xl rounded-2xl border border-white/20 transform transition-all duration-700 delay-400 hover:shadow-3xl hover:scale-105">
+          <div className="relative bg-white/10 backdrop-blur-xl py-8 px-7 shadow-lg rounded-2xl border border-white/20 ring-1 ring-white/10 hover:ring-brand-400/30 transform transition-all duration-700 delay-400 hover:shadow-3xl hover:scale-[1.02]">
+            <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-white/10 via-white/5 to-transparent pointer-events-none" />
             <form className="space-y-6" onSubmit={handleSubmit}>
               {/* Name Fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="group">
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
+                  <label htmlFor="firstName" className="block text-sm font-medium text-brand-100 mb-2 transition-all duration-300 group-focus-within:text-green-900">
                     First name
                   </label>
                   <input
@@ -399,8 +382,8 @@ export default function SignupPage() {
                     value={formData.firstName}
                     onChange={handleChange}
                     className={`appearance-none block w-full px-3 py-3 border ${
-                      errors.firstName ? 'border-red-300 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
+                      errors.firstName ? 'border-red-400 shake' : 'border-gray-300'
+                    } rounded-xl placeholder-brand-200/60 text-white focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/10 backdrop-blur hover:bg-white/20 focus:bg-white/20`}
                     placeholder="First name"
                   />
                   {errors.firstName && (
@@ -409,7 +392,7 @@ export default function SignupPage() {
                 </div>
                 
                 <div className="group">
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
+                  <label htmlFor="lastName" className="block text-sm font-medium text-brand-100 mb-2 transition-all duration-300 group-focus-within:text-green-900">
                     Last name
                   </label>
                   <input
@@ -420,8 +403,8 @@ export default function SignupPage() {
                     value={formData.lastName}
                     onChange={handleChange}
                     className={`appearance-none block w-full px-3 py-3 border ${
-                      errors.lastName ? 'border-red-300 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
+                      errors.lastName ? 'border-red-400 shake' : 'border-gray-300'
+                    } rounded-xl placeholder-brand-200/60 text-white focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/10 backdrop-blur hover:bg-white/20 focus:bg-white/20`}
                     placeholder="Last name"
                   />
                   {errors.lastName && (
@@ -432,12 +415,12 @@ export default function SignupPage() {
               
               {/* Email Field */}
               <div className="group">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
+                <label htmlFor="email" className="block text-sm font-medium text-brand-100 mb-2 transition-all duration-300 group-focus-within:text-green-900">
                   Email address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-gray-500 group-focus-within:text-brand-600 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                     </svg>
                   </div>
@@ -449,8 +432,8 @@ export default function SignupPage() {
                     value={formData.email}
                     onChange={handleChange}
                     className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
-                      errors.email ? 'border-red-300 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
+                      errors.email ? 'border-red-400 shake' : 'border-gray-300'
+                    } rounded-xl placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/10 backdrop-blur hover:bg-white/20 focus:bg-white/30`}
                     placeholder="Enter your email"
                   />
                 </div>
@@ -461,12 +444,12 @@ export default function SignupPage() {
 
               {/* Location Field with GPS and Search */}
               <div className="group">
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
+                <label htmlFor="location" className="block text-sm font-medium text-brand-100 mb-2 transition-all duration-300 group-focus-within:text-green-900">
                   Location <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-gray-500 group-focus-within:text-brand-600 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
@@ -480,8 +463,8 @@ export default function SignupPage() {
                     onFocus={() => setShowSuggestions(locationSuggestions.length > 0)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                     className={`appearance-none block w-full pl-10 pr-12 py-3 border ${
-                      errors.location ? 'border-red-300 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
+                      errors.location ? 'border-red-400 shake' : 'border-gray-300'
+                    } rounded-xl placeholder-gray-500 text-black focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/40 backdrop-blur hover:bg-white/60 focus:bg-white/70`}
                     placeholder="Enter your location or use GPS"
                     required
                   />
@@ -489,7 +472,7 @@ export default function SignupPage() {
                     type="button"
                     onClick={getCurrentLocation}
                     disabled={isGettingLocation}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-600 transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-brand-300/60 hover:text-brand-300 transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Get current location using GPS"
                   >
                     {isGettingLocation ? (
@@ -507,27 +490,41 @@ export default function SignupPage() {
                   
                   {/* Location Suggestions Dropdown */}
                   {showSuggestions && locationSuggestions.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto" onMouseDown={e => e.preventDefault()}>
                       {locationSuggestions.map((suggestion, index) => {
                         const formatted = formatLocationDisplay(suggestion);
                         return (
                           <button
                             key={index}
                             type="button"
-                            onClick={() => selectLocationSuggestion(suggestion)}
-                            className="w-full text-left px-3 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none transition-colors duration-200 border-b border-gray-100 last:border-b-0"
+                            onClick={() => {
+                              // Set the user-visible primary label instead of raw address
+                              setFormData(prev => ({ ...prev, location: formatted.primary }));
+                              setLocationData({
+                                latitude: suggestion.latitude,
+                                longitude: suggestion.longitude,
+                                address: suggestion.address,
+                                city: suggestion.city,
+                                state: suggestion.state,
+                                country: suggestion.country
+                              });
+                              setErrors(prev => ({ ...prev, location: '' }));
+                              setShowSuggestions(false);
+                              setLocationSuggestions([]);
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors duration-150 border-b border-gray-200 last:border-b-0 text-gray-800"
                           >
                             <div className="flex items-center space-x-2">
-                              <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-brand-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                               </svg>
                               <div className="flex-1 min-w-0">
-                                <div className="font-medium text-gray-900 truncate">
+                                <div className="font-medium text-gray-800 truncate">
                                   {formatted.primary}
                                 </div>
                                 {formatted.secondary && (
-                                  <div className="text-xs text-gray-500 truncate mt-1">
+                                  <div className="text-[11px] text-gray-500 truncate mt-0.5">
                                     {formatted.secondary}
                                   </div>
                                 )}
@@ -542,19 +539,19 @@ export default function SignupPage() {
                 {errors.location && (
                   <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.location}</p>
                 )}
-                <p className="mt-2 text-xs text-gray-500">
-                  <span className="text-red-500">*</span> Location is required. Click the location icon to auto-detect your current location, type to search for suggestions, or enter manually (format: City, State, Country).
+                <p className="mt-2 text-xs text-brand-200/70">
+                  <span className="text-red-400">*</span> Location is required. Use GPS, search suggestions, or enter manually (City, State, Country).
                 </p>
               </div>
 
               {/* Password Field */}
               <div className="group">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
+                <label htmlFor="password" className="block text-sm font-medium text-brand-100 mb-2 transition-all duration-300 group-focus-within:text-green-900">
                   Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-gray-500 group-focus-within:text-brand-600 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 0h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
@@ -566,27 +563,27 @@ export default function SignupPage() {
                     value={formData.password}
                     onChange={handleChange}
                     className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
-                      errors.password ? 'border-red-300 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
+                      errors.password ? 'border-red-400 shake' : 'border-gray-300'
+                    } rounded-xl placeholder-gray-500 text-black focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/40 backdrop-blur hover:bg-white/60 focus:bg-white/70`}
                     placeholder="Create a strong password"
                   />
                 </div>
                 {errors.password && (
                   <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.password}</p>
                 )}
-                <p className="mt-2 text-xs text-gray-500">
-                  Must be at least 8 characters with uppercase, lowercase, and number
+                <p className="mt-2 text-xs text-brand-200/70">
+                  Must include 8+ chars, upper, lower & number.
                 </p>
               </div>
               
               {/* Confirm Password Field */}
               <div className="group">
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2 transition-all duration-300 group-focus-within:text-blue-600">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-brand-100 mb-2 transition-all duration-300 group-focus-within:text-green-900">
                   Confirm password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-gray-500 group-focus-within:text-brand-600 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
@@ -598,8 +595,8 @@ export default function SignupPage() {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
-                      errors.confirmPassword ? 'border-red-300 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
+                      errors.confirmPassword ? 'border-red-400 shake' : 'border-gray-300'
+                    } rounded-xl placeholder-gray-500 text-black focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/40 backdrop-blur hover:bg-white/60 focus:bg-white/70`}
                     placeholder="Confirm your password"
                   />
                 </div>
@@ -609,21 +606,21 @@ export default function SignupPage() {
               </div>
 
               {/* Terms and Conditions */}
-              <div className="flex items-center group">
+              <div className="flex items-center">
                 <input
                   id="terms"
                   name="terms"
                   type="checkbox"
                   required
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded transition-all duration-300 hover:scale-110"
+                  className="h-4 w-4 text-green-700 focus:ring-brand-400 border-white/30 bg-white/10 rounded transition-all duration-300 hover:scale-110"
                 />
-                <label htmlFor="terms" className="ml-2 block text-sm text-gray-900 transition-colors duration-300 group-hover:text-blue-600">
+                <label htmlFor="terms" className="ml-2 block text-sm text-black">
                   I agree to the{' '}
-                  <a href="#" className="text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
+                  <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
                     Terms and Conditions
                   </a>{' '}
                   and{' '}
-                  <a href="#" className="text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
+                  <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
                     Privacy Policy
                   </a>
                 </label>
@@ -634,15 +631,15 @@ export default function SignupPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-medium text-white transition-all duration-300 transform ${
-                    isLoading 
-                      ? 'bg-blue-400 cursor-not-allowed scale-95' 
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 active:scale-95'
+                  className={`w-full flex justify-center py-3 px-4 rounded-xl shadow-lg text-sm font-semibold text-brand-900 transition-all duration-300 transform ${
+                    isLoading
+                      ? 'bg-brand-500/60 cursor-not-allowed scale-95'
+                      : 'bg-gradient-to-r from-brand-500 via-brand-400 to-brand-300 hover:from-brand-400 hover:via-brand-300 hover:to-brand-200 hover:scale-[1.03] hover:shadow-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/40 active:scale-95'
                   }`}
                 >
                   {isLoading ? (
                     <div className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-brand-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
@@ -660,45 +657,81 @@ export default function SignupPage() {
               </div>
 
               {apiError && (
-                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-sm text-red-600">{apiError}</p>
+                <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-400/40">
+                  <p className="text-sm text-red-300">{apiError}</p>
                 </div>
               )}
             </form>
 
             {/* Login Link */}
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
+            <div className="mt-7 text-center">
+              <p className="text-sm text-brand-200/80">
                 Already have an account?{' '}
-                <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500 transition-all duration-300 hover:underline transform hover:scale-105 inline-block">
-                  Sign in here
+                <Link href="/login" className="font-medium text-green-900 hover:text-brand-200 transition-all duration-300 hover:underline inline-block">
+                  Sign in
                 </Link>
               </p>
             </div>
           </div>
 
-          {/* Features */}
-          <div className="text-center transform transition-all duration-700 delay-600">
-            <p className="text-sm text-gray-500 mb-4 animate-fade-in-up">Join thousands of satisfied users</p>
-            <div className="flex justify-center space-x-8 text-sm text-gray-400">
-              <span className="flex items-center space-x-2 hover:text-blue-500 transition-colors duration-300 transform hover:scale-110">
-                <span className="animate-bounce">🛡️</span>
-                <span>Secure</span>
-              </span>
-              <span className="flex items-center space-x-2 hover:text-purple-500 transition-colors duration-300 transform hover:scale-110">
-                <span className="animate-pulse">⚡</span>
-                <span>Fast Setup</span>
-              </span>
-              <span className="flex items-center space-x-2 hover:text-green-500 transition-colors duration-300 transform hover:scale-110">
-                <span className="animate-bounce animation-delay-1000">🎯</span>
-                <span>Easy to Use</span>
-              </span>
+          {/* Features moved out for full-width layout */}
+        </div>
+      </div>
+
+      {/* Full-width Features Row */}
+      <div className="relative z-10 w-full pb-16 px-4 sm:px-8 md:px-12">
+        <div className="max-w-7xl mx-auto">
+          <p className="text-center text-xs font-semibold tracking-wider text-brand-200/60 mb-8 uppercase">
+            Why Choose SafeRoute
+          </p>
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-8">
+            {/* Secure */}
+            <div className="group relative rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-3 sm:p-4 md:p-6 flex items-start gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
+              <div className="relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br from-brand-600 via-brand-500 to-brand-400 text-white shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform">
+                {/* Shield Check Icon for Secure */}
+                <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 22c6.5-2 8-7 8-11V5l-8-3-8 3v6c0 4 1.5 9 8 11z" />
+                </svg>
+                <span className="absolute -inset-1 rounded-xl bg-brand-400/0 group-hover:bg-brand-400/15 blur-sm transition" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-[11px] sm:text-sm md:text-base font-semibold text-brand-100 group-hover:text-white transition-colors">Secure</h4>
+                <p className="text-[9px] sm:text-[10px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Encrypted data & protected accounts.</p>
+              </div>
+            </div>
+            {/* Fast */}
+            <div className="group relative rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-3 sm:p-4 md:p-6 flex items-start gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
+              <div className="relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br from-brand-500 via-brand-400 to-brand-300 text-brand-900 shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform">
+                <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span className="absolute -inset-1 rounded-xl bg-brand-300/0 group-hover:bg-brand-300/25 blur-sm transition" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-[11px] sm:text-sm md:text-base font-semibold text-brand-100 group-hover:text-white transition-colors">Fast</h4>
+                <p className="text-[9px] sm:text-[10px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Quick signup & real-time alerts.</p>
+              </div>
+            </div>
+            {/* User Friendly */}
+            <div className="group relative rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-3 sm:p-4 md:p-6 flex items-start gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
+              <div className="relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br from-brand-400 via-brand-500 to-brand-300 text-brand-900 shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform">
+                <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l4 2" />
+                  <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                </svg>
+                <span className="absolute -inset-1 rounded-xl bg-brand-400/0 group-hover:bg-brand-400/15 blur-sm transition" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-[11px] sm:text-sm md:text-base font-semibold text-brand-100 group-hover:text-white transition-colors">User Friendly</h4>
+                <p className="text-[9px] sm:text-[10px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Intuitive & responsive design.</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type as any} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
+  <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type as any} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
 
       <style jsx>{`
         @keyframes blob {
@@ -733,9 +766,9 @@ export default function SignupPage() {
           50% { opacity: 0.8; }
         }
         
-        .animate-blob { animation: blob 7s infinite; }
-        .animate-float { animation: float 3s ease-in-out infinite; }
-        .animate-gradient { animation: gradient 3s ease infinite; }
+  .animate-blob { animation: blob 8s ease-in-out infinite; }
+  .animate-float { animation: float 3.8s ease-in-out infinite; }
+  .animate-gradient { animation: gradient 6s ease infinite; }
         .animate-fade-in-up { animation: fade-in-up 0.6s ease-out; }
         .animate-fade-in-down { animation: fade-in-down 0.3s ease-out; }
         .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
