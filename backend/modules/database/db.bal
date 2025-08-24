@@ -100,7 +100,7 @@ public function initializeDatabase() returns error? {
             description TEXT,
             hazard_type VARCHAR(100) NOT NULL,
             severity_level VARCHAR(50) NOT NULL,
-            status VARCHAR(50) DEFAULT 'pending',
+            status VARCHAR(50) DEFAULT 'active',
             images TEXT[] DEFAULT '{}',
             latitude DECIMAL(10, 8),
             longitude DECIMAL(11, 8),
@@ -171,11 +171,17 @@ public function insertHazardReport(
     string? address
 ) returns int|error {
     
+    // Determine status based on hazard type - traffic reports are immediately active
+    string status = "active";
+    if hazardType == "pothole" || hazardType == "construction" {
+        status = "pending"; // These need RDA review
+    }
+    
     sql:ParameterizedQuery insertQuery = `
         INSERT INTO hazard_reports (
-            user_id, title, description, hazard_type, severity_level, images, latitude, longitude, address
+            user_id, title, description, hazard_type, severity_level, status, images, latitude, longitude, address
         ) VALUES (
-            ${userId}, ${title}, ${description}, ${hazardType}, ${severityLevel}, ${imageNames}, ${latitude}, ${longitude}, ${address}
+            ${userId}, ${title}, ${description}, ${hazardType}, ${severityLevel}, ${status}, ${imageNames}, ${latitude}, ${longitude}, ${address}
         ) RETURNING id;
     `;
     
@@ -189,13 +195,144 @@ public function insertHazardReport(
     
     if nextRow is record {| record {int id;} value; |} {
         int id = nextRow.value.id;
-        log:printInfo("Report inserted with ID: " + id.toString());
+        log:printInfo("Report inserted with ID: " + id.toString() + " with status: " + status);
         return id;
     } else {
         return error DatabaseError("Failed to retrieve inserted report ID");
     }
 }
 
+public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) returns record {|
+    int id;
+    string title;
+    string? description;
+    string hazard_type;
+    string severity_level;
+    string[] images;
+    record {|
+        decimal lat;
+        decimal lng;
+        string? address;
+    |}? location;
+    string created_at;
+    string status;
+    string? updated_at;
+    int user_id;
+    decimal distance_km;
+|}[]|error {
+    
+    log:printInfo("Fetching traffic alerts for location: " + userLat.toString() + ", " + userLng.toString());
+    
+    sql:ParameterizedQuery selectQuery = `
+        SELECT id, user_id, title, description, hazard_type, severity_level, images, 
+               latitude, longitude, address, created_at, status, updated_at,
+               (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
+               cos(radians(longitude) - radians(${userLng})) + 
+               sin(radians(${userLat})) * sin(radians(latitude)))) as distance_km
+        FROM hazard_reports
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+        AND created_at >= NOW() - INTERVAL '24 hours'
+        AND status IN ('active', 'pending', 'confirmed')
+        AND (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
+             cos(radians(longitude) - radians(${userLng})) + 
+             sin(radians(${userLat})) * sin(radians(latitude)))) <= 25
+        ORDER BY 
+            CASE severity_level 
+                WHEN 'critical' THEN 1 
+                WHEN 'high' THEN 2 
+                WHEN 'medium' THEN 3 
+                WHEN 'low' THEN 4 
+                ELSE 5 
+            END ASC,
+            distance_km ASC, 
+            created_at DESC
+    `;
+    
+    stream<record {|
+        int id;
+        int user_id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+        string status;
+        string? updated_at;
+        decimal distance_km;
+    |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    record {|
+        int id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        record {|
+            decimal lat;
+            decimal lng;
+            string? address;
+        |}? location;
+        string created_at;
+        string status;
+        string? updated_at;
+        int user_id;
+        decimal distance_km;
+    |}[] reports = [];
+    
+    error? fromResult = from var row in resultStream
+        do {
+            record {|
+                decimal lat;
+                decimal lng;
+                string? address;
+            |}? location = ();
+
+            if row.latitude is decimal && row.longitude is decimal {
+                decimal validLat = <decimal>row.latitude;
+                decimal validLng = <decimal>row.longitude;
+                location = {
+                    lat: validLat,
+                    lng: validLng,
+                    address: row.address
+                };
+            }
+
+            reports.push({
+                id: row.id,
+                user_id: row.user_id,
+                title: row.title,
+                description: row.description,
+                hazard_type: row.hazard_type,
+                severity_level: row.severity_level,
+                images: row.images,
+                location: location,
+                created_at: row.created_at,
+                status: row.status,
+                updated_at: row.updated_at,
+                distance_km: row.distance_km
+            });
+        };
+    
+    if fromResult is error {
+        log:printError("Error processing traffic alerts: " + fromResult.message());
+        return fromResult;
+    }
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    log:printInfo("Found " + reports.length().toString() + " traffic alerts within 25km");
+    return reports;
+}
+
+// Keep all your existing functions unchanged...
 public function getAllReports() returns record {|
     int id;
     string title;
@@ -852,7 +989,7 @@ public function getNearbyReports(decimal userLat, decimal userLng, decimal radiu
                sin(radians(${userLat})) * sin(radians(latitude)))) as distance_km
         FROM hazard_reports
         WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-        AND status = 'active'
+        AND status IN ('active', 'pending', 'confirmed')
         HAVING distance_km <= ${radiusKm}
         ORDER BY distance_km ASC, created_at DESC
     `;
@@ -964,127 +1101,6 @@ public function getReportType(int reportId) returns string|error {
     return streamResult.value.hazard_type;
 }
 
-public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) returns record {|
-    int id;
-    string title;
-    string? description;
-    string hazard_type;
-    string severity_level;
-    string[] images;
-    record {|
-        decimal lat;
-        decimal lng;
-        string? address;
-    |}? location;
-    string created_at;
-    string status;
-    string? updated_at;
-    int user_id;
-    decimal distance_km;
-|}[]|error {
-    
-    sql:ParameterizedQuery selectQuery = `
-        SELECT id, user_id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status, updated_at,
-               (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
-               cos(radians(longitude) - radians(${userLng})) + 
-               sin(radians(${userLat})) * sin(radians(latitude)))) as distance_km
-        FROM hazard_reports
-        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-        AND created_at >= NOW() - INTERVAL '24 hours'
-        AND (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
-             cos(radians(longitude) - radians(${userLng})) + 
-             sin(radians(${userLat})) * sin(radians(latitude)))) <= 25
-        ORDER BY severity_level DESC, 
-                 (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
-                  cos(radians(longitude) - radians(${userLng})) + 
-                  sin(radians(${userLat})) * sin(radians(latitude)))) ASC, 
-                 created_at DESC
-    `;
-    
-    stream<record {|
-        int id;
-        int user_id;
-        string title;
-        string? description;
-        string hazard_type;
-        string severity_level;
-        string[] images;
-        decimal? latitude;
-        decimal? longitude;
-        string? address;
-        string created_at;
-        string status;
-        string? updated_at;
-        decimal distance_km;
-    |}, sql:Error?> resultStream = dbClient->query(selectQuery);
-    
-    record {|
-        int id;
-        string title;
-        string? description;
-        string hazard_type;
-        string severity_level;
-        string[] images;
-        record {|
-            decimal lat;
-            decimal lng;
-            string? address;
-        |}? location;
-        string created_at;
-        string status;
-        string? updated_at;
-        int user_id;
-        decimal distance_km;
-    |}[] reports = [];
-    
-    error? fromResult = from var row in resultStream
-        do {
-            record {|
-                decimal lat;
-                decimal lng;
-                string? address;
-            |}? location = ();
-
-            if row.latitude is decimal && row.longitude is decimal {
-                decimal validLat = <decimal>row.latitude;
-                decimal validLng = <decimal>row.longitude;
-                location = {
-                    lat: validLat,
-                    lng: validLng,
-                    address: row.address
-                };
-            }
-
-            reports.push({
-                id: row.id,
-                user_id: row.user_id,
-                title: row.title,
-                description: row.description,
-                hazard_type: row.hazard_type,
-                severity_level: row.severity_level,
-                images: row.images,
-                location: location,
-                created_at: row.created_at,
-                status: row.status,
-                updated_at: row.updated_at,
-                distance_km: row.distance_km
-            });
-        };
-    
-    if fromResult is error {
-        return fromResult;
-    }
-    
-    error? closeErr = resultStream.close();
-    if closeErr is error {
-        log:printError("Error closing result stream", closeErr);
-    }
-    
-    return reports;
-
-
-}
 public function resolveHazardReport(int reportId, int resolvedByUserId) returns boolean|error {
     log:printInfo("DATABASE: resolveHazardReport called - Report ID: " + reportId.toString() + ", User ID: " + resolvedByUserId.toString());
     

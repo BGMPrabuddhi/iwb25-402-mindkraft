@@ -351,7 +351,7 @@ function handleMultipartSubmission(http:Caller caller, http:Request req, http:Re
         report_id: result,
         images_uploaded: data.imageNames.length(),
         image_urls: imageUrls,
-        timestamp: timestamp  // Add this line
+        timestamp: timestamp 
     };
     res.setPayload(response);
 } else {

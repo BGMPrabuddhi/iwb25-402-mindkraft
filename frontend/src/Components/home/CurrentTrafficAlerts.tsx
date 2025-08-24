@@ -25,9 +25,16 @@ const CurrentTrafficAlerts = ({ userLocation }: CurrentTrafficAlertsProps) => {
       setError(null)
       
       try {
+        console.log('Fetching traffic alerts...')
         const response = await reportsAPI.getCurrentTrafficAlerts()
-        setTrafficAlerts(response.alerts || [])
+        console.log('Traffic alerts response:', response)
+        
+        // Make sure we're getting the alerts array correctly
+        const alertsData = response.alerts || []
+        setTrafficAlerts(alertsData)
         setUserLocationData(response.user_location)
+        
+        console.log(`Loaded ${alertsData.length} traffic alerts`)
       } catch (err: unknown) {
         console.error('Error fetching current traffic alerts:', err)
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch current traffic alerts'
@@ -39,6 +46,10 @@ const CurrentTrafficAlerts = ({ userLocation }: CurrentTrafficAlertsProps) => {
     }
 
     fetchTrafficAlerts()
+    
+    // Refresh alerts every 5 minutes
+    const interval = setInterval(fetchTrafficAlerts, 5 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [])
 
   const nextAlert = () => {
@@ -127,21 +138,6 @@ const CurrentTrafficAlerts = ({ userLocation }: CurrentTrafficAlertsProps) => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
       </svg>
     ),
-    pothole: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-      </svg>
-    ),
-    flooding: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    debris: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-      </svg>
-    ),
     traffic_jam: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -155,6 +151,21 @@ const CurrentTrafficAlerts = ({ userLocation }: CurrentTrafficAlertsProps) => {
     construction: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+      </svg>
+    ),
+    pothole: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+      </svg>
+    ),
+    flooding: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    debris: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
       </svg>
     ),
     other: (
@@ -204,7 +215,7 @@ const CurrentTrafficAlerts = ({ userLocation }: CurrentTrafficAlertsProps) => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h3 className="text-xl font-medium text-green-800 mb-2">All Clear! 🎉</h3>
+        <h3 className="text-xl font-medium text-green-800 mb-2">All Clear!</h3>
         <p className="text-green-700 mb-1">
           No current traffic alerts within 25km of your location
         </p>
@@ -229,7 +240,7 @@ const CurrentTrafficAlerts = ({ userLocation }: CurrentTrafficAlertsProps) => {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
             <div className={`p-2 rounded-lg bg-white shadow-sm ${styles.icon}`}>
-              {typeIcons[currentAlert.hazard_type] || typeIcons.accident}
+              {typeIcons[currentAlert.hazard_type] || typeIcons.other}
             </div>
             <div>
               <div className="flex items-center space-x-2 mb-1">
@@ -313,8 +324,7 @@ const CurrentTrafficAlerts = ({ userLocation }: CurrentTrafficAlertsProps) => {
             <button 
               onClick={nextAlert}
               className={`p-2 rounded-full hover:bg-white hover:bg-opacity-70 transition-all ${styles.text}`}
-              aria-label="Next alert"
-            >
+              aria-label="Next alert">
               <ChevronRightIcon className="h-5 w-5" />
             </button>
           </div>

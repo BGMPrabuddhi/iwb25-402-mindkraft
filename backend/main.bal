@@ -246,44 +246,52 @@ service /api on apiListener {
     }
 
     resource function get reports/traffic\-alerts(http:Request req) returns json {
-        string|error email = validateAuthHeader(req);
-        if email is error {
-            return createErrorResponse("unauthorized", "Authentication required");
-        }
-
-        user:UserProfile|error profile = auth:getUserProfile(email);
-        if profile is error {
-            return createErrorResponse("internal_error", "Failed to retrieve user profile");
-        }
-
-        var alertsResult = database:getCurrentTrafficAlerts(
-            profile.locationDetails.latitude, 
-            profile.locationDetails.longitude
-        );
-        
-        if alertsResult is error {
-            return createErrorResponse("internal_error", "Failed to retrieve current traffic alerts");
-        }
-
-        return {
-            success: true,
-            alerts: <json>alertsResult,
-            total_count: alertsResult.length(),
-            user_location: {
-                latitude: profile.locationDetails.latitude,
-                longitude: profile.locationDetails.longitude,
-                address: profile.locationDetails.address
-            },
-            criteria: {
-                radius_km: 25,
-                time_window_hours: 24
-            },
-            message: alertsResult.length() > 0 
-                ? "Current traffic alerts in your area" 
-                : "No current traffic alerts in your area"
-        };
+    log:printInfo("BACKEND: Traffic alerts endpoint called");
+    
+    string|error email = validateAuthHeader(req);
+    if email is error {
+        log:printError("BACKEND: Auth validation failed for traffic alerts: " + email.message());
+        return createErrorResponse("unauthorized", "Authentication required");
     }
 
+    user:UserProfile|error profile = auth:getUserProfile(email);
+    if profile is error {
+        log:printError("BACKEND: Failed to get user profile for traffic alerts: " + profile.message());
+        return createErrorResponse("internal_error", "Failed to retrieve user profile");
+    }
+
+    log:printInfo("BACKEND: Fetching traffic alerts for user at: " + profile.locationDetails.latitude.toString() + ", " + profile.locationDetails.longitude.toString());
+
+    var alertsResult = database:getCurrentTrafficAlerts(
+        profile.locationDetails.latitude, 
+        profile.locationDetails.longitude
+    );
+    
+    if alertsResult is error {
+        log:printError("BACKEND: Failed to retrieve traffic alerts: " + alertsResult.message());
+        return createErrorResponse("internal_error", "Failed to retrieve current traffic alerts");
+    }
+
+    log:printInfo("BACKEND: Successfully retrieved " + alertsResult.length().toString() + " traffic alerts");
+
+    return {
+        success: true,
+        alerts: <json>alertsResult,  // Important: use 'alerts' not 'reports'
+        total_count: alertsResult.length(),
+        user_location: {
+            latitude: profile.locationDetails.latitude,
+            longitude: profile.locationDetails.longitude,
+            address: profile.locationDetails.address
+        },
+        criteria: {
+            radius_km: 25,
+            time_window_hours: 24
+        },
+        message: alertsResult.length() > 0 
+            ? "Current traffic alerts in your area" 
+            : "No current traffic alerts in your area"
+    };
+}
     resource function get reports(http:Caller caller, http:Request req) returns error? {
         ReportQueryParams params = extractReportQueryParams(req);
         
