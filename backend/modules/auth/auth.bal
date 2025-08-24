@@ -140,14 +140,13 @@ public function register(user:RegisterRequest req) returns user:AuthResponse|err
     if req.locationDetails.latitude < -90.0d || req.locationDetails.latitude > 90.0d {
         return error("Invalid latitude value");
     }
+
     if req.locationDetails.longitude < -180.0d || req.locationDetails.longitude > 180.0d {
         return error("Invalid longitude value");
     }
-    if req.locationDetails.city.trim().length() == 0 {
-        return error("City is required");
-    }
-    if req.locationDetails.country.trim().length() == 0 {
-        return error("Country is required");
+
+    if req.locationDetails.address.trim().length() == 0 {
+        return error("Address is required");
     }
     // Check if user already exists
     boolean userExists = check checkUserExists(req.email);
@@ -162,17 +161,14 @@ public function register(user:RegisterRequest req) returns user:AuthResponse|err
     // Get database client
     var dbClient = database:getDbClient();
     // Location data (now required)
-    string location = req.location;
     decimal latitude = req.locationDetails.latitude;
     decimal longitude = req.locationDetails.longitude;
-    string city = req.locationDetails.city;
-    string state = req.locationDetails.state;
-    string country = req.locationDetails.country;
-    string fullAddress = req.locationDetails.fullAddress;
-    // Insert user into database with location data and role
+    string address = req.locationDetails.address;
+
+    // Insert user into database with location data
     sql:ExecutionResult result = check dbClient->execute(`
-        INSERT INTO users (first_name, last_name, email, password_hash, location, latitude, longitude, city, state, country, full_address, user_role)
-        VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, ${location}, ${latitude}, ${longitude}, ${city}, ${state}, ${country}, ${fullAddress}, ${role})
+        INSERT INTO users (first_name, last_name, email, password_hash, latitude, longitude, address,user_role) 
+        VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, ${latitude}, ${longitude}, ${address},${role})
     `);
     if result.affectedRowCount < 1 {
         return error("Failed to create user");
@@ -227,23 +223,19 @@ public function getUserProfile(string email) returns user:UserProfile|error {
     var dbClient = database:getDbClient();
 
     stream<record {
-        int id;
-        string first_name;
-        string last_name;
-        string email;
-        string? location;
+        int id; 
+        string first_name; 
+        string last_name; 
+        string email; 
         decimal? latitude;
         decimal? longitude;
-        string? city;
-        string? state;
-        string? country;
-        string? full_address;
+        string? address;
         string? profile_image;
         string? user_role;
         string? created_at;
     }, sql:Error?> userStream =
         dbClient->query(`
-            SELECT id, first_name, last_name, email, location, latitude, longitude, city, state, country, full_address, profile_image, user_role, created_at
+            SELECT id, first_name, last_name, email, latitude, longitude, address, profile_image, user_role,created_at 
             FROM users WHERE email = ${email}
         `);
 
@@ -259,23 +251,16 @@ public function getUserProfile(string email) returns user:UserProfile|error {
     }
 
     // Ensure location data is present (now required)
-    if (userRecord.value.location is () ||
-        userRecord.value.latitude is () || 
+    if (userRecord.value.latitude is () || 
         userRecord.value.longitude is () || 
-        userRecord.value.city is () || 
-        userRecord.value.state is () || 
-        userRecord.value.country is () || 
-        userRecord.value.full_address is ()) {
+        userRecord.value.address is ()) {
         return error("User location data is incomplete");
     }
 
     user:LocationDetails locationDetails = {
         latitude: <decimal>userRecord.value.latitude,
         longitude: <decimal>userRecord.value.longitude,
-        city: <string>userRecord.value.city,
-        state: <string>userRecord.value.state,
-        country: <string>userRecord.value.country,
-        fullAddress: <string>userRecord.value.full_address
+        address: <string>userRecord.value.address
     };
 
     user:UserProfile profile = {
@@ -283,11 +268,11 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         firstName: userRecord.value.first_name,
         lastName: userRecord.value.last_name,
         email: userRecord.value.email,
-    location: userRecord.value.location ?: "",
-    locationDetails: locationDetails,
-    userRole: userRecord.value["user_role"] ?: "user",
+        locationDetails: locationDetails,
+        userRole: userRecord.value["user_role"] ?: "user",
         profileImage: userRecord.value.profile_image is string ? userRecord.value.profile_image : (),
         createdAt: userRecord.value.created_at is string ? userRecord.value.created_at : ()
+        createdAt: userRecord.value.created_at
     };
     return profile;
 }
@@ -300,8 +285,8 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
     if req.lastName.trim().length() == 0 {
         return error("Last name is required");
     }
-    if req.location.trim().length() == 0 {
-        return error("Location is required");
+    if req.locationDetails.address.trim().length() == 0 {
+        return error("Address is required");
     }
 
     // Get database client
@@ -316,7 +301,9 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
             UPDATE users 
             SET first_name = ${req.firstName}, 
                 last_name = ${req.lastName}, 
-                location = ${req.location},
+                latitude = ${req.locationDetails.latitude},
+                longitude = ${req.locationDetails.longitude},
+                address = ${req.locationDetails.address},
                 profile_image = ${profileImage}
             WHERE email = ${email}
         `);
@@ -326,7 +313,9 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
             UPDATE users 
             SET first_name = ${req.firstName}, 
                 last_name = ${req.lastName}, 
-                location = ${req.location}
+                latitude = ${req.locationDetails.latitude},
+                longitude = ${req.locationDetails.longitude},
+                address = ${req.locationDetails.address}
             WHERE email = ${email}
         `);
     }

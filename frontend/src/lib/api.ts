@@ -3,8 +3,8 @@
 export interface HazardReportData {
   title: string;
   description?: string;
-  hazard_type: 'accident' | 'pothole' | 'Natural disaster' | 'construction';
-  severity_level: 'low' | 'medium' | 'high';
+  hazard_type: 'accident' | 'pothole' | 'construction' | 'flooding' | 'debris' | 'traffic_jam' | 'road_closure' | 'other';
+  severity_level: 'low' | 'medium' | 'high' | 'critical';
   images?: File[];
   location?: {
     lat: number;
@@ -25,9 +25,9 @@ export interface HazardReport {
   id: number;
   title: string;
   description?: string;
-  hazard_type: 'accident' | 'pothole' | 'Natural disaster' | 'construction';
-  severity_level: 'low' | 'medium' | 'high';
-  status: 'active' | 'resolved' | 'in_progress';
+  hazard_type: 'accident' | 'pothole' | 'construction' | 'flooding' | 'debris' | 'traffic_jam' | 'road_closure' | 'other';
+  severity_level: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'resolved' | 'pending' | 'archived';
   created_at: string;
   updated_at: string;
   images?: string[];
@@ -37,6 +37,8 @@ export interface HazardReport {
     lng: number;
     address?: string;
   };
+  user_id?: number;
+  distance_km?: number;
 }
 
 export interface ApiResponse {
@@ -336,6 +338,55 @@ class ReportsAPI {
           city: string;
         };
         radius_km: number;
+      }>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get current traffic alerts within 25km and 24 hours
+  async getCurrentTrafficAlerts(): Promise<{
+    success: boolean;
+    alerts: HazardReport[];
+    total_count: number;
+    user_location: {
+      latitude: number;
+      longitude: number;
+      address: string;
+    };
+    criteria: {
+      radius_km: number;
+      time_window_hours: number;
+    };
+    message: string;
+  }> {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/reports/traffic-alerts`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return await this.handleResponse<{
+        success: boolean;
+        alerts: HazardReport[];
+        total_count: number;
+        user_location: {
+          latitude: number;
+          longitude: number;
+          address: string;
+        };
+        criteria: {
+          radius_km: number;
+          time_window_hours: number;
+        };
+        message: string;
       }>(response);
     } catch (error) {
       throw error;

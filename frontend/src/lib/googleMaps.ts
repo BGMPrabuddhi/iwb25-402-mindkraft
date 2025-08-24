@@ -6,10 +6,6 @@ interface LocationResult {
   latitude: number
   longitude: number
   address: string
-  city: string
-  state: string
-  country: string
-  postalCode: string
 }
 
 interface GeolocationError {
@@ -100,41 +96,11 @@ class GoogleMapsService {
       geocoder.geocode({ location: latlng }, (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus) => {
         if (status === 'OK' && results && results[0]) {
           const result = results[0]
-          const addressComponents = result.address_components
-
-          // Extract address components
-          let city = ''
-          let state = ''
-          let country = ''
-          let postalCode = ''
-
-          if (addressComponents) {
-            addressComponents.forEach((component: google.maps.GeocoderAddressComponent) => {
-              const types = component.types
-              
-              if (types.includes('locality') || types.includes('administrative_area_level_2')) {
-                city = component.long_name
-              }
-              if (types.includes('administrative_area_level_1')) {
-                state = component.long_name
-              }
-              if (types.includes('country')) {
-                country = component.long_name
-              }
-              if (types.includes('postal_code')) {
-                postalCode = component.long_name
-              }
-            })
-          }
 
           const locationResult: LocationResult = {
             latitude,
             longitude,
-            address: result.formatted_address || '',
-            city,
-            state,
-            country,
-            postalCode
+            address: result.formatted_address || ''
           }
 
           resolve(locationResult)

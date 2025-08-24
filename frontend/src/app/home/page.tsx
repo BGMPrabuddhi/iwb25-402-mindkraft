@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/Components/layout/Header'
 import Footer from '@/Components/layout/Footer'
-import NewsAlert from '@/Components/home/NewsAlert'
+import CurrentTrafficAlerts from '@/Components/home/CurrentTrafficAlerts'
 import ActionTabs from '@/Components/home/ActionTabs'
 import { authAPI, UserProfile, HomeResponse } from '@/lib/auth'
 
@@ -92,13 +92,13 @@ export default function Home() {
             </div>
           </section>
 
-          {/* News Alert Section */}
+          {/* Current Traffic Alerts Section */}
           <section className="mb-10">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Current Traffic Alerts</h2>
-              <p className="text-gray-600">Stay informed about road conditions in your area</p>
+              <p className="text-gray-600">Live hazard reports within 25km from the last 24 hours</p>
             </div>
-            <NewsAlert userLocation="Negombo" />
+            <CurrentTrafficAlerts userLocation={user?.locationDetails?.address || 'your location'} />
           </section>
 
           {/* Action Tabs Section */}

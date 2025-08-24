@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import Script from 'next/script'
 import { authAPI } from '@/lib/auth'
-import { googleMapsService, type LocationResult } from '@/lib/googleMaps'
+import LocationInput from '@/Components/LocationInput'
 
 type SignupFormData = {
     firstName: string
@@ -19,10 +20,9 @@ type LocationData = {
   latitude: number
   longitude: number
   address: string
-  city: string
-  state: string
-  country: string
 }
+
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyAz2gtcc8kLOLLa5jbq4V3P7cpsGYlOPjQ'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -40,9 +40,7 @@ export default function SignupPage() {
   const [apiError, setApiError] = useState('')
   const [isVisible, setIsVisible] = useState(false)
   const [locationData, setLocationData] = useState<LocationData | null>(null)
-  const [isGettingLocation, setIsGettingLocation] = useState(false)
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationResult[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [googleMapsScriptLoaded, setGoogleMapsScriptLoaded] = useState(false)
 
   useEffect(() => {
     setIsVisible(true)
@@ -55,11 +53,6 @@ export default function SignupPage() {
       [name]: value
     }))
     
-    // Handle location search suggestions
-    if (name === 'location') {
-      handleLocationSearch(value)
-    }
-    
     // Clear error when user starts typing
     if (errors[name as keyof SignupFormData]) {
       setErrors(prev => ({
@@ -67,6 +60,23 @@ export default function SignupPage() {
         [name]: ''
       }))
     }
+  }
+
+  const handleLocationChange = (value: string) => {
+    setFormData(prev => ({ ...prev, location: value }))
+    
+    // Clear location error
+    if (errors.location) {
+      setErrors(prev => ({ ...prev, location: '' }))
+    }
+  }
+
+  const handleLocationSelect = (location: { lat: number; lng: number; address: string }) => {
+    setLocationData({
+      latitude: location.lat,
+      longitude: location.lng,
+      address: location.address
+    })
   }
 
   const validateForm = (): boolean => {
@@ -100,6 +110,8 @@ export default function SignupPage() {
 
     if (!formData.location.trim()) {
       newErrors.location = 'Location is required'
+    } else if (!locationData || locationData.latitude === 0 || locationData.longitude === 0) {
+      newErrors.location = 'Please select a location from the suggestions or use GPS to get your current location'
     }
 
     setErrors(newErrors)
@@ -208,9 +220,6 @@ export default function SignupPage() {
               latitude: geocodedResults[0].latitude,
               longitude: geocodedResults[0].longitude,
               address: geocodedResults[0].address,
-              city: geocodedResults[0].city,
-              state: geocodedResults[0].state,
-              country: geocodedResults[0].country
             }
             console.log('Successfully geocoded location:', finalLocationDetails)
           }
@@ -219,6 +228,13 @@ export default function SignupPage() {
         }
       }
       
+      // Ensure we have valid location data (validation already passed above)
+      if (!locationData) {
+        setApiError('Location data is missing. Please select a location from suggestions or use GPS.')
+        return
+      }
+
+      // Call the registration API
       const result = await authAPI.register({
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -229,9 +245,6 @@ export default function SignupPage() {
         locationDetails: finalLocationDetails ? {
           latitude: finalLocationDetails.latitude,
           longitude: finalLocationDetails.longitude,
-          city: finalLocationDetails.city,
-          state: finalLocationDetails.state,
-          country: finalLocationDetails.country,
           fullAddress: finalLocationDetails.address
         } : (() => {
           const locationParts = formData.location.split(',').map(part => part.trim()).filter(part => part.length > 0)
@@ -245,6 +258,11 @@ export default function SignupPage() {
             fullAddress: formData.location
           }
         })()
+        locationDetails: {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          address: locationData.address
+        }
       })
 
       console.log('Registration result:', result)
@@ -314,7 +332,15 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
+    <>
+      {/* Google Maps Script */}
+      <Script
+        src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&v=weekly`}
+        onLoad={() => setGoogleMapsScriptLoaded(true)}
+        onError={() => console.error('Failed to load Google Maps')}
+      />
+      
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-4 -left-4 w-72 h-72 bg-gradient-to-br from-blue-200 to-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
@@ -567,6 +593,18 @@ export default function SignupPage() {
                   <span className="text-red-500">*</span> Location is required. Click the location icon to auto-detect your current location, type to search for suggestions, or enter manually (format: City, State, Country).
                 </p>
               </div>
+              {/* Location Field */}
+              <LocationInput
+                label="Location"
+                placeholder="Enter your location or use GPS"
+                value={formData.location}
+                onChange={handleLocationChange}
+                onLocationSelect={handleLocationSelect}
+                required={true}
+                error={errors.location}
+                googleMapsScriptLoaded={googleMapsScriptLoaded}
+                className="group"
+              />
 
               {/* Password Field */}
               <div className="group">
@@ -767,6 +805,7 @@ export default function SignupPage() {
         
         .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25); }
       `}</style>
-    </div>
+      </div>
+    </>
   )
 }

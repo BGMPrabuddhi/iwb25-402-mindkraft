@@ -240,9 +240,48 @@ service /api on apiListener {
             user_location: {
                 latitude: profile.locationDetails.latitude,
                 longitude: profile.locationDetails.longitude,
-                city: profile.locationDetails.city
+                address: profile.locationDetails.address
             },
             radius_km: radiusKm
+        };
+    }
+
+    resource function get reports/traffic\-alerts(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            return createErrorResponse("internal_error", "Failed to retrieve user profile");
+        }
+
+        var alertsResult = database:getCurrentTrafficAlerts(
+            profile.locationDetails.latitude, 
+            profile.locationDetails.longitude
+        );
+        
+        if alertsResult is error {
+            return createErrorResponse("internal_error", "Failed to retrieve current traffic alerts");
+        }
+
+        return {
+            success: true,
+            alerts: <json>alertsResult,
+            total_count: alertsResult.length(),
+            user_location: {
+                latitude: profile.locationDetails.latitude,
+                longitude: profile.locationDetails.longitude,
+                address: profile.locationDetails.address
+            },
+            criteria: {
+                radius_km: 25,
+                time_window_hours: 24
+            },
+            message: alertsResult.length() > 0 
+                ? "Current traffic alerts in your area" 
+                : "No current traffic alerts in your area"
         };
     }
 
@@ -510,14 +549,11 @@ function createUserProfileResponse(user:UserProfile profile) returns map<json> {
         firstName: profile.firstName,
         lastName: profile.lastName,
         email: profile.email,
-        location: profile.location,
+        location: profile.locationDetails.address, // Add location field for backward compatibility
         locationDetails: {
             latitude: profile.locationDetails.latitude,
             longitude: profile.locationDetails.longitude,
-            city: profile.locationDetails.city,
-            state: profile.locationDetails.state,
-            country: profile.locationDetails.country,
-            fullAddress: profile.locationDetails.fullAddress
+            address: profile.locationDetails.address
         },
         createdAt: profile.createdAt
     };

@@ -3,16 +3,24 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import Script from 'next/script'
 import { 
   UserCircleIcon, 
   CameraIcon, 
-  MapPinIcon,
   CheckIcon,
   XMarkIcon,
   ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 import { authAPI, UserProfile } from '@/lib/auth'
-import { googleMapsService, type LocationResult } from '@/lib/googleMaps'
+import LocationInput from '@/Components/LocationInput'
+
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyAz2gtcc8kLOLLa5jbq4V3P7cpsGYlOPjQ'
+
+type LocationData = {
+  latitude: number
+  longitude: number
+  address: string
+}
 
 const ProfileEditPage = () => {
   const router = useRouter()
@@ -28,10 +36,10 @@ const ProfileEditPage = () => {
     lastName: '',
     location: ''
   })
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  const [isGettingLocation, setIsGettingLocation] = useState(false)
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationResult[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [locationData, setLocationData] = useState<LocationData | null>(null)
+  const [googleMapsScriptLoaded, setGoogleMapsScriptLoaded] = useState(false)
 
   // Fetch user profile on component mount
   useEffect(() => {
@@ -50,6 +58,18 @@ const ProfileEditPage = () => {
             lastName: profile.lastName || '',
             location: profile.location || '' // Show existing location
           })
+          
+          // Set existing location coordinates if available
+          if (profile.locationDetails && 
+              profile.locationDetails.latitude !== 0 && 
+              profile.locationDetails.longitude !== 0) {
+            setLocationData({
+              latitude: profile.locationDetails.latitude,
+              longitude: profile.locationDetails.longitude,
+              address: profile.locationDetails.address
+            })
+          }
+          
           // Set existing profile image if available
           if (profile.profileImage) {
             setCurrentProfileImage(profile.profileImage)
@@ -90,139 +110,65 @@ const ProfileEditPage = () => {
       ...prev,
       [name]: value
     }))
-    
-    // Handle location search suggestions
-    if (name === 'location') {
-      handleLocationSearch(value)
-    }
   }
 
-  const getCurrentLocation = async () => {
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-      setMessage({ type: 'error', text: 'Google Maps API key is not configured. Please add your API key to environment variables.' })
-      return
-    }
-
-    setIsGettingLocation(true)
-    setMessage(null)
-    
-    try {
-      const result = await googleMapsService.getCurrentLocation()
-      
-      // Update form data with formatted address
-      const formattedLocation = result.city && result.state && result.country 
-        ? `${result.city}, ${result.state}, ${result.country}`
-        : result.address
-      
-      setFormData(prev => ({ ...prev, location: formattedLocation }))
-      
-      console.log('✅ Location obtained:', result)
-      
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to get location'
-      console.error('❌ Location error:', errorMessage)
-      setMessage({ type: 'error', text: `Unable to get your location: ${errorMessage}. Please enter your location manually.` })
-    } finally {
-      setIsGettingLocation(false)
-    }
+  const handleLocationChange = (value: string) => {
+    setFormData(prev => ({ ...prev, location: value }))
+    setErrors(prev => ({ ...prev, location: '' }))
   }
 
-  const handleLocationSearch = async (query: string) => {
-    if (!query.trim() || query.length < 2) {
-      setLocationSuggestions([])
-      setShowSuggestions(false)
-      return
-    }
-
-    try {
-      const results = await googleMapsService.searchLocation(query.trim())
-      setLocationSuggestions(results)
-      setShowSuggestions(results.length > 0)
-    } catch (error: unknown) {
-      console.error('Location search error:', error)
-      setLocationSuggestions([])
-      setShowSuggestions(false)
-    }
-  }
-
-  const selectLocationSuggestion = (suggestion: LocationResult) => {
-    // Use the full address from Google Maps
-    setFormData(prev => ({ ...prev, location: suggestion.address }))
-    
-    setShowSuggestions(false)
-    setLocationSuggestions([])
-  }
-
-  const formatLocationDisplay = (suggestion: LocationResult) => {
-    // Clean up location suggestions to show in user-friendly format
-    let displayText = suggestion.address
-    
-    // For Sri Lankan locations, extract the most relevant part
-    if (suggestion.country === 'Sri Lanka') {
-      const addressParts = suggestion.address.split(',').map(part => part.trim())
-      
-      // Filter out unwanted parts
-      const filteredParts = addressParts.filter(part => {
-        // Remove Plus Codes (like "54VV+VP6", "75Q5+5RX", etc.)
-        if (/^[A-Z0-9]{4}\+[A-Z0-9]{2,3}$/.test(part)) return false
-        // Remove "Sri Lanka" country name
-        if (part.toLowerCase().includes('sri lanka')) return false
-        // Remove provinces (like "Southern Province", "Western Province", etc.)
-        if (part.toLowerCase().includes('province')) return false
-        // Remove districts that are too general (like just "Galle" for Ampegama)
-        if (part.toLowerCase() === 'galle' || part.toLowerCase() === 'colombo' || 
-            part.toLowerCase() === 'kandy' || part.toLowerCase() === 'matara') {
-          // Only remove if there's a more specific location available
-          const hasMoreSpecific = addressParts.some(otherPart => 
-            otherPart.trim().toLowerCase() !== part.toLowerCase() && 
-            !otherPart.toLowerCase().includes('province') &&
-            !otherPart.toLowerCase().includes('sri lanka') &&
-            !/^[A-Z0-9]{4}\+[A-Z0-9]{2,3}$/.test(otherPart.trim())
-          )
-          return !hasMoreSpecific
-        }
-        // Remove empty parts
-        if (!part.trim()) return false
-        return true
-      })
-      
-      // Use the most specific location (usually the first filtered part)
-      if (filteredParts.length > 0) {
-        displayText = `${filteredParts[0]}, Sri Lanka`
-      } else {
-        // Fallback: use city name if available
-        displayText = suggestion.city ? `${suggestion.city}, Sri Lanka` : suggestion.address
-      }
-    } else {
-      // For non-Sri Lankan locations, show City, Country format if possible
-      if (suggestion.city && suggestion.country) {
-        displayText = `${suggestion.city}, ${suggestion.country}`
-      }
-    }
-    
-    return {
-      primary: displayText,
-      secondary: suggestion.address !== displayText ? suggestion.address : ''
-    }
+  const handleLocationSelect = (location: { lat: number; lng: number; address: string }) => {
+    setLocationData({
+      latitude: location.lat,
+      longitude: location.lng,
+      address: location.address
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setMessage(null)
+    setErrors({})
 
     try {
       // Validate required fields
-      if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.location.trim()) {
-        setMessage({ type: 'error', text: 'First name, last name, and location are required' })
+      const newErrors: { [key: string]: string } = {}
+      
+      if (!formData.firstName.trim()) {
+        newErrors.firstName = 'First name is required'
+      }
+      if (!formData.lastName.trim()) {
+        newErrors.lastName = 'Last name is required'
+      }
+      if (!formData.location.trim()) {
+        newErrors.location = 'Location is required'
+      }
+      // Require valid coordinates (from GPS or Google Places selection)
+      if (!locationData || locationData.latitude === 0 || locationData.longitude === 0) {
+        newErrors.location = 'Please select a location from the suggestions or use GPS to get your current location'
+      }
+
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors)
+        setMessage({ type: 'error', text: 'Please fill in all required fields correctly' })
         return
       }
 
-      // Prepare the update data
+      // Prepare the update data (we know locationData is valid at this point)
+      if (!locationData) {
+        setMessage({ type: 'error', text: 'Location data is missing' })
+        return
+      }
+
       const updateData = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        location: formData.location.trim(),
+        locationDetails: {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          address: locationData.address
+        },
         ...(profileImage && { profileImage }) // Only include if new image was uploaded
       }
 
@@ -267,8 +213,14 @@ const ProfileEditPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+    <>
+      <Script
+        src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&v=weekly`}
+        onLoad={() => setGoogleMapsScriptLoaded(true)}
+        onError={() => console.error('Failed to load Google Maps')}
+      />
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <button
@@ -410,85 +362,18 @@ const ProfileEditPage = () => {
               </p>
             </div>
 
-            {/* Location with Google Maps */}
-            <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-                Location *
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MapPinIcon className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  onFocus={() => setShowSuggestions(locationSuggestions.length > 0)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                  required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  placeholder="Enter your location or use GPS"
-                />
-                <button
-                  type="button"
-                  onClick={getCurrentLocation}
-                  disabled={isGettingLocation}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-600 transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Get current location using GPS"
-                >
-                  {isGettingLocation ? (
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
-                </button>
-                
-                {/* Location Suggestions Dropdown */}
-                {showSuggestions && locationSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                    {locationSuggestions.map((suggestion, index) => {
-                      const formatted = formatLocationDisplay(suggestion);
-                      return (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => selectLocationSuggestion(suggestion)}
-                          className="w-full text-left px-3 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none transition-colors duration-200 border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900 truncate">
-                                {formatted.primary}
-                              </div>
-                              {formatted.secondary && (
-                                <div className="text-xs text-gray-500 truncate mt-1">
-                                  {formatted.secondary}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Your location is required and helps us provide location-based features and services. Click the location icon to auto-detect your current location or type to search.
-              </p>
-            </div>
+            {/* Location Field */}
+            <LocationInput
+              label="Location"
+              placeholder="Enter your location or use GPS"
+              value={formData.location}
+              onChange={handleLocationChange}
+              onLocationSelect={handleLocationSelect}
+              required={true}
+              error={errors.location}
+              googleMapsScriptLoaded={googleMapsScriptLoaded}
+              className="group"
+            />
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-6 border-t border-gray-200">
@@ -528,6 +413,7 @@ const ProfileEditPage = () => {
         </div>
       </div>
     </div>
+    </>
   )
 }
 
