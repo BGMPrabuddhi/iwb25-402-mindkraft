@@ -104,6 +104,11 @@ export interface HomeResponse {
   user?: string;
   timestamp?: string;
   errorCode?: string;
+  // Optional statistics (added for dashboard quick stats)
+  totalReports?: number;
+  activeAlerts?: number;
+  communityMembers?: number;
+  resolvedHazards?: number;
 }
 
 // Configuration

@@ -47,10 +47,12 @@
   /* New Brand Palette */
   --brand-900: #213A57; /* Deep navy teal */
   --brand-800: #0B6477; /* Dark teal */
-  --brand-600: #14919B; /* Teal blue */
+
   --brand-500: #0AD1C8; /* Bright aqua (primary midpoint) */
   --brand-400: #45DFB1; /* Mint green */
-  --brand-300: #80ED99; /* Light green mint */
+
+  --brand-600:#80E961;
+  --brand-300:#009665;
 }
 
 /* Custom styles for SafeRoute */

@@ -99,7 +99,7 @@ const Header = () => {
   }
 
   return (
-  <header className="sticky top-0 z-50  supports-[backdrop-filter]:bg-brand-900/80 bg-brand-900  border-brand-800 shadow-md">
+  <header className="sticky top-0 z-50   bg-black/85  border-brand-800 shadow-md">
   <div className="max-w-8xl mx-auto pl-1 pr-4 sm:pl-4 sm:pr-6 lg:pl-6 lg:pr-8">
     <div className="flex justify-between  h-20">
           
@@ -116,7 +116,7 @@ const Header = () => {
                   priority
                 />
               </div>
-                  <span className="pt-2 text-[10px] sm:text-xs md:text-sm font-semibold tracking-wide text-brand-300 group-hover:text-brand-200 transition-colors">Road Safety Platform</span>
+                  
             </div>
           </Link>
 
@@ -128,7 +128,7 @@ const Header = () => {
 
           {/* Profile Section */}
           <div className="flex items-center space-x-4">
-            <div className="text-right hidden sm:block">
+            <div className="text-right text-green-950 hidden sm:block">
               <p className="text-base md:text-lg font-semibold text-brand-400">
                 {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'Guest'}
               </p>

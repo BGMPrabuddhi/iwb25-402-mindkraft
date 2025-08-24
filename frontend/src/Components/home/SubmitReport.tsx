@@ -617,12 +617,15 @@ const SubmitReport = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full py-3 px-6 rounded-lg font-medium transition-colors focus:ring-4 focus:ring-blue-200 ${
-              isLoading 
-                ? 'bg-gray-400 cursor-not-allowed text-gray-600' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            className={`relative w-full py-3.5 px-6 rounded-xl font-semibold tracking-wide transition-all focus:outline-none focus:ring-4 focus:ring-brand-400/40 disabled:cursor-not-allowed disabled:opacity-60 shadow-md shadow-black/20 ring-1 ring-white/20 overflow-hidden ${
+              isLoading
+                ? 'bg-gradient-to-r from-brand-300 via-blue-300 to-brand-200 text-brand-800'
+                : 'bg-gradient-to-r from-brand-600 via-blue-600 to-brand-400 hover:from-brand-500 hover:via-blue-500 hover:to-brand-300 text-white'
             }`}
           >
+            {!isLoading && (
+              <span className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_65%)]" aria-hidden="true" />
+            )}
             {isLoading ? (
               <span className="flex items-center justify-center">
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24">

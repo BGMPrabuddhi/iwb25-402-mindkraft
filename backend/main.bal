@@ -3,10 +3,16 @@ import ballerina/log;
 import ballerina/time;
 import ballerina/file;
 import ballerina/io;
+import ballerina/sql;
+import ballerinax/postgresql;
+
 import saferoute/backend.database;
 import saferoute/backend.reports;
 import saferoute/backend.auth;
 import saferoute/backend.user;
+
+/// Error type representing authentication related failures.
+public type AuthError distinct error;
 
 configurable int serverPort = ?;
 configurable string[] corsOrigins = ?;
@@ -119,11 +125,48 @@ service /api on apiListener {
             return createErrorResponse("unauthorized", "Authentication required");
         }
 
+        // Aggregate statistics via SQL (fewer round trips & simpler logic)
+        int totalReports = 0;
+        int activeAlerts = 0;
+        int resolvedHazards = 0;
+        int communityMembers = 0;
+
+        postgresql:Client dbClient = database:getDbClient();
+
+        // Users count
+        stream<record {int community_members;}, sql:Error?> usersStream = dbClient->query(`SELECT COUNT(*) AS community_members FROM users`);
+        record {| record {int community_members;} value; |}|sql:Error? usersRow = usersStream.next();
+        if usersRow is record {| record {int community_members;} value; |} {
+            communityMembers = usersRow.value.community_members;
+        }
+        error? _closeUsers = usersStream.close();
+        if _closeUsers is error { log:printError("Failed closing usersStream", _closeUsers); }
+
+        // Reports aggregate
+        stream<record {int total_reports; int resolved_count; int active_count;}, sql:Error?> reportsStream = dbClient->query(`
+            SELECT COUNT(*) AS total_reports,
+                   COALESCE(SUM(CASE WHEN LOWER(status) IN ('resolved','closed') THEN 1 ELSE 0 END),0) AS resolved_count,
+                   COALESCE(SUM(CASE WHEN LOWER(status) NOT IN ('resolved','closed') THEN 1 ELSE 0 END),0) AS active_count
+            FROM hazard_reports
+        `);
+        record {| record {int total_reports; int resolved_count; int active_count;} value; |}|sql:Error? reportsRow = reportsStream.next();
+        if reportsRow is record {| record {int total_reports; int resolved_count; int active_count;} value; |} {
+            totalReports = reportsRow.value.total_reports;
+            resolvedHazards = reportsRow.value.resolved_count;
+            activeAlerts = reportsRow.value.active_count;
+        }
+        error? _closeReports = reportsStream.close();
+        if _closeReports is error { log:printError("Failed closing reportsStream", _closeReports); }
+
         return {
             success: true,
-            message: "Welcome to your home page!",
+            message: "Dashboard statistics retrieved",
             user: email,
-            timestamp: getCurrentTimestamp()
+            timestamp: getCurrentTimestamp(),
+            totalReports: totalReports,
+            activeAlerts: activeAlerts,
+            resolvedHazards: resolvedHazards,
+            communityMembers: communityMembers
         };
     }
 
@@ -202,7 +245,7 @@ service /api on apiListener {
             return createErrorResponse("internal_error", "Failed to retrieve user profile");
         }
 
-        var reportsResult = database:getReportsByUserId(profile.id);
+    anydata[]|error reportsResult = database:getReportsByUserId(profile.id);
         if reportsResult is error {
             return createErrorResponse("internal_error", "Failed to retrieve user reports");
         }
@@ -228,7 +271,7 @@ service /api on apiListener {
         map<string[]> queryParams = req.getQueryParams();
         decimal radiusKm = parseDecimalParam(getQueryParam(queryParams, "radius")) ?: 20.0;
 
-        var reportsResult = database:getNearbyReports(
+    anydata[]|error reportsResult = database:getNearbyReports(
             profile.locationDetails.latitude, 
             profile.locationDetails.longitude, 
             radiusKm
@@ -254,7 +297,7 @@ service /api on apiListener {
     resource function get reports(http:Caller caller, http:Request req) returns error? {
         ReportQueryParams params = extractReportQueryParams(req);
         
-        var reportsResult = database:getFilteredHazardReports(
+    anydata[]|error reportsResult = database:getFilteredHazardReports(
             params.hazardType, params.severity, params.status, 
             params.fromLat, params.fromLng, params.toLat, params.toLng, 
             params.page, params.pageSize
@@ -310,7 +353,7 @@ service / on new http:Listener(serverPort + 1) {
     resource function get reports(http:Caller caller, http:Request req) returns error? {
         ReportQueryParams params = extractReportQueryParams(req);
         
-        var reportsResult = database:getFilteredHazardReports(
+    anydata[]|error reportsResult = database:getFilteredHazardReports(
             params.hazardType, params.severity, params.status, 
             params.fromLat, params.fromLng, params.toLat, params.toLng, 
             params.page, params.pageSize
@@ -403,15 +446,19 @@ function parseDecimalParam(string value) returns decimal? {
 function validateAuthHeader(http:Request req) returns string|error {
     string|http:HeaderNotFoundError authHeader = req.getHeader("Authorization");
     if authHeader is http:HeaderNotFoundError {
-        return error("Authorization header not found");
+    return error AuthError("Authorization header not found");
     }
 
     if !authHeader.startsWith("Bearer ") {
-        return error("Invalid authorization header format");
+    return error AuthError("Invalid authorization header format");
     }
 
     string token = authHeader.substring(7);
-    return auth:validateJwtToken(token);
+    string|error validated = auth:validateJwtToken(token);
+    if validated is error {
+        return error AuthError(validated.message());
+    }
+    return validated;
 }
 
 function getCurrentTimestamp() returns string {

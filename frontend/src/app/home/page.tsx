@@ -111,51 +111,69 @@ export default function Home() {
             <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-brand-600/50 via-brand-500/30 to-brand-300/20 shadow-md shadow-black/30 overflow-hidden">
               <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(10,209,200,0.12),transparent_70%)]" />
               <div className="rounded-2xl bg-white/60 backdrop-blur-xl dark:bg-brand-900/40 px-6 sm:px-10 py-10">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-8">
+                <div className="overflow-x-auto">
+                  <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-6 min-w-[620px] md:min-w-0">
                   {/* Stat Card */}
                   <div className="group relative flex flex-col items-center text-center">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-brand-500/10 to-brand-300/5 rounded-2xl" />
                     <div className="relative mb-5">
-                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 flex items-center justify-center shadow-lg shadow-brand-900/40 ring-2 ring-brand-400/30 group-hover:scale-105 group-hover:ring-brand-300/50 transition-all">
-                        <svg className="h-8 w-8 text-white drop-shadow" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                      <div className="h-12 w-12 md:h-16 md:w-16 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 flex items-center justify-center shadow-lg shadow-brand-900/40 ring-2 ring-brand-400/30 group-hover:scale-105 group-hover:ring-brand-300/50 transition-all">
+                        <svg className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4z" />
                           <path d="M17 17v-4h3v7h-7v-3h4z" />
                         </svg>
                       </div>
                       <div className="absolute -inset-2 rounded-3xl bg-brand-500/0 blur-xl group-hover:bg-brand-500/20 transition-colors" aria-hidden="true" />
                     </div>
-                    <div className="text-4xl font-extrabold tracking-tight text-black group-hover:text-gray-800 transition-colors">1,247</div>
-                      <p className="mt-2 text-sm font-medium tracking-wide text-black/70">Reports Submitted</p>
+                    <div className="text-2xl md:text-4xl font-extrabold tracking-tight text-black group-hover:text-gray-800 transition-colors">{homeData?.totalReports ?? 1247}</div>
+                      <p className="mt-1 md:mt-2 text-xs md:text-sm font-medium tracking-wide text-black/70">Reports Submitted</p>
                   </div>
 
                   <div className="group relative flex flex-col items-center text-center">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-brand-500/10 to-brand-300/5 rounded-2xl" />
                     <div className="relative mb-5">
-                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-900/40 ring-2 ring-brand-300/40 group-hover:scale-105 group-hover:ring-brand-200/70 transition-all">
-                        <svg className="h-8 w-8 text-white drop-shadow" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                      <div className="h-12 w-12 md:h-16 md:w-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-900/40 ring-2 ring-brand-300/40 group-hover:scale-105 group-hover:ring-brand-200/70 transition-all">
+                        <svg className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M12 3v18M3 12h18" />
                           <circle cx="12" cy="12" r="9" />
                         </svg>
                       </div>
                       <div className="absolute -inset-2 rounded-3xl bg-brand-400/0 blur-xl group-hover:bg-brand-400/20 transition-colors" aria-hidden="true" />
                     </div>
-                    <div className="text-4xl font-extrabold tracking-tight text-red-600 group-hover:text-red-500 transition-colors">45</div>
-                    <p className="mt-2 text-sm font-medium tracking-wide text-red-600/70">Active Alerts</p>
+                    <div className="text-2xl md:text-4xl font-extrabold tracking-tight text-red-600 group-hover:text-red-500 transition-colors">{homeData?.activeAlerts ?? 45}</div>
+                    <p className="mt-1 md:mt-2 text-xs md:text-sm font-medium tracking-wide text-red-600/70">Active Alerts</p>
+                  </div>
+
+                  {/* Resolved Hazards */}
+                  <div className="group relative flex flex-col items-center text-center">
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-brand-500/10 to-brand-300/5 rounded-2xl" />
+                    <div className="relative mb-5">
+                      <div className="h-12 w-12 md:h-16 md:w-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-900/40 ring-2 ring-brand-300/40 group-hover:scale-105 group-hover:ring-brand-200/70 transition-all">
+                        <svg className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Z" />
+                          <path d="M16 10l-4 4-2-2" />
+                        </svg>
+                      </div>
+                      <div className="absolute -inset-2 rounded-3xl bg-brand-400/0 blur-xl group-hover:bg-brand-400/20 transition-colors" aria-hidden="true" />
+                    </div>
+                    <div className="text-2xl md:text-4xl font-extrabold tracking-tight text-brand-600 group-hover:text-brand-500 transition-colors">{homeData?.resolvedHazards ?? 0}</div>
+                    <p className="mt-1 md:mt-2 text-xs md:text-sm font-medium tracking-wide text-brand-600/70">Resolved Hazards</p>
                   </div>
 
                   <div className="group relative flex flex-col items-center text-center">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-brand-500/10 to-brand-300/5 rounded-2xl" />
                     <div className="relative mb-5">
-                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-300 flex items-center justify-center shadow-lg shadow-brand-900/40 ring-2 ring-brand-300/40 group-hover:scale-105 group-hover:ring-brand-200/60 transition-all">
-                        <svg className="h-8 w-8 text-white drop-shadow" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                      <div className="h-12 w-12 md:h-16 md:w-16 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-300 flex items-center justify-center shadow-lg shadow-brand-900/40 ring-2 ring-brand-300/40 group-hover:scale-105 group-hover:ring-brand-200/60 transition-all">
+                        <svg className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z" />
                           <path d="M6.5 20a5.5 5.5 0 0 1 11 0v.5H6.5z" />
                         </svg>
                       </div>
                       <div className="absolute -inset-2 rounded-3xl bg-brand-300/0 blur-xl group-hover:bg-brand-300/25 transition-colors" aria-hidden="true" />
                     </div>
-                    <div className="text-4xl font-extrabold tracking-tight text-green-600 group-hover:text-green-500 transition-colors">2,156</div>
-                    <p className="mt-2 text-sm font-medium tracking-wide text-green-600/70">Community Members</p>
+                    <div className="text-2xl md:text-4xl font-extrabold tracking-tight text-green-600 group-hover:text-green-500 transition-colors">{homeData?.communityMembers ?? 2156}</div>
+                    <p className="mt-1 md:mt-2 text-xs md:text-sm font-medium tracking-wide text-green-600/70">Community Members</p>
+                  </div>
                   </div>
                 </div>
 
