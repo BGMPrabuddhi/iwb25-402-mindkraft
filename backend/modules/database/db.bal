@@ -430,6 +430,39 @@ public function getFilteredHazardReports(
     return reports;
 }
 
+public function getReportDetails(int reportId) returns record {|
+    int user_id;
+    string hazard_type;
+    string title;
+|}|error {
+    sql:ParameterizedQuery selectQuery = `
+        SELECT user_id, hazard_type, title FROM hazard_reports WHERE id = ${reportId}
+    `;
+    
+    stream<record {| int user_id; string hazard_type; string title; |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    record {| record {| int user_id; string hazard_type; string title; |} value; |}|sql:Error? streamResult = check resultStream.next();
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("DATABASE: Error closing result stream: " + closeErr.message());
+    }
+    
+    if streamResult is sql:Error {
+        return error("SQL error: " + streamResult.message());
+    }
+    
+    if streamResult is () {
+        return error("Report not found");
+    }
+    
+    return {
+        user_id: streamResult.value.user_id,
+        hazard_type: streamResult.value.hazard_type,
+        title: streamResult.value.title
+    };
+}
+
 public function updateHazardReport(
     int reportId,
     string title,
@@ -583,14 +616,14 @@ public function deleteOldReports() returns int|error {
     sql:ParameterizedQuery deleteQuery = `
         DELETE FROM hazard_reports 
         WHERE created_at < NOW() - INTERVAL '24 hours'
-        AND hazard_type NOT IN ('pothole', 'construction')
+        AND hazard_type IN ('traffic', 'accident')
     `;
     
     sql:ExecutionResult result = check dbClient->execute(deleteQuery);
     
     int deletedCount = <int>result.affectedRowCount;
     if deletedCount > 0 {
-        log:printInfo("Automatically deleted " + deletedCount.toString() + " non-road reports older than 24 hours");
+        log:printInfo("Automatically deleted " + deletedCount.toString() + " traffic/accident reports older than 24 hours");
     }
     return deletedCount;
 }

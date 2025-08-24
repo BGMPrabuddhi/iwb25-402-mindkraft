@@ -249,10 +249,10 @@ export default function RDADashboard() {
       // Load active reports
       console.log('FRONTEND: Fetching active reports...');
       const activeResponse = await fetch('/api/rda/reports', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+    headers: {
+        'Authorization': `Bearer ${token}`
+    }
+})
       console.log('FRONTEND: Active reports response status:', activeResponse.status);
       
       const activeData = await activeResponse.json()
@@ -261,10 +261,11 @@ export default function RDADashboard() {
       // Load resolved reports
       console.log('FRONTEND: Fetching resolved reports...');
       const resolvedResponse = await fetch('/api/rda/resolved-reports', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+    headers: {
+        'Authorization': `Bearer ${token}`
+    }
+})
+      
       console.log('FRONTEND: Resolved reports response status:', resolvedResponse.status);
       
       const resolvedData = await resolvedResponse.json()
@@ -286,54 +287,49 @@ export default function RDADashboard() {
     }
   }
 
-  const updateReportStatus = async (reportId: number, newStatus: string) => {
+ const updateReportStatus = async (reportId: number, newStatus: string) => {
     console.log('FRONTEND: updateReportStatus called', { reportId, newStatus });
     
     try {
-      const token = localStorage.getItem('auth_token');
-      console.log('FRONTEND: Auth token exists:', !!token);
-      
-      const url = `/api/rda/reports/${reportId}/status`;
-      const payload = { status: newStatus };
-      
-      console.log('FRONTEND: Making PUT request to:', url);
-      console.log('FRONTEND: Request payload:', payload);
-      
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      })
-
-      console.log('FRONTEND: Response status:', response.status);
-      console.log('FRONTEND: Response ok:', response.ok);
-      
-      const responseData = await response.json();
-      console.log('FRONTEND: Response data:', responseData);
-
-      if (response.ok) {
-        console.log('FRONTEND: Report status updated successfully');
-        console.log('FRONTEND: About to reload reports');
-        loadReports()
-        setConfirmDialog({
-          isOpen: false,
-          reportId: null,
-          action: '',
-          title: '',
-          message: ''
+        const token = localStorage.getItem('auth_token');
+        console.log('FRONTEND: Auth token exists:', !!token);
+        
+        // Updated URL to match the new endpoint
+        const url = `/api/rda/reports/${reportId}/status`;
+        const payload = { status: newStatus };
+        
+        console.log('FRONTEND: Making PUT request to:', url);
+        console.log('FRONTEND: Request payload:', payload);
+        
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
         })
-        console.log('FRONTEND: Confirmation dialog closed');
-      } else {
-        console.error('FRONTEND: Failed to update report status - Response not ok');
-        console.error('FRONTEND: Error response:', responseData);
-      }
+
+        console.log('FRONTEND: Response status:', response.status);
+        console.log('FRONTEND: Response ok:', response.ok);
+        
+        const responseData = await response.json();
+        console.log('FRONTEND: Response data:', responseData);
+
+        if (response.ok && responseData.success) {
+            console.log('FRONTEND: Report status updated successfully');
+            loadReports()
+            closeConfirmDialog()
+            alert('Report marked as resolved successfully!');
+        } else {
+            console.error('FRONTEND: Failed to update report status');
+            alert(`Failed to update report: ${responseData.message || 'Unknown error'}`);
+        }
     } catch (error) {
-      console.error('FRONTEND: Error updating report status:', error);
+        console.error('FRONTEND: Error updating report status:', error);
+        alert('Error updating report status. Please try again.');
     }
-  }
+}
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {

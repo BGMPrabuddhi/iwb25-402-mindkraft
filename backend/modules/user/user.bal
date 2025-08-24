@@ -9,6 +9,7 @@ public type RegisterRequest record {
     string lastName;
     string email;
     string password;
+    string location;
     LocationDetails locationDetails;
     string userRole;
 };

@@ -28,7 +28,6 @@ listener http:Listener apiListener = new (serverPort);
 service /api on apiListener {
     
     function init() returns error? {
-        check reports:initializeUploadDirectory();
         check reports:initializeCleanupTask();
     }
 
@@ -313,55 +312,71 @@ service /api on apiListener {
 
     // Updated PUT reports endpoint with debugging
     resource function put reports/[int reportId](http:Caller caller, http:Request req) returns error? {
-        log:printInfo("BACKEND: PUT reports endpoint called for ID: " + reportId.toString());
-        
-        string|error email = validateAuthHeader(req);
-        if email is error {
-            log:printError("BACKEND: Auth validation failed: " + email.message());
-            check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
-            return;
-        }
-        log:printInfo("BACKEND: Auth validated for user: " + email);
-
-        // Get user profile to get user ID
-        user:UserProfile|error profile = auth:getUserProfile(email);
-        if profile is error {
-            log:printError("BACKEND: Failed to get user profile: " + profile.message());
-            check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
-            return;
-        }
-        log:printInfo("BACKEND: User profile retrieved, ID: " + profile.id.toString());
-
-        json|error payload = req.getJsonPayload();
-        if payload is error {
-            log:printError("BACKEND: Invalid JSON payload: " + payload.message());
-            check caller->respond(createErrorResponse("invalid_request", "Invalid JSON payload"));
-            return;
-        }
-        log:printInfo("BACKEND: Payload received: " + payload.toString());
-
-        // Check if this is a resolve action
-        if payload.status is string && payload.status == "resolved" {
-            log:printInfo("BACKEND: Processing resolve action for report: " + reportId.toString());
-            
-            boolean|error result = database:resolveHazardReport(reportId, profile.id);
-            if result is error {
-                log:printError("BACKEND: Resolve failed: " + result.message());
-                check caller->respond(createErrorResponse("resolve_failed", result.message()));
-            } else {log:printInfo("BACKEND: Report resolved successfully: " + reportId.toString());
-                check caller->respond({
-                    "success": true,
-                    "message": "Report resolved and moved to resolved reports",
-                    "timestamp": getCurrentTimestamp()
-                });
-            }
-        } else {
-            log:printInfo("BACKEND: Processing normal update for report: " + reportId.toString());
-            // Handle other status updates normally
-            check reports:handleUpdateReport(caller, req, reportId);
-        }
+    log:printInfo("BACKEND: PUT reports endpoint called for ID: " + reportId.toString());
+    
+    string|error email = validateAuthHeader(req);
+    if email is error {
+        log:printError("BACKEND: Auth validation failed: " + email.message());
+        check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
+        return;
     }
 
+    user:UserProfile|error profile = auth:getUserProfile(email);
+    if profile is error {
+        log:printError("BACKEND: Failed to get user profile: " + profile.message());
+        check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
+        return;
+    }
+
+    json|error payload = req.getJsonPayload();
+    if payload is error {
+        log:printError("BACKEND: Invalid JSON payload: " + payload.message());
+        check caller->respond(createErrorResponse("invalid_request", "Invalid JSON payload"));
+        return;
+    }
+
+    // Check if this is a resolve action
+    if payload.status is string && payload.status == "resolved" {
+        log:printInfo("BACKEND: Processing resolve action for report: " + reportId.toString());
+        
+        // First, check if the report is pothole or construction
+        string|error reportType = database:getReportType(reportId);
+        if reportType is error {
+            log:printError("BACKEND: Failed to get report type: " + reportType.message());
+            check caller->respond(createErrorResponse("report_not_found", "Report not found"));
+            return;
+        }
+        
+        if reportType != "pothole" && reportType != "construction" {
+            log:printError("BACKEND: Attempt to resolve non-road report: " + reportType);
+            check caller->respond(createErrorResponse("invalid_operation", "Only pothole and construction reports can be manually resolved"));
+            return;
+        }
+
+        // Check if user is RDA
+        if profile.userRole != "rda" {
+            log:printError("BACKEND: Non-RDA user attempting to resolve report");
+            check caller->respond(createErrorResponse("forbidden", "Only RDA officers can resolve reports"));
+            return;
+        }
+        
+        boolean|error result = database:resolveHazardReport(reportId, profile.id);
+        if result is error {
+            log:printError("BACKEND: Resolve failed: " + result.message());
+            check caller->respond(createErrorResponse("resolve_failed", result.message()));
+        } else {
+            log:printInfo("BACKEND: Report resolved successfully: " + reportId.toString());
+            check caller->respond({
+                "success": true,
+                "message": "Report resolved and moved to resolved reports",
+                "timestamp": getCurrentTimestamp()
+            });
+        }
+    } else {
+        log:printInfo("BACKEND: Processing normal update for report: " + reportId.toString());
+        check reports:handleUpdateReport(caller, req, reportId);
+    }
+}
     // Add endpoint to get resolved reports
     resource function get resolved\-reports(http:Request req) returns json {
         log:printInfo("BACKEND: GET resolved-reports endpoint called");
@@ -388,11 +403,152 @@ service /api on apiListener {
     }
 
     resource function delete reports/[int reportId](http:Caller caller, http:Request req) returns error? {
-        check reports:handleDeleteReport(caller, req, reportId);
+    log:printInfo("BACKEND: DELETE reports endpoint called for ID: " + reportId.toString());
+    
+    string|error email = validateAuthHeader(req);
+    if email is error {
+        log:printError("BACKEND: Auth validation failed: " + email.message());
+        check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
+        return;
     }
+
+    user:UserProfile|error profile = auth:getUserProfile(email);
+    if profile is error {
+        log:printError("BACKEND: Failed to get user profile: " + profile.message());
+        check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
+        return;
+    }
+
+    // Get report details to check type and ownership
+    var reportDetails = database:getReportDetails(reportId);
+    if reportDetails is error {
+        check caller->respond(createErrorResponse("report_not_found", "Report not found"));
+        return;
+    }
+
+    // Only allow deletion of pothole/construction reports by RDA or the original submitter
+    if reportDetails.hazard_type == "pothole" || reportDetails.hazard_type == "construction" {
+        // Check if user is RDA or the original submitter
+        if profile.userRole != "rda" && profile.id != reportDetails.user_id {
+            check caller->respond(createErrorResponse("forbidden", "You can only delete your own reports or be an RDA officer"));
+            return;
+        }
+    } else {
+        // Traffic/accident reports cannot be manually deleted
+        check caller->respond(createErrorResponse("invalid_operation", "Traffic and accident reports are automatically deleted after 24 hours"));
+        return;
+    }
+
+    check reports:handleDeleteReport(caller, req, reportId);
+}
 
     resource function get images/[string filename](http:Caller caller, http:Request req) returns error? {
         check serveImage(caller, filename);
+    }
+
+    // Add the RDA endpoints inside the service
+    resource function get rda/reports(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            return createErrorResponse("internal_error", "Failed to retrieve user profile");
+        }
+
+        // Check if user is RDA
+        if profile.userRole != "rda" {
+            return createErrorResponse("forbidden", "Access denied - RDA role required");
+        }
+
+        var reportsResult = database:getAllReports();
+        if reportsResult is error {
+            return createErrorResponse("internal_error", "Failed to retrieve reports");
+        }
+
+        return {
+            success: true,
+            reports: <json>reportsResult,
+            total_count: reportsResult.length()
+        };
+    }
+
+    resource function get rda/resolved\-reports(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            return createErrorResponse("internal_error", "Failed to retrieve user profile");
+        }
+
+        // Check if user is RDA
+        if profile.userRole != "rda" {
+            return createErrorResponse("forbidden", "Access denied - RDA role required");
+        }
+
+        var resolvedReports = database:getResolvedReports();
+        if resolvedReports is error {
+            return createErrorResponse("internal_error", "Failed to retrieve resolved reports");
+        }
+
+        return {
+            success: true,
+            reports: <json>resolvedReports,
+            total_count: resolvedReports.length()
+        };
+    }
+
+    resource function put rda/reports/[int reportId]/status(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            return createErrorResponse("internal_error", "Failed to retrieve user profile");
+        }
+
+        // Check if user is RDA
+        if profile.userRole != "rda" {
+            return createErrorResponse("forbidden", "Access denied - RDA role required");
+        }
+
+        json|error payload = req.getJsonPayload();
+        if payload is error {
+            return createErrorResponse("invalid_request", "Invalid JSON payload");
+        }
+
+        // Check if this is a resolve action
+        if payload.status is string && payload.status == "resolved" {
+            // First, check if the report is pothole or construction
+            string|error reportType = database:getReportType(reportId);
+            if reportType is error {
+                return createErrorResponse("report_not_found", "Report not found");
+            }
+            
+            if reportType != "pothole" && reportType != "construction" {
+                return createErrorResponse("invalid_operation", "Only pothole and construction reports can be manually resolved");
+            }
+            
+            boolean|error result = database:resolveHazardReport(reportId, profile.id);
+            if result is error {
+                return createErrorResponse("resolve_failed", result.message());
+            } else {
+                return {
+                    "success": true,
+                    "message": "Report resolved and moved to resolved reports",
+                    "timestamp": getCurrentTimestamp()
+                };
+            }
+        }
+
+        return createErrorResponse("invalid_request", "Unsupported status");
     }
 }
 
@@ -453,8 +609,13 @@ service / on new http:Listener(serverPort + 1) {
 
 // Initialize database on startup
 public function main() returns error? {
+    // Initialize database FIRST
     check database:initializeDatabase();
     log:printInfo("Database initialized successfully");
+    
+    // THEN initialize cleanup task after database is ready
+    check reports:initializeCleanupTask();
+    
     log:printInfo("SafeRoute API server started on port " + serverPort.toString());
 }
 

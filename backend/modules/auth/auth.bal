@@ -116,89 +116,166 @@ function generateEmailTemplate(string otp, string recipientEmail) returns string
 
 // JWT and authentication functions
 public function register(user:RegisterRequest req) returns user:AuthResponse|error {
-    // RDA registration logic
-    string role = req.userRole;
-    if req.email == "rdasrilanka@gmail.com" {
-        if req.password != "Rdasrilanka1" {
-            return error("Invalid RDA credentials");
+    // Special RDA registration validation - ALL fields must match exactly
+   if req.userRole == "rda" {
+        // Trim whitespace from all fields before comparison
+        string email = req.email.trim();
+        string password = req.password.trim();
+        string firstName = req.firstName.trim();
+        string lastName = req.lastName.trim();
+        
+        if email != "rdasrilanka@gmail.com" || 
+           password != "Rdasrilanka1" || 
+           firstName != "RDA" || 
+           lastName != "SriLanka" {
+            // Add debugging information
+            log:printError("RDA validation failed:");
+            log:printError("Email: '" + email + "' (expected: 'rdasrilanka@gmail.com')");
+            log:printError("Password: '" + password + "' (expected: 'Rdasrilanka1')");
+            log:printError("FirstName: '" + firstName + "' (expected: 'RDA')");
+            log:printError("LastName: '" + lastName + "' (expected: 'SriLanka')");
+            
+            return error("Invalid RDA credentials. All fields must match exactly: email must be 'rdasrilanka@gmail.com', password 'Rdasrilanka1', first name 'RDA', and last name 'SriLanka'.");
         }
-        role = "rda";
-    }
-    // Validate email format
-    if !isValidEmail(req.email) {
-        return error("Invalid email format");
-    }
-    // Validate password strength
-    if req.password.length() < 3 {
-        return error("Password must be at least 3 characters long");
-    }
-    // Validate location data (now required)
-    if req.location.trim().length() == 0 {
-        return error("Location is required");
-    }
-    // Validate location details (now required)
-    if req.locationDetails.latitude < -90.0d || req.locationDetails.latitude > 90.0d {
-        return error("Invalid latitude value");
-    }
+        
+        // Validate other required fields for RDA
+        if !isValidEmail(req.email) {
+            return error("Invalid email format");
+        }
+        
+        if req.locationDetails.latitude < -90.0d || req.locationDetails.latitude > 90.0d {
+            return error("Invalid latitude value");
+        }
 
-    if req.locationDetails.longitude < -180.0d || req.locationDetails.longitude > 180.0d {
-        return error("Invalid longitude value");
-    }
+        if req.locationDetails.longitude < -180.0d || req.locationDetails.longitude > 180.0d {
+            return error("Invalid longitude value");
+        }
 
-    if req.locationDetails.address.trim().length() == 0 {
-        return error("Address is required");
-    }
-    // Check if user already exists
-    boolean userExists = check checkUserExists(req.email);
-    if userExists {
-        return error("User with this email already exists");
-    }
-    // Hash the password using SHA-256
-    string salt = generateSalt();
-    string saltedPassword = req.password + salt;
-    byte[] hashedPassword = crypto:hashSha256(saltedPassword.toBytes());
-    string passwordHash = hashedPassword.toBase64() + ":" + salt;
-    // Get database client
-    var dbClient = database:getDbClient();
-    // Location data (now required)
-    decimal latitude = req.locationDetails.latitude;
-    decimal longitude = req.locationDetails.longitude;
-    string address = req.locationDetails.address;
+        if req.locationDetails.address.trim().length() == 0 {
+            return error("Address is required");
+        }
+        
+        // Check if RDA user already exists
+        boolean userExists = check checkUserExists(req.email);
+        if userExists {
+            return error("RDA user already exists");
+        }
+        
+        // Hash the password
+        string salt = generateSalt();
+        string saltedPassword = req.password + salt;
+        byte[] hashedPassword = crypto:hashSha256(saltedPassword.toBytes());
+        string passwordHash = hashedPassword.toBase64() + ":" + salt;
+        
+        // Get database client
+        var dbClient = database:getDbClient();
+        decimal latitude = req.locationDetails.latitude;
+        decimal longitude = req.locationDetails.longitude;
+        string address = req.locationDetails.address;
 
-    // Insert user into database with location data
-    sql:ExecutionResult result = check dbClient->execute(`
-        INSERT INTO users (first_name, last_name, email, password_hash, latitude, longitude, address,user_role) 
-        VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, ${latitude}, ${longitude}, ${address},${role})
-    `);
-    if result.affectedRowCount < 1 {
-        return error("Failed to create user");
+        // Insert RDA user into database
+        sql:ExecutionResult result = check dbClient->execute(`
+            INSERT INTO users (first_name, last_name, email, password_hash, latitude, longitude, address, user_role) 
+            VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, ${latitude}, ${longitude}, ${address}, 'rda')
+        `);
+        
+        if result.affectedRowCount < 1 {
+            return error("Failed to create RDA user");
+        }
+        
+        // Generate JWT token
+        user:AuthResponse tokenData = check generateJwt(req.email);
+        tokenData.message = "RDA user registered successfully";
+        return tokenData;
+    } else {
+        // Regular user registration (userRole must be "general")
+        if req.userRole != "general" {
+            return error("Invalid user role. Only 'general' users can register normally.");
+        }
+        
+        // Validate email format
+        if !isValidEmail(req.email) {
+            return error("Invalid email format");
+        }
+        
+        // Validate password strength
+        if req.password.length() < 6 {
+            return error("Password must be at least 6 characters long");
+        }
+        
+        // Validate location data
+        if req.location.trim().length() == 0 {
+            return error("Location is required");
+        }
+        
+        if req.locationDetails.latitude < -90.0d || req.locationDetails.latitude > 90.0d {
+            return error("Invalid latitude value");
+        }
+
+        if req.locationDetails.longitude < -180.0d || req.locationDetails.longitude > 180.0d {
+            return error("Invalid longitude value");
+        }
+
+        if req.locationDetails.address.trim().length() == 0 {
+            return error("Address is required");
+        }
+        
+        // Check if user already exists
+        boolean userExists = check checkUserExists(req.email);
+        if userExists {
+            return error("User with this email already exists");
+        }
+        
+        // Hash the password
+        string salt = generateSalt();
+        string saltedPassword = req.password + salt;
+        byte[] hashedPassword = crypto:hashSha256(saltedPassword.toBytes());
+        string passwordHash = hashedPassword.toBase64() + ":" + salt;
+        
+        // Get database client
+        var dbClient = database:getDbClient();
+        decimal latitude = req.locationDetails.latitude;
+        decimal longitude = req.locationDetails.longitude;
+        string address = req.locationDetails.address;
+
+        // Insert user into database
+        sql:ExecutionResult result = check dbClient->execute(`
+            INSERT INTO users (first_name, last_name, email, password_hash, latitude, longitude, address, user_role) 
+            VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, ${latitude}, ${longitude}, ${address}, 'general' )
+        `);
+        
+        if result.affectedRowCount < 1 {
+            return error("Failed to create user");
+        }
+        
+        // Generate JWT token
+        user:AuthResponse tokenData = check generateJwt(req.email);
+        tokenData.message = "User registered successfully";
+        return tokenData;
     }
-    // Generate JWT token
-    user:AuthResponse tokenData = check generateJwt(req.email);
-    tokenData.message = "User registered successfully";
-    return tokenData;
 }
-
 public function login(user:LoginRequest req) returns user:AuthResponse|error {
-    // RDA login logic
+    // RDA login logic - exact credentials check
     if req.email == "rdasrilanka@gmail.com" && req.password == "Rdasrilanka1" {
         user:AuthResponse tokenData = check generateJwt(req.email);
         tokenData.message = "Login successful (RDA)";
         return tokenData;
     }
-    // Get database client
+    
+    // Regular user login
     var dbClient = database:getDbClient();
-    // Get user from database
     stream<record {string password_hash;}, sql:Error?> userStream = 
         dbClient->query(`SELECT password_hash FROM users WHERE email = ${req.email}`);
     var userRecord = userStream.next();
     check userStream.close();
+    
     if userRecord is sql:Error {
         return error("Database error occurred");
     }
     if userRecord is () {
         return error("Invalid email or password");
     }
+    
     // Verify password
     string[] parts = splitString(userRecord.value.password_hash, ":");
     if parts.length() != 2 {
@@ -212,6 +289,7 @@ public function login(user:LoginRequest req) returns user:AuthResponse|error {
     if storedHash != inputHashBase64 {
         return error("Invalid email or password");
     }
+    
     // Generate JWT token
     user:AuthResponse tokenData = check generateJwt(req.email);
     tokenData.message = "Login successful";
@@ -272,7 +350,6 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         userRole: userRecord.value["user_role"] ?: "user",
         profileImage: userRecord.value.profile_image is string ? userRecord.value.profile_image : (),
         createdAt: userRecord.value.created_at is string ? userRecord.value.created_at : ()
-        createdAt: userRecord.value.created_at
     };
     return profile;
 }
