@@ -20,6 +20,7 @@ configurable string smtpPassword = ?;
 configurable boolean emailEnabled = ?;
 
 // Email function for OTP
+// Email for password reset OTP
 function sendOtpEmail(string recipientEmail, string otp) returns error? {
     log:printInfo(string `📧 Password reset requested for: ${recipientEmail}`);
     
@@ -42,7 +43,7 @@ function sendOtpEmail(string recipientEmail, string otp) returns error? {
             'from: smtpUsername,
             to: [recipientEmail],
             subject: "SafeRoute - Password Reset OTP",
-            body: generateEmailTemplate(otp, recipientEmail),
+            body: generateResetEmailTemplate(otp, recipientEmail),
             contentType: "text/html"
         };
         
@@ -70,7 +71,58 @@ function sendOtpEmail(string recipientEmail, string otp) returns error? {
     }
 }
 
-function generateEmailTemplate(string otp, string recipientEmail) returns string {
+// Email for email verification OTP
+function sendVerificationEmail(string recipientEmail, string otp) returns error? {
+    log:printInfo(string `📧 Email verification requested for: ${recipientEmail}`);
+    
+    if emailEnabled {
+        log:printInfo(string `🚀 Sending verification email via SMTP to: ${recipientEmail}`);
+        log:printInfo(string `🔧 SMTP Config: ${smtpHost}:${smtpPort.toString()}`);
+        log:printInfo(string `👤 SMTP User: ${smtpUsername}`);
+        
+        // Create SMTP configuration
+        email:SmtpConfiguration smtpConfig = {
+            port: smtpPort,
+            security: email:START_TLS_AUTO
+        };
+        
+        // Create email client
+        email:SmtpClient smtpClient = check new (smtpHost, smtpUsername, smtpPassword, smtpConfig);
+        
+        // Create email message
+        email:Message emailMessage = {
+            'from: smtpUsername,
+            to: [recipientEmail],
+            subject: "SafeRoute - Verify Your Email",
+            body: generateVerificationEmailTemplate(otp, recipientEmail),
+            contentType: "text/html"
+        };
+        
+        // Send email
+        check smtpClient->sendMessage(emailMessage);
+        
+        log:printInfo("✅ Verification email sent successfully via SMTP");
+        return ();
+    } else {
+        // Development mode: Log the OTP for testing
+        string separator = "============================================================";
+        log:printInfo(separator);
+        log:printInfo("🔔 EMAIL VERIFICATION - DEVELOPMENT MODE");
+        log:printInfo(separator);
+        log:printInfo(string `📧 To: ${recipientEmail}`);
+        log:printInfo(string `📋 Subject: SafeRoute - Verify Your Email`);
+        log:printInfo(string `🔐 Verification Code: ${otp}`);
+        log:printInfo(string `⏰ Valid for: 10 minutes`);
+        log:printInfo(separator);
+        log:printInfo("💡 To enable actual email sending:");
+        log:printInfo("   1. Set emailEnabled=true in Config.toml");
+        log:printInfo("   2. Ensure SMTP settings are correctly set");
+        log:printInfo(separator);
+        return ();
+    }
+}
+
+function generateResetEmailTemplate(string otp, string recipientEmail) returns string {
     string htmlTemplate = string `<!DOCTYPE html>
 <html>
 <head>
@@ -100,6 +152,50 @@ function generateEmailTemplate(string otp, string recipientEmail) returns string
             </div>
             <p style="color: #6b7280; font-size: 14px; margin: 20px 0 0 0;">
                 If you didn't request this password reset, please ignore this email.
+            </p>
+        </div>
+        <div style="background-color: #f8fafc; padding: 20px 30px;">
+            <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
+                © 2025 SafeRoute. This email was sent to ${recipientEmail}
+            </p>
+        </div>
+    </div>
+</body>
+</html>`;
+    
+    return htmlTemplate;
+}
+
+function generateVerificationEmailTemplate(string otp, string recipientEmail) returns string {
+    string htmlTemplate = string `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeRoute Email Verification</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+    <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 30px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">SafeRoute</h1>
+            <p style="color: #e0e7ff; margin: 8px 0 0 0; font-size: 16px;">Email Verification</p>
+        </div>
+        <div style="padding: 40px 30px;">
+            <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Welcome to SafeRoute!</h2>
+            <p style="color: #4b5563; font-size: 16px; margin: 0 0 30px 0;">
+                Thank you for signing up. Please verify your email address using the following verification code:
+            </p>
+            <div style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px; padding: 25px; text-align: center; margin: 30px 0;">
+                <p style="color: #64748b; font-size: 14px; margin: 0 0 10px 0;">Verification Code</p>
+                <div style="color: #1e293b; font-size: 36px; font-weight: 700; letter-spacing: 6px;">${otp}</div>
+            </div>
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 25px 0;">
+                <p style="color: #92400e; font-size: 14px; margin: 0;">
+                    This code expires in 10 minutes
+                </p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; margin: 20px 0 0 0;">
+                If you didn't create an account with SafeRoute, please ignore this email.
             </p>
         </div>
         <div style="background-color: #f8fafc; padding: 20px 30px;">
@@ -264,8 +360,11 @@ public function login(user:LoginRequest req) returns user:AuthResponse|error {
     
     // Regular user login
     var dbClient = database:getDbClient();
-    stream<record {string password_hash;}, sql:Error?> userStream = 
-        dbClient->query(`SELECT password_hash FROM users WHERE email = ${req.email}`);
+
+    // Get user from database
+    stream<record {string password_hash; boolean is_email_verified;}, sql:Error?> userStream = 
+        dbClient->query(`SELECT password_hash, is_email_verified FROM users WHERE email = ${req.email}`);
+
     var userRecord = userStream.next();
     check userStream.close();
     
@@ -289,10 +388,33 @@ public function login(user:LoginRequest req) returns user:AuthResponse|error {
     if storedHash != inputHashBase64 {
         return error("Invalid email or password");
     }
-    
-    // Generate JWT token
+
+    // If email not verified, still allow login but (optionally) trigger a fresh OTP silently
+    string loginMessage = "Login successful";
+    if !userRecord.value.is_email_verified {
+        // Attempt to refresh verification OTP asynchronously (errors ignored)
+        do {
+            string otp = generateOtp();
+            int expirationTime = <int>time:utcNow()[0] + 600;
+            sql:ExecutionResult _ = check dbClient->execute(`
+                INSERT INTO email_verification_otps (email, otp, expiration_time, is_used) 
+                VALUES (${req.email}, ${otp}, ${expirationTime}, false)
+                ON CONFLICT (email) 
+                DO UPDATE SET otp = EXCLUDED.otp, expiration_time = EXCLUDED.expiration_time, is_used = false
+            `);
+            error? emailResult = sendVerificationEmail(req.email, otp);
+            if emailResult is error {
+                log:printError("Failed to send verification email during login (non-blocking)", emailResult);
+            }
+        } on fail {
+            log:printError("Non-blocking email verification OTP refresh failed");
+        }
+        loginMessage = "Login successful (email not yet verified)";
+    }
+
+    // Generate JWT token regardless of verification status
     user:AuthResponse tokenData = check generateJwt(req.email);
-    tokenData.message = "Login successful";
+    tokenData.message = loginMessage;
     return tokenData;
 }
 

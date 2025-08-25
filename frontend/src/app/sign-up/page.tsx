@@ -165,6 +165,11 @@ export default function SignupPage() {
           alert('Account created successfully! Please log in with your credentials.')
           router.push('/login')
         }
+        // Store the email in session storage for OTP verification
+        sessionStorage.setItem('verification_email', formData.email);
+        alert('✅ Account created successfully! Please verify your email with the OTP sent to your inbox.')
+        // Redirect to verify email page
+        router.push('/verify-email')
       } else {
         const errorMessage = result.message || 'Registration failed. Please try again.'
         setApiError(errorMessage)

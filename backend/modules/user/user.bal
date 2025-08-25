@@ -85,3 +85,26 @@ public type ResetPasswordResponse record {
     string message;
     string? errorCode?;
 };
+
+// Email Verification Types
+public type SendVerificationRequest record {
+    string email;
+};
+
+public type SendVerificationResponse record {
+    boolean success;
+    string message;
+    string? errorCode?;
+};
+
+public type VerifyEmailOtpRequest record {
+    string email;
+    string otp;
+};
+
+public type VerifyEmailOtpResponse record {
+    boolean success;
+    string message;
+    string? token?;
+    string? errorCode?;
+};
