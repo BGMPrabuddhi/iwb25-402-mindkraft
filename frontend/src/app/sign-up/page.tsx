@@ -53,7 +53,6 @@ export default function SignupPage() {
       [name]: value
     }))
     
-    // Clear error when user starts typing
     if (errors[name as keyof SignupFormData]) {
       setErrors(prev => ({
         ...prev,
@@ -61,7 +60,6 @@ export default function SignupPage() {
       }))
     }
     
-    // Clear API error when user changes input
     if (apiError) {
       setApiError('')
     }
@@ -70,7 +68,6 @@ export default function SignupPage() {
   const handleLocationChange = (value: string) => {
     setFormData(prev => ({ ...prev, location: value }))
     
-    // Clear location error
     if (errors.location) {
       setErrors(prev => ({ ...prev, location: '' }))
     }
@@ -87,7 +84,6 @@ export default function SignupPage() {
   const validateForm = (): boolean => {
     const newErrors: Partial<SignupFormData> = {}
 
-    // Basic validation for all users
     if (!formData.firstName.trim()) {
       newErrors.firstName = 'First name is required'
     }
@@ -133,9 +129,6 @@ export default function SignupPage() {
     setApiError('')
     
     try {
-      // RDA validation happens on the backend, not frontend
-      // Remove all frontend RDA validation logic
-
       if (!locationData) {
         setApiError('Location data is missing. Please select a location from suggestions or use GPS.')
         setIsLoading(false)
@@ -157,19 +150,15 @@ export default function SignupPage() {
       })
 
       if (result.success) {
-        // Check if this is RDA registration
         if (formData.userRole === 'rda') {
           alert('RDA account created successfully! Redirecting to RDA Dashboard.')
           router.push('/rda-dashboard')
         } else {
-          alert('Account created successfully! Please log in with your credentials.')
-          router.push('/login')
+          // Store email for verification and redirect to verify email page
+          sessionStorage.setItem('verification_email', formData.email)
+          alert('Account created successfully! Please check your email to verify your account.')
+          router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)
         }
-        // Store the email in session storage for OTP verification
-        sessionStorage.setItem('verification_email', formData.email);
-        alert('✅ Account created successfully! Please verify your email with the OTP sent to your inbox.')
-        // Redirect to verify email page
-        router.push('/verify-email')
       } else {
         const errorMessage = result.message || 'Registration failed. Please try again.'
         setApiError(errorMessage)
@@ -184,7 +173,6 @@ export default function SignupPage() {
 
   return (
     <>
-      {/* Google Maps Script */}
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&v=weekly`}
         onLoad={() => setGoogleMapsScriptLoaded(true)}
@@ -414,6 +402,27 @@ export default function SignupPage() {
                   )}
                 </div>
 
+                {/* Terms and Conditions */}
+                <div className="flex items-center group">
+                  <input
+                    id="terms"
+                    name="terms"
+                    type="checkbox"
+                    required
+                    className="h-4 w-4 text-green-700 focus:ring-brand-400 border-white/30 bg-white/10 rounded transition-all duration-300 hover:scale-110"
+                  />
+                  <label htmlFor="terms" className="ml-2 block text-sm text-black">
+                    I agree to the{' '}
+                    <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
+                      Terms and Conditions
+                    </a>{' '}
+                    and{' '}
+                    <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
+                      Privacy Policy
+                    </a>
+                  </label>
+                </div>
+
                 {/* Submit Button */}
                 <div>
                   <button
@@ -472,7 +481,6 @@ export default function SignupPage() {
                   {/* Secure */}
                   <div className="group relative rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-3 sm:p-4 md:p-6 flex items-start gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
                     <div className="relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br from-brand-600 via-brand-500 to-brand-400 text-white shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform">
-                      {/* Shield Check Icon for Secure */}
                       <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 22c6.5-2 8-7 8-11V5l-8-3-8 3v6c0 4 1.5 9 8 11z" />
@@ -498,74 +506,74 @@ export default function SignupPage() {
                     </div>
                   </div>
                   {/* User Friendly */}
-                 <div className="group relative rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-3 sm:p-4 md:p-6 flex items-start gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
-                   <div className="relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br from-brand-400 via-brand-500 to-brand-300 text-brand-900 shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform">
-                     <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l4 2" />
-                       <circle cx="12" cy="12" r="10" strokeWidth="2" />
-                     </svg>
-                     <span className="absolute -inset-1 rounded-xl bg-brand-400/0 group-hover:bg-brand-400/15 blur-sm transition" />
-                   </div>
-                   <div className="flex-1 min-w-0">
-                     <h4 className="text-[11px] sm:text-sm md:text-base font-semibold text-brand-100 group-hover:text-white transition-colors">User Friendly</h4>
-                     <p className="text-[9px] sm:text-[10px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Intuitive & responsive design.</p>
-                   </div>
-                 </div>
-               </div>
-             </div>
-           </div>
-         </div>
-       </div>
+                  <div className="group relative rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-3 sm:p-4 md:p-6 flex items-start gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
+                    <div className="relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br from-brand-400 via-brand-500 to-brand-300 text-brand-900 shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform">
+                      <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l4 2" />
+                        <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                      </svg>
+                      <span className="absolute -inset-1 rounded-xl bg-brand-400/0 group-hover:bg-brand-400/15 blur-sm transition" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-[11px] sm:text-sm md:text-base font-semibold text-brand-100 group-hover:text-white transition-colors">User Friendly</h4>
+                      <p className="text-[9px] sm:text-[10px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Intuitive & responsive design.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-       <style jsx>{`
-         @keyframes blob {
-           0% { transform: translate(0px, 0px) scale(1); }
-           33% { transform: translate(30px, -50px) scale(1.1); }
-           66% { transform: translate(-20px, 20px) scale(0.9); }
-           100% { transform: translate(0px, 0px) scale(1); }
-         }
-         @keyframes float {
-           0%, 100% { transform: translateY(0px); }
-           50% { transform: translateY(-20px); }
-         }
-         @keyframes gradient {
-           0%, 100% { background-size: 200% 200%; background-position: left center; }
-           50% { background-size: 200% 200%; background-position: right center; }
-         }
-         @keyframes fade-in-up {
-           0% { opacity: 0; transform: translateY(20px); }
-           100% { opacity: 1; transform: translateY(0); }
-         }
-         @keyframes fade-in-down {
-           0% { opacity: 0; transform: translateY(-10px); }
-           100% { opacity: 1; transform: translateY(0); }
-         }
-         @keyframes shake {
-           0%, 100% { transform: translateX(0); }
-           10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-           20%, 40%, 60%, 80% { transform: translateX(2px); }
-         }
-         @keyframes pulse-slow {
-           0%, 100% { opacity: 1; }
-           50% { opacity: 0.8; }
-         }
-         
-         .animate-blob { animation: blob 8s ease-in-out infinite; }
-         .animate-float { animation: float 3.8s ease-in-out infinite; }
-         .animate-gradient { animation: gradient 6s ease infinite; }
-         .animate-fade-in-up { animation: fade-in-up 0.6s ease-out; }
-         .animate-fade-in-down { animation: fade-in-down 0.3s ease-out; }
-         .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
-         .shake { animation: shake 0.5s ease-in-out; }
-         
-         .animation-delay-300 { animation-delay: 0.3s; }
-         .animation-delay-1000 { animation-delay: 1s; }
-         .animation-delay-2000 { animation-delay: 2s; }
-         .animation-delay-4000 { animation-delay: 4s; }
-         
-         .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25); }
-       `}</style>
-     </div>
-   </>
- )
+        <style jsx>{`
+          @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+          }
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+          }
+          @keyframes gradient {
+            0%, 100% { background-size: 200% 200%; background-position: left center; }
+            50% { background-size: 200% 200%; background-position: right center; }
+          }
+          @keyframes fade-in-up {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes fade-in-down {
+            0% { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px); }
+          }
+          @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+          }
+          
+          .animate-blob { animation: blob 8s ease-in-out infinite; }
+          .animate-float { animation: float 3.8s ease-in-out infinite; }
+          .animate-gradient { animation: gradient 6s ease infinite; }
+          .animate-fade-in-up { animation: fade-in-up 0.6s ease-out; }
+          .animate-fade-in-down { animation: fade-in-down 0.3s ease-out; }
+          .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+          .shake { animation: shake 0.5s ease-in-out; }
+          
+          .animation-delay-300 { animation-delay: 0.3s; }
+          .animation-delay-1000 { animation-delay: 1s; }
+          .animation-delay-2000 { animation-delay: 2s; }
+          .animation-delay-4000 { animation-delay: 4s; }
+          
+          .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25); }
+        `}</style>
+      </div>
+    </>
+  )
 }
