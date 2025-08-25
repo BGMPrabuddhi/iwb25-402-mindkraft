@@ -218,35 +218,32 @@ public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) return
     string status;
     string? updated_at;
     int user_id;
-    decimal distance_km;
+    float distance_km;
 |}[]|error {
     
-    log:printInfo("Fetching traffic alerts for location: " + userLat.toString() + ", " + userLng.toString());
+    log:printInfo("DATABASE: getCurrentTrafficAlerts called with lat: " + userLat.toString() + ", lng: " + userLng.toString());
     
     sql:ParameterizedQuery selectQuery = `
         SELECT id, user_id, title, description, hazard_type, severity_level, images, 
                latitude, longitude, address, created_at, status, updated_at,
-               (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
-               cos(radians(longitude) - radians(${userLng})) + 
-               sin(radians(${userLat})) * sin(radians(latitude)))) as distance_km
+               (6371 * acos(GREATEST(-1, LEAST(1,
+                   cos(radians(${userLat})) * cos(radians(latitude)) * 
+                   cos(radians(longitude) - radians(${userLng})) + 
+                   sin(radians(${userLat})) * sin(radians(latitude))
+               )))) as distance_km
         FROM hazard_reports
         WHERE latitude IS NOT NULL AND longitude IS NOT NULL
         AND created_at >= NOW() - INTERVAL '24 hours'
         AND status IN ('active', 'pending', 'confirmed')
-        AND (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
-             cos(radians(longitude) - radians(${userLng})) + 
-             sin(radians(${userLat})) * sin(radians(latitude)))) <= 25
-        ORDER BY 
-            CASE severity_level 
-                WHEN 'critical' THEN 1 
-                WHEN 'high' THEN 2 
-                WHEN 'medium' THEN 3 
-                WHEN 'low' THEN 4 
-                ELSE 5 
-            END ASC,
-            distance_km ASC, 
-            created_at DESC
+        AND (6371 * acos(GREATEST(-1, LEAST(1,
+            cos(radians(${userLat})) * cos(radians(latitude)) * 
+            cos(radians(longitude) - radians(${userLng})) + 
+            sin(radians(${userLat})) * sin(radians(latitude))
+        )))) <= 25
+        ORDER BY distance_km ASC, created_at DESC
     `;
+    
+    log:printInfo("DATABASE: Executing query...");
     
     stream<record {|
         int id;
@@ -262,8 +259,10 @@ public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) return
         string created_at;
         string status;
         string? updated_at;
-        decimal distance_km;
+        float distance_km;
     |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    log:printInfo("DATABASE: Query executed, processing results...");
     
     record {|
         int id;
@@ -281,7 +280,7 @@ public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) return
         string status;
         string? updated_at;
         int user_id;
-        decimal distance_km;
+        float distance_km;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream

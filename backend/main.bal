@@ -5,8 +5,9 @@ import ballerina/file;
 import ballerina/io;
 import saferoute/backend.database;
 import saferoute/backend.reports;
-import saferoute/backend.auth;
+
 import saferoute/backend.user;
+import saferoute/backend.auth as auth;
 
 configurable int serverPort = ?;
 configurable string[] corsOrigins = ?;
@@ -686,9 +687,11 @@ function validateAuthHeader(http:Request req) returns string|error {
     }
 
     string token = authHeader.substring(7);
+    log:printInfo("MAIN: Extracted token, calling auth module validation");
+    
+    // This calls the auth module's validateJwtToken function
     return auth:validateJwtToken(token);
 }
-
 function getCurrentTimestamp() returns string {
     time:Utc currentTime = time:utcNow();
     return time:utcToString(currentTime);

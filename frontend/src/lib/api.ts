@@ -92,10 +92,20 @@ class ReportsAPI {
     this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
   }
 
-  private getAuthToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('token') || localStorage.getItem('auth_token');
+private getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  
+  // Only check 'auth_token' to match your auth system
+  const token = localStorage.getItem('auth_token');
+  
+  if (!token) {
+    console.warn('No auth token found in localStorage');
+    return null;
   }
+  
+  console.log('Token found, length:', token.length);
+  return token;
+}
 
   private async handleResponse<T>(response: Response): Promise<T> {
     const contentType = response.headers.get('content-type');

@@ -406,6 +406,11 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
 }
 
 public function validateJwtToken(string token) returns string|error {
+    log:printInfo("AUTH: validateJwtToken called in auth module");
+    log:printInfo("AUTH: Expected issuer: " + jwtIssuer);
+    log:printInfo("AUTH: Expected audience: " + jwtAudience);
+    log:printInfo("AUTH: Token length: " + token.length().toString());
+    
     jwt:ValidatorConfig validatorConfig = {
         issuer: jwtIssuer,
         audience: jwtAudience,
@@ -414,7 +419,14 @@ public function validateJwtToken(string token) returns string|error {
         }
     };
 
-    jwt:Payload payload = check jwt:validate(token, validatorConfig);
+    jwt:Payload|jwt:Error payload = jwt:validate(token, validatorConfig);
+    
+    if payload is jwt:Error {
+        log:printError("AUTH: JWT validation failed: " + payload.message());
+        return error("JWT validation failed: " + payload.message());
+    }
+    
+    log:printInfo("AUTH: JWT validation successful");
     
     string? sub = payload.sub;
     if sub is string {

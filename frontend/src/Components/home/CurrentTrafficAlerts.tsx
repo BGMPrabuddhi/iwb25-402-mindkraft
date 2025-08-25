@@ -21,6 +21,7 @@ const CurrentTrafficAlerts = ({ userLocation }: CurrentTrafficAlertsProps) => {
 
   useEffect(() => {
     const fetchTrafficAlerts = async () => {
+       console.log('CurrentTrafficAlerts: Starting fetch...')
       setIsLoading(true)
       setError(null)
       
