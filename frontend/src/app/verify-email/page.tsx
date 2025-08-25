@@ -10,6 +10,7 @@ export default function VerifyEmail() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || sessionStorage.getItem('verification_email') || '';
+  const role = searchParams.get('role') || sessionStorage.getItem('user_role') || 'general';
   
   const [otp, setOtp] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -53,11 +54,23 @@ export default function VerifyEmail() {
       });
       
       if (result.success) {
-        // Clear the email from session storage
+        // Clear the email and role from session storage
         sessionStorage.removeItem('verification_email');
+        sessionStorage.removeItem('user_role');
         
-        // Redirect to login page with verified parameter
-        router.push('/login?verified=true');
+        // Store the auth token if provided
+        if (result.token) {
+          localStorage.setItem('auth_token', result.token);
+        }
+        
+        // Redirect based on user role
+        if (role === 'rda') {
+          alert('Email verified successfully! Welcome to the RDA Dashboard.');
+          router.push('/rda-dashboard');
+        } else {
+          alert('Email verified successfully! Welcome to SafeRoute.');
+          router.push('/home');
+        }
       } else {
         setErrorMessage(result.message || "Invalid verification code. Please try again.");
       }
@@ -82,6 +95,7 @@ export default function VerifyEmail() {
         setCountdown(60);
         setCanResend(false);
         setErrorMessage('');
+        alert('Verification code sent successfully!');
       } else {
         setErrorMessage(result.message || "Failed to resend verification code");
       }
@@ -97,19 +111,25 @@ export default function VerifyEmail() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-slate-50">
       <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
         <h1 className="text-2xl font-bold text-center mb-6">Verify Your Email</h1>
-        <p className="text-gray-600 text-center mb-6">
+        <p className="text-gray-600 text-center mb-2">
           We've sent a verification code to <strong>{email}</strong>
         </p>
+        {role === 'rda' && (
+          <p className="text-blue-600 text-center mb-6 text-sm">
+            RDA Account - Please verify to access the dashboard
+          </p>
+        )}
 
         <div className="mb-6">
           <InputField
             label="Verification Code"
             name="otp"
-            placeholder="Enter verification code"
+            placeholder="Enter 6-digit verification code"
             type="text"
             value={otp}
             onChange={(e) => setOtp(e.target.value)}
             required
+            
           />
         </div>
 
@@ -119,7 +139,7 @@ export default function VerifyEmail() {
 
         <Button
           onClick={handleVerify}
-          disabled={isLoading}
+          disabled={isLoading || otp.length !== 6}
           className="w-full mb-4"
         >
           {isLoading ? 'Verifying...' : 'Verify Email'}
@@ -135,6 +155,15 @@ export default function VerifyEmail() {
             className={`text-sm ${canResend ? 'text-blue-600 hover:underline' : 'text-gray-400'}`}
           >
             {canResend ? 'Resend Code' : `Resend code in ${countdown}s`}
+          </button>
+        </div>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => router.push('/login')}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            Back to Login
           </button>
         </div>
       </div>

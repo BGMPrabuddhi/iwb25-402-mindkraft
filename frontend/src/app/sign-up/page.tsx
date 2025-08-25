@@ -120,57 +120,59 @@ export default function SignupPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validateForm()) return
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  
+  if (!validateForm()) return
 
-    setIsLoading(true)
-    setApiError('')
-    
-    try {
-      if (!locationData) {
-        setApiError('Location data is missing. Please select a location from suggestions or use GPS.')
-        setIsLoading(false)
-        return
-      }
-
-      const result = await authAPI.register({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-        location: formData.location,
-        userRole: formData.userRole,
-        locationDetails: {
-          latitude: locationData.latitude,
-          longitude: locationData.longitude,
-          address: locationData.address
-        }
-      })
-
-      if (result.success) {
-        if (formData.userRole === 'rda') {
-          alert('RDA account created successfully! Redirecting to RDA Dashboard.')
-          router.push('/rda-dashboard')
-        } else {
-          // Store email for verification and redirect to verify email page
-          sessionStorage.setItem('verification_email', formData.email)
-          alert('Account created successfully! Please check your email to verify your account.')
-          router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)
-        }
-      } else {
-        const errorMessage = result.message || 'Registration failed. Please try again.'
-        setApiError(errorMessage)
-      }
-    } catch (error) {
-      console.error('Signup error:', error)
-      setApiError('Registration failed. Please check your credentials and try again.')
-    } finally {
+  setIsLoading(true)
+  setApiError('')
+  
+  try {
+    if (!locationData) {
+      setApiError('Location data is missing. Please select a location from suggestions or use GPS.')
       setIsLoading(false)
+      return
     }
-  }
 
+    const result = await authAPI.register({
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      password: formData.password,
+      location: formData.location,
+      userRole: formData.userRole,
+      locationDetails: {
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        address: locationData.address
+      }
+    })
+
+    if (result.success) {
+      // Store email for verification for both RDA and general users
+      sessionStorage.setItem('verification_email', formData.email)
+      sessionStorage.setItem('user_role', formData.userRole) // Store user role for redirect logic
+      
+      if (formData.userRole === 'rda') {
+        alert('RDA account created successfully! Please check your email to verify your account before accessing the RDA Dashboard.')
+      } else {
+        alert('Account created successfully! Please check your email to verify your account.')
+      }
+      
+      // Both user types go to email verification first
+      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&role=${formData.userRole}`)
+    } else {
+      const errorMessage = result.message || 'Registration failed. Please try again.'
+      setApiError(errorMessage)
+    }
+  } catch (error) {
+    console.error('Signup error:', error)
+    setApiError('Registration failed. Please check your credentials and try again.')
+  } finally {
+    setIsLoading(false)
+  }
+}
   return (
     <>
       <Script

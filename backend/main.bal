@@ -55,15 +55,18 @@ service /api on apiListener {
     }
 
     resource function post auth/register(user:RegisterRequest req) returns json {
-        user:AuthResponse|error result = auth:register(req);
-        if result is error {
-            log:printError("Registration failed", result);
-            return createErrorResponse("registration_failed", result.message());
-        }
-        
-        return createSuccessAuthResponse(result);
+    user:AuthResponse|error result = auth:register(req);
+    if result is error {
+        log:printError("Registration failed", result);
+        return createErrorResponse("registration_failed", result.message());
     }
-
+    
+    return {
+        success: true,
+        message: result.message,
+        requiresVerification: true
+    };
+}
     resource function post auth/login(user:LoginRequest req) returns json {
         user:AuthResponse|error result = auth:login(req);
         if result is error {
@@ -244,23 +247,22 @@ service /api on apiListener {
 
     // Verify email with OTP
     resource function post auth/verify\-email(user:VerifyEmailOtpRequest req) returns json {
-        user:VerifyEmailOtpResponse|error result = auth:verifyEmailOtp(req);
-        if result is error {
-            log:printError("Email verification failed", result);
-            return {
-                success: false,
-                message: "Failed to verify email",
-                errorCode: "email_verification_failed"
-            };
-        }
+    user:VerifyEmailOtpResponse|error result = auth:verifyEmailAndCreateAccount(req);
+    if result is error {
+        log:printError("Email verification failed", result);
         return {
-            success: result.success,
-            message: result.message,
-            token: result?.token,
-            errorCode: result?.errorCode
+            success: false,
+            message: "Failed to verify email",
+            errorCode: "email_verification_failed"
         };
     }
-
+    return {
+        success: result.success,
+        message: result.message,
+        token: result?.token,
+        errorCode: result?.errorCode
+    };
+}
     // Hazard report endpoints
     resource function post reports(http:Caller caller, http:Request req) returns error? {
         check reports:handleReportSubmission(caller, req);

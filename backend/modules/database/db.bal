@@ -61,23 +61,22 @@ public function testConnection() returns boolean {
 }
 
 public function initializeDatabase() returns error? {
-    // Create users table
-    _ = check dbClient->execute(`
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            first_name VARCHAR(100) NOT NULL,
-            last_name VARCHAR(100) NOT NULL,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash VARCHAR(500) NOT NULL,
-            latitude DECIMAL(10, 8) NOT NULL,
-            longitude DECIMAL(11, 8) NOT NULL,
-            address TEXT NOT NULL,
-            is_email_verified BOOLEAN DEFAULT false,
-            profile_image TEXT,
-            user_role VARCHAR(50) DEFAULT 'user',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
+// Create users table
+_ = check dbClient->execute(`
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        first_name VARCHAR(100) NOT NULL,
+        last_name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(500) NOT NULL,
+        latitude DECIMAL(10, 8) NOT NULL,
+        longitude DECIMAL(11, 8) NOT NULL,
+        address TEXT NOT NULL,
+        profile_image TEXT,
+        user_role VARCHAR(50) DEFAULT 'general',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
 
     // Ensure column exists if table was created earlier without it
     _ = check dbClient->execute(`
@@ -161,32 +160,57 @@ public function initializeDatabase() returns error? {
             FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
         )
     `);
+
+    // Create table for pending user registrations
+_ = check dbClient->execute(`
+    CREATE TABLE IF NOT EXISTS pending_user_registrations (
+        email VARCHAR(255) PRIMARY KEY,
+        first_name VARCHAR(100) NOT NULL,
+        last_name VARCHAR(100) NOT NULL,
+        password_hash VARCHAR(500) NOT NULL,
+        location TEXT NOT NULL,
+        user_role VARCHAR(50) NOT NULL,
+        latitude DECIMAL(10, 8) NOT NULL,
+        longitude DECIMAL(11, 8) NOT NULL,
+        address TEXT NOT NULL,
+        otp VARCHAR(6) NOT NULL,
+        expiration_time INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
     
-    // Create indexes for users
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_coordinates ON users(latitude, longitude)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_address ON users(address)`);
-    
-    // Create indexes for password_reset_otps
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_password_reset_otps_email ON password_reset_otps(email)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_password_reset_otps_expiration ON password_reset_otps(expiration_time)`);
-    
-    // Create indexes for hazard_reports
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_user_id ON hazard_reports(user_id)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_type ON hazard_reports(hazard_type)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_severity ON hazard_reports(severity_level)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_coordinates ON hazard_reports(latitude, longitude)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_status ON hazard_reports(status)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_created_at ON hazard_reports(created_at)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_status_created_at ON hazard_reports(status, created_at)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_location_time ON hazard_reports(latitude, longitude, created_at)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_email_verification_expiry ON email_verification_otps(expiration_time)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_password_reset_expiry ON password_reset_otps(expiration_time)`);
-    
-    // Create indexes for resolved_hazard_reports
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_user_id ON resolved_hazard_reports(user_id)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_type ON resolved_hazard_reports(hazard_type)`);
-    _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_resolved_at ON resolved_hazard_reports(resolved_at)`);
+   // Create indexes for users
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_coordinates ON users(latitude, longitude)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_address ON users(address)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(user_role)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_verified ON users(is_email_verified)`);
+
+// Create indexes for password_reset_otps
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_password_reset_otps_email ON password_reset_otps(email)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_password_reset_otps_expiration ON password_reset_otps(expiration_time)`);
+
+// Create indexes for pending registrations
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_pending_registrations_email ON pending_user_registrations(email)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_pending_registrations_expiration ON pending_user_registrations(expiration_time)`);
+
+// Create indexes for email verification OTPs
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_email_verification_expiry ON email_verification_otps(expiration_time)`);
+
+// Create indexes for hazard_reports
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_user_id ON hazard_reports(user_id)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_type ON hazard_reports(hazard_type)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_severity ON hazard_reports(severity_level)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_coordinates ON hazard_reports(latitude, longitude)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_status ON hazard_reports(status)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_created_at ON hazard_reports(created_at)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_status_created_at ON hazard_reports(status, created_at)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_location_time ON hazard_reports(latitude, longitude, created_at)`);
+
+// Create indexes for resolved_hazard_reports
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_user_id ON resolved_hazard_reports(user_id)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_type ON resolved_hazard_reports(hazard_type)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_resolved_at ON resolved_hazard_reports(resolved_at)`);
     log:printInfo("Database tables and indexes created successfully");
 }
 
