@@ -14,6 +14,9 @@ interface RouteMapProps {
   setError: React.Dispatch<React.SetStateAction<string | null>>
   googleMapsScriptLoaded: boolean
   setRouteHazardAlert: React.Dispatch<React.SetStateAction<any>>
+  onRoutesCalculated?: (routes: any[]) => void
+  selectedRouteIndex?: number
+  onRouteSelect?: (index: number) => void
 }
 
 declare const google: any
@@ -28,19 +31,26 @@ const RouteMap: React.FC<RouteMapProps> = ({
   setIsLoading,
   setError,
   googleMapsScriptLoaded,
-  setRouteHazardAlert
+  setRouteHazardAlert,
+  onRoutesCalculated,
+  selectedRouteIndex = 0,
+  onRouteSelect
 }) => {
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [trafficLayerEnabled, setTrafficLayerEnabled] = useState(true)
+  const [transitLayerEnabled, setTransitLayerEnabled] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const directionsServiceRef = useRef<any>(null)
   const directionsRendererRef = useRef<any[]>([])
   const markersRef = useRef<any[]>([])
+  const trafficLayerRef = useRef<any>(null)
+  const transitLayerRef = useRef<any>(null)
 
   // Load Google Maps when needed
   useEffect(() => {
     const checkGoogleMaps = () => {
-      if (window.google && window.google.maps && window.google.maps.places && window.google.maps.importLibrary) {
+      if (window.google && window.google.maps && window.google.maps.places && typeof window.google.maps.importLibrary === 'function') {
         setMapLoaded(true)
         console.log('Google Maps loaded successfully')
       } else {
@@ -78,6 +88,24 @@ const RouteMap: React.FC<RouteMapProps> = ({
     }
   }, [mapLoaded, viewFilters.fromLocation, viewFilters.toLocation, reports])
 
+  // Handle route selection changes
+  useEffect(() => {
+    if (directionsRendererRef.current.length > 0) {
+      directionsRendererRef.current.forEach((renderer, index) => {
+        if (renderer) {
+          const isSelected = index === selectedRouteIndex
+          renderer.setOptions({
+            polylineOptions: {
+              strokeColor: isSelected ? '#4285F4' : '#9AA0A6',
+              strokeWeight: isSelected ? 6 : 4,
+              strokeOpacity: isSelected ? 0.8 : 0.6
+            }
+          })
+        }
+      })
+    }
+  }, [selectedRouteIndex])
+
   // Timeout effect
   useEffect(() => {
     if (isLoading) {
@@ -96,8 +124,8 @@ const RouteMap: React.FC<RouteMapProps> = ({
     if (!mapRef.current || !window.google) return
 
     try {
-      const { Map } = await window.google.maps.importLibrary("maps")
-      const { DirectionsService } = await window.google.maps.importLibrary("routes")
+      const { Map } = await window.google.maps.importLibrary("maps") as any
+      const { DirectionsService } = await window.google.maps.importLibrary("routes") as any
 
       const map = new Map(mapRef.current, {
         center: { lat: 7.2083, lng: 79.8358 }, // Negombo center
@@ -109,7 +137,20 @@ const RouteMap: React.FC<RouteMapProps> = ({
 
       mapInstanceRef.current = map
       directionsServiceRef.current = new DirectionsService()
-      console.log('Map initialized successfully')
+      
+      // Initialize traffic layer
+      trafficLayerRef.current = new google.maps.TrafficLayer()
+      if (trafficLayerEnabled) {
+        trafficLayerRef.current.setMap(map)
+      }
+      
+      // Initialize transit layer
+      transitLayerRef.current = new google.maps.TransitLayer()
+      if (transitLayerEnabled) {
+        transitLayerRef.current.setMap(map)
+      }
+      
+      console.log('Map initialized successfully with traffic layer')
       
       // Trigger route calculation if locations are already set
       if (viewFilters.fromLocation && viewFilters.toLocation) {
@@ -148,6 +189,13 @@ const RouteMap: React.FC<RouteMapProps> = ({
         destination: new google.maps.LatLng(viewFilters.toLocation.lat, viewFilters.toLocation.lng),
         travelMode: google.maps.TravelMode.DRIVING,
         provideRouteAlternatives: true,
+        drivingOptions: {
+          departureTime: new Date(),
+          trafficModel: google.maps.TrafficModel.BEST_GUESS
+        },
+        unitSystem: google.maps.UnitSystem.METRIC,
+        avoidHighways: false,
+        avoidTolls: false
       }
 
       console.log('Sending directions request...', request)
@@ -165,19 +213,25 @@ const RouteMap: React.FC<RouteMapProps> = ({
           directionsRendererRef.current = []
 
           const routes = result.routes
-          const { DirectionsRenderer } = await google.maps.importLibrary("routes")
+          const { DirectionsRenderer } = await google.maps.importLibrary("routes") as any
+
+          // Pass routes data to parent component
+          if (onRoutesCalculated) {
+            onRoutesCalculated(routes)
+          }
 
           // Create renderers for each route
           directionsRendererRef.current = routes.map((route: any, index: number) => {
             console.log(`Creating renderer for route ${index}`)
             
+            const isSelected = index === selectedRouteIndex
             const renderer = new DirectionsRenderer({
               map: mapInstanceRef.current,
               routeIndex: index,
               polylineOptions: {
-                strokeColor: index === 0 ? '#4285F4' : '#9AA0A6',
-                strokeWeight: index === 0 ? 6 : 4,
-                strokeOpacity: index === 0 ? 0.8 : 0.6
+                strokeColor: isSelected ? '#4285F4' : '#9AA0A6',
+                strokeWeight: isSelected ? 6 : 4,
+                strokeOpacity: isSelected ? 0.8 : 0.6
               },
               suppressMarkers: false,
               suppressInfoWindows: false,
@@ -407,10 +461,64 @@ const RouteMap: React.FC<RouteMapProps> = ({
     }
   }
 
+  // Traffic layer toggle functions
+  const toggleTrafficLayer = () => {
+    if (!trafficLayerRef.current || !mapInstanceRef.current) return
+    
+    const newTrafficState = !trafficLayerEnabled
+    setTrafficLayerEnabled(newTrafficState)
+    
+    if (newTrafficState) {
+      trafficLayerRef.current.setMap(mapInstanceRef.current)
+    } else {
+      trafficLayerRef.current.setMap(null)
+    }
+  }
+
+  const toggleTransitLayer = () => {
+    if (!transitLayerRef.current || !mapInstanceRef.current) return
+    
+    const newTransitState = !transitLayerEnabled
+    setTransitLayerEnabled(newTransitState)
+    
+    if (newTransitState) {
+      transitLayerRef.current.setMap(mapInstanceRef.current)
+    } else {
+      transitLayerRef.current.setMap(null)
+    }
+  }
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-gray-200 flex justify-between items-center">
         <h4 className="text-lg font-medium text-gray-900">Route Map</h4>
+        
+        {/* Traffic Layer Controls */}
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={toggleTrafficLayer}
+            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+              trafficLayerEnabled
+                ? 'bg-red-100 text-red-700 border border-red-300'
+                : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+            }`}
+            title="Toggle real-time traffic layer"
+          >
+            🚦 Traffic {trafficLayerEnabled ? 'ON' : 'OFF'}
+          </button>
+          
+          <button
+            onClick={toggleTransitLayer}
+            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+              transitLayerEnabled
+                ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+            }`}
+            title="Toggle public transit layer"
+          >
+            🚌 Transit {transitLayerEnabled ? 'ON' : 'OFF'}
+          </button>
+        </div>
       </div>
       
       <div className="relative">
@@ -436,28 +544,65 @@ const RouteMap: React.FC<RouteMapProps> = ({
       
       {/* Map Legend */}
       <div className="p-4 bg-gray-50 border-t border-gray-200">
-        <h5 className="text-sm font-medium text-gray-700 mb-2">Map Legend</h5>
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            <span className="text-xs text-gray-600">High Risk</span>
+        <h5 className="text-sm font-medium text-gray-700 mb-3">Map Legend</h5>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Hazard Risk Levels */}
+          <div>
+            <h6 className="text-xs font-semibold text-gray-600 mb-2">Hazard Risk Levels</h6>
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <span className="text-xs text-gray-600">High Risk</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <span className="text-xs text-gray-600">Medium Risk</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <span className="text-xs text-gray-600">Low Risk</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <span className="text-xs text-gray-600">Medium Risk</span>
+          
+          {/* Route Types */}
+          <div>
+            <h6 className="text-xs font-semibold text-gray-600 mb-2">Route Types</h6>
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-blue-600" style={{height: '2px'}}></div>
+                <span className="text-xs text-gray-600">Primary Route</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-gray-400" style={{height: '2px'}}></div>
+                <span className="text-xs text-gray-600">Alternative Routes</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span className="text-xs text-gray-600">Low Risk</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-blue-600" style={{height: '2px'}}></div>
-            <span className="text-xs text-gray-600">Primary Route</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-gray-400" style={{height: '2px'}}></div>
-            <span className="text-xs text-gray-600">Alternative Routes</span>
-          </div>
+          
+          {/* Traffic Information */}
+          {trafficLayerEnabled && (
+            <div className="md:col-span-2">
+              <h6 className="text-xs font-semibold text-gray-600 mb-2">Traffic Information</h6>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-2 bg-red-600"></div>
+                  <span className="text-xs text-gray-600">Heavy Traffic</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-2 bg-yellow-600"></div>
+                  <span className="text-xs text-gray-600">Moderate Traffic</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-2 bg-green-600"></div>
+                  <span className="text-xs text-gray-600">Light Traffic</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 italic">Real-time data from Google Maps</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
