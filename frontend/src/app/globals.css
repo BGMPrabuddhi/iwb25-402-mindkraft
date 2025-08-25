@@ -43,6 +43,16 @@
   --color-warning: #f59e0b;
   --color-error: #ef4444;
   --color-info: var(--color-second-secondary);
+
+  /* New Brand Palette */
+  --brand-900: #213A57; /* Deep navy teal */
+  --brand-800: #0B6477; /* Dark teal */
+
+  --brand-500: #0AD1C8; /* Bright aqua (primary midpoint) */
+  --brand-400: #45DFB1; /* Mint green */
+
+  --brand-600:#80E961;
+  --brand-300:#009665;
 }
 
 /* Custom styles for SafeRoute */
@@ -59,6 +69,7 @@
 }
 
 @layer components {
+  
   /* Primary Buttons */
   .btn-primary {
     @apply bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-green-200 shadow-md hover:shadow-lg;

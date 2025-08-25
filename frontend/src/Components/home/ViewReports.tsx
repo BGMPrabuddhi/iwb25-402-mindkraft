@@ -5,10 +5,12 @@ import Script from 'next/script'
 import { reportsAPI } from '@/lib/api'
 import FilterPanel from './FilterPanel'
 import RouteMap from './RouteMap'
+import TrafficRouteInfo from './TrafficRouteInfo'
 import RouteHazardAlert from './RouteHazardAlert'
 import HazardReportsList from './HazardReportsList'
 import LoadingState from './LoadingState'
 import { ViewFilters, Report } from './types'
+import Snackbar from '@/Components/Snackbar'
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyAz2gtcc8kLOLLa5jbq4V3P7cpsGYlOPjQ'
 
@@ -25,57 +27,59 @@ const ViewReports = () => {
   const [showMap, setShowMap] = useState(false)
   const [googleMapsScriptLoaded, setGoogleMapsScriptLoaded] = useState(false)
   const [routeHazardAlert, setRouteHazardAlert] = useState<any>(null)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'error' as 'success' | 'error' | 'info' | 'warning' })
+  
+  // New state for traffic-aware routes
+  const [calculatedRoutes, setCalculatedRoutes] = useState<any[]>([])
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0)
 
-// In ViewReports.tsx, replace the useEffect with this:
-useEffect(() => {
-  const fetchAllReports = async () => {
-    try {
-      console.log('Fetching reports from backend...')
-      const response = await reportsAPI.getReports({
-        page: 1,
-        page_size: 100
-      })
-      
-      const backendReports = response.reports || []
-      const convertedReports: Report[] = backendReports.map((report: any) => ({
-        id: report.id,
-        title: report.title,
-        description: report.description || '',
-        hazard_type: report.hazard_type,
-        severity_level: report.severity_level,
-        created_at: report.created_at,
-        images: report.images || [],
-        location: report.location ? {
-          lat: report.location.lat || report.latitude,
-          lng: report.location.lng || report.longitude,
-          address: report.location.address || report.address
-        } : undefined,
-        status: report.status || 'active'
-      }))
-      
-      setReports(convertedReports)
-    } catch (error) {
-      console.error('Error fetching reports:', error)
-      // Don't show error to user, just use empty array
-      setReports([])
-      // Optional: Set some mock data for testing
-      // setReports(mockReports)
+  useEffect(() => {
+    const fetchAllReports = async () => {
+      try {
+        console.log('Fetching reports from backend...')
+        const response = await reportsAPI.getReports({
+          page: 1,
+          page_size: 100
+        })
+        
+        const backendReports = response.reports || []
+        const convertedReports: Report[] = backendReports.map((report: any) => ({
+          id: report.id,
+          title: report.title,
+          description: report.description || '',
+          hazard_type: report.hazard_type,
+          severity_level: report.severity_level,
+          created_at: report.created_at,
+          images: report.images || [],
+          location: report.location ? {
+            lat: report.location.lat || report.latitude,
+            lng: report.location.lng || report.longitude,
+            address: report.location.address || report.address
+          } : undefined,
+          status: report.status || 'active'
+        }))
+        
+        setReports(convertedReports)
+      } catch (error) {
+        console.error('Error fetching reports:', error)
+        // Don't show error to user, just use empty array
+        setReports([])
+        // Optional: Set some mock data for testing
+        // setReports(mockReports)
+      }
     }
-  }
 
-  fetchAllReports()
-}, [])
+    fetchAllReports()
+  }, [])
   const handleFilterSubmit = async () => {
     if (!viewFilters.hazardType || !viewFilters.sensitivity) {
-      alert('Please select hazard type and sensitivity level')
+      setSnackbar({ open: true, message: 'Please select hazard type and sensitivity level', type: 'error' })
       return
     }
-
     if (!viewFilters.fromLocation || !viewFilters.toLocation) {
-      alert('Please select both FROM and TO locations')
+      setSnackbar({ open: true, message: 'Please select both FROM and TO locations', type: 'error' })
       return
     }
-    
     setIsLoading(true)
     setError(null)
     setShowMap(true)
@@ -117,29 +121,48 @@ useEffect(() => {
           showMap={showMap}
           filteredReports={filteredReports}
            googleMapsScriptLoaded={googleMapsScriptLoaded}
+           onNotify={(msg, type='error') => setSnackbar({ open: true, message: msg, type })}
         />
 
         {routeHazardAlert?.show && (
           <RouteHazardAlert
             alert={routeHazardAlert}
-            onClose={() => setRouteHazardAlert(prev => prev ? {...prev, show: false} : null)}
+            onClose={() => setRouteHazardAlert((prev: any) => prev ? {...prev, show: false} : null)}
           />
         )}
 
         {showMap && (
-          <RouteMap
-            viewFilters={viewFilters}
-            setViewFilters={setViewFilters}
-            reports={reports}
-            setFilteredReports={setFilteredReports}
-            selectedReport={selectedReport}
-            setSelectedReport={setSelectedReport}
-            isLoading={isLoading}
-            setIsLoading={setIsLoading}
-            setError={setError}
-            googleMapsScriptLoaded={googleMapsScriptLoaded}
-            setRouteHazardAlert={setRouteHazardAlert}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <RouteMap
+                viewFilters={viewFilters}
+                setViewFilters={setViewFilters}
+                reports={reports}
+                setFilteredReports={setFilteredReports}
+                selectedReport={selectedReport}
+                setSelectedReport={setSelectedReport}
+                isLoading={isLoading}
+                setIsLoading={setIsLoading}
+                setError={setError}
+                googleMapsScriptLoaded={googleMapsScriptLoaded}
+                setRouteHazardAlert={setRouteHazardAlert}
+                onRoutesCalculated={setCalculatedRoutes}
+                selectedRouteIndex={selectedRouteIndex}
+                onRouteSelect={setSelectedRouteIndex}
+              />
+            </div>
+            
+            <div className="space-y-4">
+              {calculatedRoutes.length > 0 && (
+                <TrafficRouteInfo
+                  routes={calculatedRoutes}
+                  selectedRouteIndex={selectedRouteIndex}
+                  onRouteSelect={setSelectedRouteIndex}
+                  hazardCount={filteredReports.length}
+                />
+              )}
+            </div>
+          </div>
         )}
 
         {isLoading && <LoadingState />}
@@ -160,6 +183,13 @@ useEffect(() => {
           </div>
         )}
       </div>
+
+      <Snackbar 
+        open={snackbar.open}
+        message={snackbar.message}
+        type={snackbar.type as any}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      />
     </>
   )
 }

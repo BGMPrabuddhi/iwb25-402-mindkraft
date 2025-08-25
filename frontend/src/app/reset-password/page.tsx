@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
+import Snackbar from '@/Components/Snackbar'
 
 type ResetPasswordFormData = {
   newPassword: string
@@ -22,6 +23,7 @@ export default function ResetPasswordPage() {
   const [isVisible, setIsVisible] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' })
 
   useEffect(() => {
     setIsVisible(true)
@@ -88,21 +90,20 @@ export default function ResetPasswordPage() {
       console.log('📋 Password reset result:', result);
 
       if (result.success) {
-        alert('✅ Password reset successfully! You can now login with your new password.')
+        setSnackbar({ open: true, message: 'Password reset successfully! You can now login.', type: 'success' })
         // Clear session storage
         sessionStorage.removeItem('reset_email')
         sessionStorage.removeItem('reset_token')
-        // Redirect to login page
-        router.push('/login')
+        setTimeout(() => router.push('/login'), 1200)
       } else {
         const errorMessage = result.message || 'Failed to reset password. Please try again.';
         console.error('Password reset failed:', errorMessage);
-        alert(`❌ ${errorMessage}`);
+        setSnackbar({ open: true, message: errorMessage, type: 'error' })
       }
       
     } catch (error) {
       console.error('❌ Password reset error:', error)
-      alert('❌ Failed to reset password. Please try again.')
+      setSnackbar({ open: true, message: 'Failed to reset password. Please try again.', type: 'error' })
     } finally {
       setIsLoading(false)
     }
@@ -362,6 +363,8 @@ export default function ResetPasswordPage() {
           </div>
         </div>
       </div>
+
+      <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
 
       <style jsx>{`
         @keyframes blob {
