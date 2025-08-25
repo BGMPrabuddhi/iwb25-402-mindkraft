@@ -30,9 +30,14 @@ export default function Home() {
           return
         }
 
+        // If RDA user, redirect to RDA dashboard
+        if (profileResult.userRole === 'rda' || profileResult.email === 'rdasrilanka0@gmail.com') {
+          router.push('/rda-dashboard')
+          return
+        }
+
         // Fetch home page data
         const homeResult = await authAPI.getHome()
-        
         setUser(profileResult)
         setHomeData(homeResult)
       } catch (error) {

@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
       console.log('🔄 Submitting forgot password form...');
       
       // Call the forgot password API
-      const result = await authAPI.requestPasswordReset({
+      const result = await authAPI.forgotPassword({
         email: formData.email
       })
 

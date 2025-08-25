@@ -126,8 +126,8 @@ public function register(user:RegisterRequest req) returns user:AuthResponse|err
         string firstName = req.firstName.trim();
         string lastName = req.lastName.trim();
         
-        if email != "rdasrilanka@gmail.com" || 
-           password != "Rdasrilanka1" || 
+        if email != "rdasrilanka0@gmail.com" || 
+           password != "Rdasrilanka0" || 
            firstName != "RDA" || 
            lastName != "SriLanka" {
             return error("Invalid RDA credentials. All fields must match exactly.");
@@ -238,7 +238,7 @@ public function verifyEmailAndCreateAccount(user:VerifyEmailOtpRequest req) retu
 // Login function - checks for verified users only
 public function login(user:LoginRequest req) returns user:AuthResponse|error {
     // RDA login logic - exact credentials check
-    if req.email == "rdasrilanka@gmail.com" && req.password == "Rdasrilanka1" {
+    if req.email == "rdasrilanka0@gmail.com" && req.password == "Rdasrilanka0" {
         // Check if RDA user exists and is verified
         var dbClient = database:getDbClient();
         stream<record {boolean is_email_verified;}, sql:Error?> rdaStream = 

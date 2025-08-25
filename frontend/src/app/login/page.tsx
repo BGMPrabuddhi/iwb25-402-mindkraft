@@ -84,7 +84,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         console.log('User profile:', profile)
         
         // Check for RDA role specifically
-        if (profile.userRole === 'rda' || formData.email === 'rdasrilanka@gmail.com') {
+        if (profile.userRole === 'rda' || formData.email === 'rdasrilanka0@gmail.com') {
           console.log('Redirecting to RDA dashboard')
           router.push('/rda-dashboard')
         } else {

@@ -224,7 +224,7 @@ export default function RDADashboard() {
     try {
       const profile = await authAPI.getProfile()
       
-      if (profile.success && (profile.userRole === 'rda' || profile.email === 'rdasrilanka@gmail.com')) {
+      if (profile.success && (profile.userRole === 'rda' || profile.email === 'rdasrilanka0@gmail.com')) {
         setUser(profile)
         loadReports()
       } else {

@@ -125,7 +125,7 @@ export default function VerifyOtpPage() {
     setError('')
     
     try {
-      const result = await authAPI.requestPasswordReset({ email })
+  const result = await authAPI.forgotPassword({ email })
       
       if (result.success) {
         setSnackbar({ open: true, message: 'New OTP sent to your email!', type: 'success' })
