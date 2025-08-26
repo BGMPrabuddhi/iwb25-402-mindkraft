@@ -10,6 +10,15 @@ module.exports = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        brand: {
+          900: 'var(--brand-900)',
+          800: 'var(--brand-800)',
+          600: 'var(--brand-600)',
+          500: 'var(--brand-500)',
+            DEFAULT: 'var(--brand-500)',
+          400: 'var(--brand-400)',
+          300: 'var(--brand-300)',
+        },
       },
     },
   },

@@ -9,7 +9,9 @@ public type RegisterRequest record {
     string lastName;
     string email;
     string password;
+    string location;
     LocationDetails locationDetails;
+    string userRole;
 };
 
 public type LoginRequest record {
@@ -30,6 +32,7 @@ public type UserProfile record {
     string lastName;
     string email;
     LocationDetails locationDetails;
+    string userRole;
     string? profileImage?;
     string createdAt?;
 };
@@ -80,5 +83,28 @@ public type ResetPasswordRequest record {
 public type ResetPasswordResponse record {
     boolean success;
     string message;
+    string? errorCode?;
+};
+
+// Email Verification Types
+public type SendVerificationRequest record {
+    string email;
+};
+
+public type SendVerificationResponse record {
+    boolean success;
+    string message;
+    string? errorCode?;
+};
+
+public type VerifyEmailOtpRequest record {
+    string email;
+    string otp;
+};
+
+public type VerifyEmailOtpResponse record {
+    boolean success;
+    string message;
+    string? token?;
     string? errorCode?;
 };

@@ -92,6 +92,21 @@ class ReportsAPI {
     this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
   }
 
+private getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  
+  // Only check 'auth_token' to match your auth system
+  const token = localStorage.getItem('auth_token');
+  
+  if (!token) {
+    console.warn('No auth token found in localStorage');
+    return null;
+  }
+  
+  console.log('Token found, length:', token.length);
+  return token;
+}
+
   private async handleResponse<T>(response: Response): Promise<T> {
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
@@ -102,6 +117,12 @@ class ReportsAPI {
       if (response.status === 400) {
         const validationError = data as ValidationErrorResponse;
         throw new Error(`Validation failed: ${validationError.errors.join(', ')}`);
+      }
+      if (response.status === 401) {
+        throw new Error(data.message || 'Authentication required. Please log in.');
+      }
+      if (response.status === 403) {
+        throw new Error(data.message || 'Access denied.');
       }
       if (response.status === 404) {
         throw new Error(data.message || 'Resource not found');
@@ -117,7 +138,7 @@ class ReportsAPI {
   // Submit a new hazard report (with optional images and location)
   async submitReport(reportData: HazardReportData): Promise<ApiResponse> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = this.getAuthToken();
       if (!token) {
         throw new Error('Authentication required. Please log in.');
       }
@@ -235,7 +256,7 @@ class ReportsAPI {
     timestamp: string;
   }> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = this.getAuthToken();
       if (!token) {
         throw new Error('Authentication required. Please log in.');
       }
@@ -261,7 +282,7 @@ class ReportsAPI {
 
   async deleteReport(id: number): Promise<{ message: string; timestamp: string }> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = this.getAuthToken();
       if (!token) {
         throw new Error('Authentication required. Please log in.');
       }
@@ -282,7 +303,7 @@ class ReportsAPI {
   // Get user's own reports
   async getUserReports(): Promise<HazardReportsListResponse> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = this.getAuthToken();
       if (!token) {
         throw new Error('Authentication required. Please log in.');
       }
@@ -313,7 +334,7 @@ class ReportsAPI {
     radius_km: number;
   }> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = this.getAuthToken();
       if (!token) {
         throw new Error('Authentication required. Please log in.');
       }
@@ -361,11 +382,13 @@ class ReportsAPI {
     message: string;
   }> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = this.getAuthToken();
       if (!token) {
         throw new Error('Authentication required. Please log in.');
       }
 
+      console.log('Making request to traffic alerts endpoint...');
+      
       const response = await fetch(`${this.baseUrl}/reports/traffic-alerts`, {
         method: 'GET',
         headers: { 
@@ -373,7 +396,10 @@ class ReportsAPI {
           'Authorization': `Bearer ${token}`,
         },
       });
-      return await this.handleResponse<{
+
+      console.log('Traffic alerts response status:', response.status);
+      
+      const result = await this.handleResponse<{
         success: boolean;
         alerts: HazardReport[];
         total_count: number;
@@ -387,6 +413,71 @@ class ReportsAPI {
           time_window_hours: number;
         };
         message: string;
+      }>(response);
+
+      console.log('Traffic alerts result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error in getCurrentTrafficAlerts:', error);
+      throw error;
+    }
+  }
+
+  // Resolve a report (RDA only)
+  async resolveReport(id: number): Promise<{ 
+    success: boolean; 
+    message: string; 
+    timestamp: string 
+  }> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/reports/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: 'resolved' }),
+      });
+      
+      return await this.handleResponse<{ 
+        success: boolean; 
+        message: string; 
+        timestamp: string 
+      }>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get resolved reports
+  async getResolvedReports(): Promise<{
+    success: boolean;
+    reports: HazardReport[];
+    total_count: number;
+  }> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/resolved-reports`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return await this.handleResponse<{
+        success: boolean;
+        reports: HazardReport[];
+        total_count: number;
       }>(response);
     } catch (error) {
       throw error;

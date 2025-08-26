@@ -16,8 +16,10 @@ jwtSecret = "pogVDNo+zysOxpiSYzqIp3FHuWimvX1bSj7uu674JoU="
 jwtIssuer = "mindkraft-auth"
 jwtAudience = "saferoute-users"
 jwtExpiry=3600
+
 smtpHost = "smtp.gmail.com"
 smtpPort = 587
-smtpUsername = "wgndmel22@gmail.com"
-smtpPassword = "vctv hpdg nzul luri"  
+smtpUsername = "saferoute0@gmail.com"
+smtpPassword = "rlaf wavf mjjx njpf"  
 emailEnabled = true  
+

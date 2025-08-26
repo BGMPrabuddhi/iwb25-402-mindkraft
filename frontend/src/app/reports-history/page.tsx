@@ -4,8 +4,9 @@
 import React, { useEffect, useState } from "react";
 import { reportsAPI, HazardReport, HazardReportData } from "../../lib/api";
 import { useRouter } from "next/navigation";
-import UpdateReportModal from "../../Components/UpdateReportModal";
-import DeleteReportModal from "../../Components/DeleteReportModal";
+import UpdateReportModal from "@/Components/UpdateReportModal";
+import DeleteReportModal from "@/Components/DeleteReportModal";
+import Header  from "@/Components/layout/Header";
 
 const ReportsHistoryPage = () => {
 	const router = useRouter();
@@ -37,6 +38,8 @@ const ReportsHistoryPage = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
+	// Track expanded descriptions to improve UX for long text
+	const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
 	const [updateLoading, setUpdateLoading] = useState(false);
 	const [showUpdateModal, setShowUpdateModal] = useState(false);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -156,183 +159,149 @@ const ReportsHistoryPage = () => {
 		}
 	};
 
+	// Color helpers
+	const getTypeClasses = (type: string) => {
+		const key = type?.toLowerCase();
+		if (key.includes('accident')) return 'bg-red-600/90 text-white';
+		if (key.includes('pothole')) return 'bg-yellow-400/90 text-black';
+		if (key.includes('natural') || key.includes('disaster')) return 'bg-green-600/90 text-white';
+		if (key.includes('construct')) return 'bg-amber-900/80 text-amber-50';
+		return 'bg-gradient-to-r from-brand-600 via-brand-500 to-brand-400 text-white';
+	};
+
+	const getSeverityClasses = (level: string) => {
+		const key = level?.toLowerCase();
+		if (key === 'high' || key === 'high risk') return 'bg-red-600/90 text-white';
+		if (key === 'medium') return 'bg-yellow-400/90 text-black';
+		return 'bg-green-600/90 text-white'; // low
+	};
+
+	const toggleExpand = (id: number) => {
+		setExpandedDescriptions(prev => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id); else next.add(id);
+			return next;
+		});
+	};
+
 	return (
-		<main className="min-h-screen  bg-white/40  p-6">
-			<div className="max-w-7xl mx-auto">
-				{/* Header Section */}
-				<div className="page-header " color="primary">
-					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-						<div>
-							<h1 className="text-3xl font-bold text-white mb-2">Hazard Report History</h1>
-							<p className="text-gray-200">Track and manage your submitted hazard reports</p>
+		
+		<main className="relative min-h-screen bg-white overflow-hidden">
+			<Header />
+			<div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-brand-500/30 blur-xl" />
+			<div className="pointer-events-none absolute top-1/3 -right-32 h-96 w-96 rounded-full bg-brand-300/20 blur-3xl" />
+			<div className="relative px-4 sm:px-8 py-10 max-w-7xl mx-auto">
+				<div className="mb-10">
+					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5">
+						<div className="space-y-3">
+							<h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-black drop-shadow-sm">Hazard Report History</h1>
+							<p className="text-sm md:text-base text-black/40 font-medium">Track, update and manage your submitted hazard reports.</p>
 						</div>
-						<button
-							onClick={() => router.push('/home')}
-							className="btn-primary shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
-						>
-							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-								<path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-							</svg>
-							Submit New Report
-						</button>
+						<div className="flex items-center gap-3 w-full sm:w-auto">
+							
+							<button
+								onClick={() => router.push('/home')}
+								className="relative inline-flex items-center gap-2 rounded-xl px-5 py-3 font-semibold text-white text-sm tracking-wide bg-green-900 shadow-lg shadow-black/30 ring-1 ring-white/20 hover:from-brand-500 hover:via-brand-500 hover:to-brand-300 transition-all focus:outline-none focus:ring-4 focus:ring-brand-400/40"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+									<path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+								</svg>
+								Submit New Report
+								<span className="absolute inset-0 rounded-xl opacity-0 hover:opacity-100 transition-opacity" />
+							</button>
+						</div>
 					</div>
 				</div>
 
-				{/* Content Section */}
 				{loading ? (
-					<div className="flex justify-center items-center py-20">
-						<div className="loading-spinner h-12 w-12"></div>
+					<div className="flex justify-center items-center py-24">
+						<div className="animate-spin rounded-full h-14 w-14 border-4 border-white/20 border-t-brand-400"></div>
 					</div>
 				) : error ? (
-					<div className="alert-high text-center">
-						<div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-							<svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-							</svg>
+					<div className="text-center py-16 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl">
+						<div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6 ring-2 ring-red-400/30">
+							<svg className="w-8 h-8 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
 						</div>
-						<p className="font-medium">{error}</p>
+						<p className="font-semibold text-red-200">{error}</p>
 					</div>
 				) : reports.length === 0 ? (
-					<div className="card text-center">
-						<div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-							<svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-							</svg>
+					<div className="text-center py-20 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl">
+						<div className="w-24 h-24 bg-white/10 border border-white/20 rounded-full flex items-center justify-center mx-auto mb-8">
+							<svg className="w-12 h-12 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
 						</div>
-						<h3 className="section-title mb-2">No Reports Yet</h3>
-						<p className="text-gray-500 mb-6">You haven&apos;t submitted any hazard reports yet.</p>
-						<button
-							onClick={() => router.push('/home')}
-							className="btn-primary"
-						>
+						<h3 className="text-xl font-bold text-white mb-2">No Reports Yet</h3>
+						<p className="text-brand-100/70 mb-8">You haven&apos;t submitted any hazard reports yet.</p>
+						<button onClick={() => router.push('/home')} className="relative inline-flex items-center gap-2 rounded-xl px-6 py-3 font-semibold text-white text-sm tracking-wide bg-gradient-to-r from-brand-600 via-brand-500 to-brand-400 shadow-lg shadow-black/30 ring-1 ring-white/20 hover:from-brand-500 hover:via-brand-500 hover:to-brand-300 transition-all focus:outline-none focus:ring-4 focus:ring-brand-400/40">
 							Submit Your First Report
+							<span className="absolute inset-0 rounded-xl opacity-0 hover:opacity-100 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.2),transparent_70%)] transition-opacity" />
 						</button>
 					</div>
 				) : (
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
 						{reports.map((report) => {
-							// Add null check for report object
-							if (!report || !report.id) {
-								console.warn('Invalid report object:', report);
-								return null;
-							}
-							
+							if (!report || !report.id) { console.warn('Invalid report object:', report); return null; }
+							const statusColor = report.status === 'resolved' ? 'bg-green-500/90 ring-1 ring-green-300/50' : report.status === 'active' ? 'bg-amber-500/90 ring-1 ring-amber-300/50' : 'bg-gray-500/70 ring-1 ring-gray-300/40';
+							const isExpanded = expandedDescriptions.has(report.id);
+							const desc = report.description || 'No description provided';
+							const isLong = desc.length > 140; // threshold for showing toggle
 							return (
-								<div key={report.id} className="relative overflow-hidden group hover:scale-[1.02] transition-transform duration-200 rounded-xl">
-									{/* Glass Card with Backdrop Blur */}
-									<div className="bg-black/60 backdrop-blur-3xl rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300">
-										{/* Card Header */}
-										<div className="card-header">
-											<div className="flex justify-between items-start">
-												<h3 className="text-white font-semibold text-lg leading-tight drop-shadow-sm">{report.title || 'Untitled Report'}</h3>
-												<span className={`badge backdrop-blur-sm bg-white/20 text-white border border-white/30 ${
-													report.status === 'resolved' 
-														? 'badge-success' 
-														: report.status === 'active' 
-														? 'badge-warning' 
-														: 'badge-neutral'
-												}`}>
-													{report.status || 'unknown'}
-												</span>
-											</div>
-											<div className="flex justify-between items-center mt-2">
-												<p className="text-gray-300 text-sm drop-shadow-sm">
-													{report.created_at ? new Date(report.created_at).toLocaleDateString() : 'Unknown date'}
-												</p>
-												{/* Time Ago Field */}
-												<div className="flex items-center gap-1 text-xs text-gray-300 bg-white/10 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
-													<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-													</svg>
-													<span className="font-medium">
-														{report.created_at ? getTimeAgo(report.created_at) : 'Unknown'}
-													</span>
-												</div>
-											</div>
+								<div key={report.id} className="group relative rounded-2xl overflow-hidden hover:shadow-2xl transition-all backdrop-blur-xl bg-black/40 border border-white/10 flex flex-col min-h-[350px]">
+									{/* Part 1: Title / Status / Duration & Date */}
+									<div className="relative p-5 space-y-3 bg-green-700">
+										<div className="flex items-start justify-between gap-4">
+											<h3 className="text-base font-semibold tracking-tight text-white drop-shadow-sm leading-snug line-clamp-2">{report.title || 'Untitled Report'}</h3>
+											<span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide text-white shadow ${statusColor}`}>{report.status || 'unknown'}</span>
 										</div>
+										<div className="flex flex-wrap items-center gap-3 text-[11px] font-medium">
+											<span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/15 ring-1 ring-white/20 text-white"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{report.created_at ? getTimeAgo(report.created_at) : 'Unknown'}</span>
+											<span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/15 ring-1 ring-white/20 text-white">{report.created_at ? new Date(report.created_at).toLocaleDateString() : 'Unknown date'}</span>
+										</div>
+									</div>
 
-										{/* Glass Card Content */}
-										<div className="p-4 backdrop-blur-sm bg-white/80 border-t border-white/20">
-											<p className="text-gray-700 text-sm mb-4 line-clamp-3 font-medium">
-												{report.description || 'No description provided'}
-											</p>
-
-											{/* Hazard Type & Severity */}
-											<div className="flex flex-wrap gap-2 mb-4">
-												<span className="bg-gradient-to-r from-teal-500 to-teal-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm">
-													{report.hazard_type}
-												</span>
-												<span className={`badge backdrop-blur-sm border border-white/30 font-medium shadow-md ${
-													report.severity_level === 'high' 
-														? 'bg-red-500/80 text-white border-red-300/50'
-														: report.severity_level === 'medium'
-														? 'bg-orange-500/80 text-white border-orange-300/50'
-														: 'bg-blue-500/80 text-white border-blue-300/50'
-												}`}>
-													{report.severity_level} severity
-												</span>
-											</div>
-
-											{/* Images */}
-											{report.images && report.images.length > 0 && (
-												<div className="flex gap-2 mb-4 overflow-x-auto">
-													{report.images.slice(0, 3).map((img, index) => (
-														<div key={img} className="relative flex-shrink-0">
-															<img
-																src={reportsAPI.getImageUrl(img)}
-																alt={img}
-																className="w-16 h-16 object-cover rounded-lg border-2 border-white/50 hover:border-teal-400/70 transition-all duration-200 shadow-lg backdrop-blur-sm"
-															/>
-															{index === 2 && report.images && report.images.length > 3 && (
-																<div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/20">
-																	<span className="text-white text-xs font-bold drop-shadow-md">+{report.images.length - 3}</span>
-																</div>
-															)}
-														</div>
-													))}
-												</div>
+									{/* Part 2: Type / Level / Description / Images / Location */}
+									<div className="relative p-5 space-y-4 bg-white flex-grow flex flex-col">
+										{/* Type & Severity chips first */}
+										<div className="flex flex-wrap gap-2">
+											<span className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide shadow ring-1 ring-white/10 ${getTypeClasses(report.hazard_type)}`}>{report.hazard_type}</span>
+											<span className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide shadow ring-1 ring-white/10 ${getSeverityClasses(report.severity_level)}`}>{report.severity_level} risk</span>
+										</div>
+										{/* Description */}
+										<div className="relative">
+											<p className={`mt-1 text-sm leading-relaxed text-gray-700 font-medium break-words ${!isExpanded ? 'line-clamp-4' : ''}`}>{desc}</p>
+											{!isExpanded && isLong && (
+												<div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white/90 to-white/0" aria-hidden="true" />
 											)}
-
-											{/* Location */}
-											{report.location && (
-												<div className="flex items-center gap-2 mb-4 text-xs text-gray-600 bg-white/60 backdrop-blur-sm p-2 rounded-lg border border-white/30 shadow-sm">
-													<svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-													</svg>
-													<span className="truncate font-medium">{report.location.address || `${report.location.lat}, ${report.location.lng}`}</span>
-												</div>
+											{isLong && (
+												<button onClick={() => toggleExpand(report.id)} className="mt-2 inline-flex items-center text-xs font-semibold text-brand-700 hover:text-brand-900 transition-colors">
+													{isExpanded ? 'Show less' : 'Show more'}
+												</button>
 											)}
 										</div>
+										{/* Images */}
+										{report.images && report.images.length > 0 && (
+											<div className="flex gap-2 overflow-x-auto pb-1">
+												{report.images.slice(0, 3).map((img, index) => (
+													<div key={img} className="relative flex-shrink-0">
+														<img src={reportsAPI.getImageUrl(img)} alt={img} className="w-16 h-16 object-cover rounded-lg border border-white/20 shadow-inner shadow-black/30 ring-1 ring-white/10 hover:ring-brand-400/60 transition-all" />
+														{index === 2 && report.images && report.images.length > 3 && (
+															<div className="absolute inset-0 rounded-lg bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20"><span className="text-white text-xs font-bold">+{(report.images?.length || 0) - 3}</span></div>
+														)}
+													</div>
+												))}
+											</div>
+										)}
+										{/* Location */}
+										{report.location && (
+											<div className="flex items-center gap-2 text-xs text-gray-700 bg-gray-100 px-3 py-2 rounded-lg ring-1 ring-gray-300 mt-auto"><svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg><span className="truncate font-medium">{report.location.address || `${report.location.lat}, ${report.location.lng}`}</span></div>
+										)}
+									</div>
 
-										{/* Glass Card Actions */}
-										<div className="shadow-lg bg-white/50 backdrop-blur-3xl px-4 py-3 flex gap-2">
-											<button
-												onClick={() => handleUpdate(report)}
-												className="btn-secondary flex-1 text-sm flex items-center justify-center gap-2 backdrop-blur-sm bg-teal-500/90 hover:bg-teal-600/90 border border-white/30 shadow-lg"
-											>
-												<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-													<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-												</svg>
-												Update
-											</button>
-											<button
-												onClick={() => handleDeleteClick(report)}
-												disabled={deleteLoading === report.id}
-												className="btn-danger flex-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 backdrop-blur-sm bg-red-500/90 hover:bg-red-600/90 border border-white/30 shadow-lg"
-											>
-												{deleteLoading === report.id ? (
-													<div className="loading-spinner h-4 w-4 border-white"></div>
-												) : (
-													<>
-														<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-															<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-														</svg>
-														Delete
-													</>
-												)}
-											</button>
-										</div>
+									{/* Part 3: Actions */}
+									<div className="relative flex gap-2 p-4 bg-green-700">
+										<button onClick={() => handleUpdate(report)} className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold tracking-wide text-white bg-green-500 hover:bg-green-600 shadow shadow-black/40 ring-1 ring-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-400/40"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Update</button>
+										<button onClick={() => handleDeleteClick(report)} disabled={deleteLoading === report.id} className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold tracking-wide text-white bg-gradient-to-r from-red-600 via-red-500 to-red-400 shadow shadow-black/40 ring-1 ring-white/10 disabled:opacity-50 disabled:cursor-not-allowed hover:from-red-500 hover:via-red-500 hover:to-red-300 transition-all focus:outline-none focus:ring-2 focus:ring-red-400/40">
+											{deleteLoading === report.id ? (<div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />) : (<><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete</>)}
+										</button>
 									</div>
 								</div>
 							);
@@ -363,23 +332,9 @@ const ReportsHistoryPage = () => {
 
 			{/* Snackbar */}
 			{snackbar.show && (
-				<div className={`snackbar ${
-					snackbar.type === 'success' 
-						? 'snackbar-success' 
-						: 'snackbar-error'
-				}`}>
-					<div className="flex items-center gap-3">
-						{snackbar.type === 'success' ? (
-							<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-							</svg>
-						) : (
-							<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						)}
-						<span className="font-medium">{snackbar.message}</span>
-					</div>
+				<div className={`fixed bottom-6 right-6 z-50 max-w-sm px-5 py-4 rounded-xl shadow-lg backdrop-blur-xl ring-1 ring-white/20 flex items-start gap-3 ${snackbar.type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+					{snackbar.type === 'success' ? (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>) : (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>)}
+					<span className="text-sm font-semibold tracking-wide">{snackbar.message}</span>
 				</div>
 			)}
 		</main>

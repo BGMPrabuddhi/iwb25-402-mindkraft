@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { UserCircleIcon, Bars3Icon, XMarkIcon, ChevronDownIcon, UserIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { authAPI, UserProfile } from '@/lib/auth'
+import logo from '@/Components/newLogo.png'
 
 const Header = () => {
   const router = useRouter()
@@ -13,6 +14,7 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const pathname = usePathname()
 
   // Fetch user profile on component mount
   useEffect(() => {
@@ -90,53 +92,61 @@ const Header = () => {
     setIsProfileDropdownOpen(false)
   }
 
+  const navLinkBase = "relative px-4 py-3 text-base md:text-lg font-semibold transition-colors duration-200 after:absolute after:left-1/2 after:-translate-x-1/2 after:-bottom-0.5 after:h-0.5 after:w-0 after:rounded-full after:bg-brand-400 after:transition-all after:duration-300 hover:after:w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-900";
+  const navLink = (href: string) => {
+    const active = pathname === href;
+    return `${navLinkBase} ${active ? 'text-brand-400 after:w-6' : 'text-brand-300 hover:text-brand-200'}`
+  }
+
   return (
-    <header className="bg-white  border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+  <header className="sticky top-0 z-50   bg-black/85  border-brand-800 shadow-md">
+  <div className="max-w-8xl mx-auto pl-1 pr-4 sm:pl-4 sm:pr-6 lg:pl-6 lg:pr-8">
+    <div className="flex justify-between  h-20">
           
-          {/* Logo Section */}
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-md">
-              <span className="text-white font-bold text-xl">S</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-blue-600">SafeRoute</h1>
-              <p className="text-xs text-gray-500 -mt-1">Road Safety Platform</p>
+          {/* Logo Section (enhanced) */}
+          <Link href="/" className="group flex items-center">
+            <div className="flex flex-row gap-2 items-center">
+              <div className="relative h-16 w-16 sm:h-16 sm:w-16 drop-shadow-xl rounded-2xl overflow-hidden ring-2 ring-brand-600 bg-brand-800 p-1.5 transition-all duration-300 group-hover:shadow-2xl group-hover:scale-[1.06] group-hover:ring-brand-400">
+                <Image
+                  src={logo}
+                  alt="SafeRoute logo"
+                  fill
+                  sizes="80px"
+                  className="object-contain select-none"
+                  priority
+                />
+              </div>
+                  
             </div>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
-              Home
-            </Link>
-            <Link href="/reports-history" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
-             Report History
-            </Link>
+          <nav className="hidden md:flex items-center  space-x-2 md:space-x-4">
+            <Link href="/home" className={navLink('/')}>Home</Link>
+            <Link href="/reports-history" className={navLink('/reports-history')}>Report History</Link>
           </nav>
 
           {/* Profile Section */}
           <div className="flex items-center space-x-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-gray-900">
+            <div className="text-right text-green-950 hidden sm:block">
+              <p className="text-base md:text-lg font-semibold text-brand-400">
                 {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'Guest'}
               </p>
             </div>
             
             <div className="relative" ref={dropdownRef}>
-              <button 
-                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              <button
+                onClick={() => { if (window.innerWidth >= 768) { setIsProfileDropdownOpen(!isProfileDropdownOpen) } }}
+                className="flex items-center space-x-2 p-1 rounded-full md:hover:bg-brand-800/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-900"
                 aria-label="Profile menu"
               >
                 {user?.profileImage ? (
-                  <div className="h-9 w-9 rounded-full overflow-hidden border-2 border-blue-600">
+                  <div className="h-9 w-9 rounded-full overflow-hidden  shadow-sm">
                     <Image
                       src={user.profileImage}
                       alt="Profile picture"
-                      width={36}
-                      height={36}
+                      width={38}
+                      height={38}
                       className="h-full w-full object-cover"
                       onError={(e) => {
                         // Fallback to icon if image fails to load
@@ -145,22 +155,22 @@ const Header = () => {
                         target.nextElementSibling?.classList.remove('hidden');
                       }}
                     />
-                    <UserCircleIcon className="h-9 w-9 text-blue-600 hidden" />
+                    <UserCircleIcon className="h-9 w-9 text-brand-400 hidden" />
                   </div>
                 ) : (
-                  <UserCircleIcon className="h-9 w-9 text-blue-600" />
+                  <UserCircleIcon className="h-9 w-9 text-brand-400" />
                 )}
-                <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDownIcon className={`hidden md:block h-5 w-5 text-brand-300 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Profile Dropdown Menu */}
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <div className="absolute right-0 mt-5 w-80 rounded-xl shadow-xl ring-1 ring-brand-200 py-1 z-50 bg-white">
                   {/* User Info Section */}
-                  <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="px-4 py-3 border-b border-brand-200">
                     <div className="flex items-center space-x-3">
                       {user?.profileImage ? (
-                        <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-gray-200">
+                        <div className="h-10 w-10 rounded-full overflow-hidden border-1 border-brand-600">
                           <Image
                             src={user.profileImage}
                             alt="Profile picture"
@@ -170,35 +180,35 @@ const Header = () => {
                           />
                         </div>
                       ) : (
-                        <UserCircleIcon className="h-10 w-10 text-gray-400" />
+                        <UserCircleIcon className="h-10 w-10 text-black" />
                       )}
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-base md:text-lg font-semibold text-black">
                           {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'Guest'}
                         </p>
-                        <p className="text-xs text-gray-500">{user?.email || 'No email'}</p>
+                        <p className="text-sm text-black">{user?.email || 'No email'}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Menu Items */}
-                  <div className="py-1">
+          <div className="py-1">
                     <button
                       onClick={handleEditProfile}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center space-x-3 transition-colors"
+            className="w-full text-left px-4 py-3 text-base md:text-lg text-brand-700 hover:bg-brand-50 hover:text-brand-900 flex items-center space-x-3 transition-colors"
                     >
-                      <UserIcon className="h-4 w-4" />
+                      <UserIcon className="h-5 w-5" />
                       <span>Edit Profile</span>
                     </button>
                   </div>
 
                   {/* Logout Section */}
-                  <div className="border-t border-gray-100 py-1">
+          <div className="border-t border-brand-700/60 py-1">
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-3 transition-colors"
+            className="w-full text-left px-4 py-3 text-base md:text-lg text-red-700 hover:bg-red-50 flex items-center space-x-3 transition-colors"
                     >
-                      <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                      <ArrowRightOnRectangleIcon className="h-5 w-5" />
                       <span>Sign Out</span>
                     </button>
                   </div>
@@ -209,7 +219,7 @@ const Header = () => {
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+              className="md:hidden p-2 rounded-md text-brand-300 hover:text-brand-100 hover:bg-brand-800/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-900"
             >
               {isMenuOpen ? (
                 <XMarkIcon className="h-6 w-6" />
@@ -222,20 +232,15 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 py-4">
+          <div className="md:hidden border-t border-brand-800 py-4 bg-brand-900/95">
             <div className="space-y-2">
-              <Link href="/" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-md">
-                Home
-              </Link>
-              <Link href="/reports" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-md">
-                Report History
-              </Link>
-              
+              <Link href="/" className={`${navLinkBase} block w-full text-left !px-5 !py-3 ${pathname==='/' ? 'text-brand-200 after:w-8' : 'text-brand-300 hover:text-brand-200'} after:left-5 after:translate-x-0`}>Home</Link>
+              <Link href="/reports-history" className={`${navLinkBase} block w-full text-left !px-5 !py-3 ${pathname==='/reports-history' ? 'text-brand-200 after:w-8' : 'text-brand-300 hover:text-brand-200'} after:left-5 after:translate-x-0`}>Report History</Link>
               {/* Mobile Profile Options */}
-              <div className="border-t border-gray-100 mt-4 pt-4">
+              <div className="border-t border-brand-800 mt-4 pt-4">
                 <div className="px-4 py-2 flex items-center space-x-3">
                   {user?.profileImage ? (
-                    <div className="h-8 w-8 rounded-full overflow-hidden border-2 border-gray-200">
+                    <div className="h-8 w-8 rounded-full overflow-hidden border-2 border-brand-600">
                       <Image
                         src={user.profileImage}
                         alt="Profile picture"
@@ -245,18 +250,18 @@ const Header = () => {
                       />
                     </div>
                   ) : (
-                    <UserCircleIcon className="h-8 w-8 text-gray-400" />
+                    <UserCircleIcon className="h-8 w-8 text-brand-400" />
                   )}
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-base font-semibold text-brand-100">
                       {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'Guest'}
                     </p>
-                    <p className="text-xs text-gray-500">{user?.email || 'No email'}</p>
+                    <p className="text-sm text-brand-300/70">{user?.email || 'No email'}</p>
                   </div>
                 </div>
                 <button
                   onClick={handleEditProfile}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
+                  className="block w-full text-left px-4 py-3 text-base text-brand-200 hover:bg-brand-800/70 rounded-md"
                 >
                   Edit Profile
                 </button>
@@ -265,7 +270,7 @@ const Header = () => {
                     handleLogout()
                     setIsMenuOpen(false)
                   }}
-                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
+                  className="block w-full text-left px-4 py-3 text-base text-red-400 hover:bg-red-500/10 rounded-md"
                 >
                   Sign Out
                 </button>
