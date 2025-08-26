@@ -166,7 +166,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     onChange={handleChange}
                     className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
                       errors.email ? 'border-red-400 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/10 backdrop-blur hover:bg-white/20 focus:bg-white/30`}
+                    } rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/60 backdrop-blur hover:bg-white/80 focus:bg-white`}
                     placeholder="Enter your email"
                   />
                 </div>
@@ -196,7 +196,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     onChange={handleChange}
                     className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
                       errors.password ? 'border-red-400 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-500 text-black focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/40 backdrop-blur hover:bg-white/60 focus:bg-white/70`}
+                    } rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/70 backdrop-blur hover:bg-white focus:bg-white`}
                     placeholder="Enter your password"
                   />
                 </div>
