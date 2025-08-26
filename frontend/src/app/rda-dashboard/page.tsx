@@ -395,7 +395,6 @@ export default function RDADashboard() {
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16">
           <div className="mb-10 text-center">
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-green-950 mb-4">RDA Operations Dashboard</h1>
             <p className="text-gray-700 max-w-3xl mx-auto text-lg leading-relaxed">Monitor, triage and resolve critical road infrastructure issues reported by the community. Focus on pothole & construction hazards for actionable maintenance response.</p>
           </div>
 
@@ -404,10 +403,10 @@ export default function RDADashboard() {
               <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_25%_20%,rgba(10,209,200,0.12),transparent_70%)]" />
               <div className="rounded-2xl bg-white/70 backdrop-blur-xl px-5 sm:px-8 py-8">
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6">
-                  <div className="group relative rounded-xl p-4 bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200/60 hover:shadow-lg transition-all">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-brand-600 mb-2">Active / Pending</div>
-                    <div className="text-3xl font-extrabold tracking-tight text-brand-700 group-hover:text-brand-800">{submittedCore.length}</div>
-                    <div className="mt-1 text-[11px] text-brand-700/70">Core hazards</div>
+                  <div className="group relative rounded-xl p-4 bg-gradient-to-br from-brand-200 to-brand-300 border border-brand-300/70 hover:shadow-lg transition-all">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-brand-700 mb-2">Active / Pending</div>
+                    <div className="text-3xl font-extrabold tracking-tight text-brand-800 group-hover:text-brand-900">{submittedCore.length}</div>
+                    <div className="mt-1 text-[11px] text-brand-800/70">Core hazards</div>
                   </div>
                   <div className="group relative rounded-xl p-4 bg-gradient-to-br from-green-50 to-green-100 border border-green-200/60 hover:shadow-lg transition-all">
                     <div className="text-xs font-semibold uppercase tracking-wide text-green-600 mb-2">Resolved</div>
@@ -536,7 +535,7 @@ export default function RDADashboard() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
           </div>
         ) : relevantReports.length === 0 ? (
-          <div className="text-center py-14 border border-dashed border-gray-300 rounded-2xl bg-white/60">
+          <div className="text-center py-14 border border-dashed border-gray-300 rounded-2xl">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-brand-50 border border-brand-200">
               <svg className="h-8 w-8 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -552,7 +551,7 @@ export default function RDADashboard() {
             {relevantReports.map((report) => {
               const district = extractDistrict(report.location?.address || '')
               return (
-                <div key={report.id} className="group relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur px-5 py-5 shadow-sm hover:shadow-lg transition-all">
+                <div key={report.id} className="group relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur p-8 shadow-xl hover:shadow-2xl transition-all">
                   <div className="flex justify-between items-start mb-3">
                     <h3 className="text-lg font-semibold text-gray-900 leading-snug pr-2 line-clamp-2">{report.title}</h3>
                     <div className="flex flex-col items-end gap-2">
@@ -567,7 +566,7 @@ export default function RDADashboard() {
                   {report.images.length > 0 && (
                     <button
                       onClick={() => openImageGallery(report.images, 0, report.title)}
-                      className="absolute top-4 left-4 inline-flex items-center gap-1 rounded-full bg-black/60 backdrop-blur text-white px-2.5 py-1 text-[11px] font-medium shadow hover:bg-black/70"
+                      className="absolute top-1 left-2 inline-flex items-center gap-1 rounded-full bg-black/60 backdrop-blur text-white px-2.5 py-1 text-[11px] font-medium shadow hover:bg-black/70"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8h4l2-3h6l2 3h4v11H3z" /><circle cx="12" cy="13" r="3" /></svg>
                       {report.images.length}
@@ -656,7 +655,7 @@ export default function RDADashboard() {
         cancelText="Cancel"
         type="info"
       />
-      <Footer />
+     
     </div>
   )
 }
