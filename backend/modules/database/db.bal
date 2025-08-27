@@ -274,33 +274,38 @@ public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) return
     string? updated_at;
     int user_id;
     float distance_km;
+    string reporter_first_name;
+    string reporter_last_name;
+    string? reporter_profile_image;
 |}[]|error {
     
     log:printInfo("DATABASE: getCurrentTrafficAlerts called with lat: " + userLat.toString() + ", lng: " + userLng.toString());
     
     sql:ParameterizedQuery selectQuery = `
-        SELECT id, user_id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status, updated_at,
+        SELECT h.id, h.user_id, h.title, h.description, h.hazard_type, h.severity_level, h.images, 
+               h.latitude, h.longitude, h.address, h.created_at, h.status, h.updated_at,
                (6371 * acos(GREATEST(-1, LEAST(1,
-                   cos(radians(${userLat})) * cos(radians(latitude)) * 
-                   cos(radians(longitude) - radians(${userLng})) + 
-                   sin(radians(${userLat})) * sin(radians(latitude))
+                   cos(radians(${userLat})) * cos(radians(h.latitude)) * 
+                   cos(radians(h.longitude) - radians(${userLng})) + 
+                   sin(radians(${userLat})) * sin(radians(h.latitude))
                )))) as distance_km
-        FROM hazard_reports
-        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-        AND created_at >= NOW() - INTERVAL '24 hours'
-        AND status IN ('active', 'pending', 'confirmed')
+        , u.first_name AS reporter_first_name, u.last_name AS reporter_last_name, u.profile_image AS reporter_profile_image
+        FROM hazard_reports h
+        JOIN users u ON h.user_id = u.id
+        WHERE h.latitude IS NOT NULL AND h.longitude IS NOT NULL
+        AND h.created_at >= NOW() - INTERVAL '24 hours'
+        AND h.status IN ('active', 'pending', 'confirmed')
         AND (6371 * acos(GREATEST(-1, LEAST(1,
-            cos(radians(${userLat})) * cos(radians(latitude)) * 
-            cos(radians(longitude) - radians(${userLng})) + 
-            sin(radians(${userLat})) * sin(radians(latitude))
+            cos(radians(${userLat})) * cos(radians(h.latitude)) * 
+            cos(radians(h.longitude) - radians(${userLng})) + 
+            sin(radians(${userLat})) * sin(radians(h.latitude))
         )))) <= 25
-        ORDER BY distance_km ASC, created_at DESC
+        ORDER BY distance_km ASC, h.created_at DESC
     `;
     
     log:printInfo("DATABASE: Executing query...");
     
-    stream<record {|
+    stream<record {| 
         int id;
         int user_id;
         string title;
@@ -315,11 +320,14 @@ public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) return
         string status;
         string? updated_at;
         float distance_km;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
     |}, sql:Error?> resultStream = dbClient->query(selectQuery);
     
     log:printInfo("DATABASE: Query executed, processing results...");
     
-    record {|
+    record {| 
         int id;
         string title;
         string? description;
@@ -336,6 +344,9 @@ public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) return
         string? updated_at;
         int user_id;
         float distance_km;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream
@@ -368,7 +379,10 @@ public function getCurrentTrafficAlerts(decimal userLat, decimal userLng) return
                 created_at: row.created_at,
                 status: row.status,
                 updated_at: row.updated_at,
-                distance_km: row.distance_km
+                distance_km: row.distance_km,
+                reporter_first_name: row.reporter_first_name,
+                reporter_last_name: row.reporter_last_name,
+                reporter_profile_image: row.reporter_profile_image
             });
         };
     
@@ -403,16 +417,22 @@ public function getAllReports() returns record {|
     string status;
     string? updated_at;
     int user_id;
+    // Added user fields
+    string reporter_first_name;
+    string reporter_last_name;
+    string? reporter_profile_image;
 |}[]|error {
     
     sql:ParameterizedQuery selectQuery = `
-        SELECT id, user_id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status, updated_at
-        FROM hazard_reports
-        ORDER BY created_at DESC
+        SELECT h.id, h.user_id, h.title, h.description, h.hazard_type, h.severity_level, h.images, 
+               h.latitude, h.longitude, h.address, h.created_at, h.status, h.updated_at,
+               u.first_name AS reporter_first_name, u.last_name AS reporter_last_name, u.profile_image AS reporter_profile_image
+        FROM hazard_reports h
+        JOIN users u ON h.user_id = u.id
+        ORDER BY h.created_at DESC
     `;
     
-    stream<record {|
+    stream<record {| 
         int id;
         int user_id;
         string title;
@@ -426,9 +446,12 @@ public function getAllReports() returns record {|
         string created_at;
         string status;
         string? updated_at;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
     |}, sql:Error?> resultStream = dbClient->query(selectQuery);
     
-    record {|
+    record {| 
         int id;
         string title;
         string? description;
@@ -444,6 +467,9 @@ public function getAllReports() returns record {|
         string status;
         string? updated_at;
         int user_id;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream
@@ -475,7 +501,10 @@ public function getAllReports() returns record {|
                 location: location,
                 created_at: row.created_at,
                 status: row.status,
-                updated_at: row.updated_at
+                updated_at: row.updated_at,
+                reporter_first_name: row.reporter_first_name,
+                reporter_last_name: row.reporter_last_name,
+                reporter_profile_image: row.reporter_profile_image
             });
         };
     
@@ -516,12 +545,18 @@ public function getFilteredHazardReports(
     string created_at;
     string status;
     string? updated_at;
+    string reporter_first_name;
+    string reporter_last_name;
+    string? reporter_profile_image;
 |}[]|error {
     
     sql:ParameterizedQuery baseQuery = `
-        SELECT id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status, updated_at
-        FROM hazard_reports WHERE 1=1
+        SELECT h.id, h.title, h.description, h.hazard_type, h.severity_level, h.images, 
+               h.latitude, h.longitude, h.address, h.created_at, h.status, h.updated_at,
+               u.first_name AS reporter_first_name, u.last_name AS reporter_last_name, u.profile_image AS reporter_profile_image
+        FROM hazard_reports h
+        JOIN users u ON h.user_id = u.id
+        WHERE 1=1
     `;
     
     if hazardType != "" && hazardType != "all" {
@@ -545,7 +580,7 @@ public function getFilteredHazardReports(
     int offset = (page - 1) * pageSize;
     baseQuery = sql:queryConcat(baseQuery, ` LIMIT ${pageSize} OFFSET ${offset}`);
     
-    stream<record {|
+    stream<record {| 
         int id;
         string title;
         string? description;
@@ -558,9 +593,12 @@ public function getFilteredHazardReports(
         string created_at;
         string status;
         string? updated_at;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
     |}, sql:Error?> resultStream = dbClient->query(baseQuery);
     
-    record {|
+    record {| 
         int id;
         string title;
         string? description;
@@ -575,6 +613,9 @@ public function getFilteredHazardReports(
         string created_at;
         string status;
         string? updated_at;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream
@@ -605,7 +646,10 @@ public function getFilteredHazardReports(
                 location: location,
                 created_at: row.created_at,
                 status: row.status,
-                updated_at: row.updated_at
+                updated_at: row.updated_at,
+                reporter_first_name: row.reporter_first_name,
+                reporter_last_name: row.reporter_last_name,
+                reporter_profile_image: row.reporter_profile_image
             });
         };
     
@@ -675,6 +719,9 @@ public function updateHazardReport(
     string created_at;
     string status;
     string? updated_at;
+    string reporter_first_name;
+    string reporter_last_name;
+    string? reporter_profile_image;
 |}|error {
     
     sql:ParameterizedQuery updateQuery = `
@@ -686,10 +733,10 @@ public function updateHazardReport(
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ${reportId}
         RETURNING id, title, description, hazard_type, severity_level, status, images, 
-                  latitude, longitude, address, created_at, updated_at
+                  latitude, longitude, address, created_at, updated_at, user_id
     `;
     
-    stream<record {|
+    stream<record {| 
         int id;
         string title;
         string? description;
@@ -702,9 +749,10 @@ public function updateHazardReport(
         string created_at;
         string status;
         string? updated_at;
+        int user_id;
     |}, sql:Error?> resultStream = dbClient->query(updateQuery);
     
-    record {| record {|
+    record {| record {| 
         int id;
         string title;
         string? description;
@@ -717,6 +765,7 @@ public function updateHazardReport(
         string created_at;
         string status;
         string? updated_at;
+        int user_id;
     |} value; |}|sql:Error? streamResult = check resultStream.next();
     
     error? closeErr = resultStream.close();
@@ -724,7 +773,7 @@ public function updateHazardReport(
         log:printError("Error closing result stream", closeErr);
     }
     
-    if streamResult is record {| record {|
+    if streamResult is record {| record {| 
         int id;
         string title;
         string? description;
@@ -737,6 +786,7 @@ public function updateHazardReport(
         string created_at;
         string status;
         string? updated_at;
+        int user_id;
     |} value; |} {
         record {|
             int id;
@@ -751,6 +801,7 @@ public function updateHazardReport(
             string created_at;
             string status;
             string? updated_at;
+            int user_id;
         |} row = streamResult.value;
         
         record {|
@@ -770,6 +821,21 @@ public function updateHazardReport(
         }
 
         log:printInfo("Report updated with ID: " + reportId.toString());
+        // Fetch reporter fields from users table
+        string reporterFirst = "";
+        string reporterLast = "";
+        string? reporterImage = ();
+        sql:ParameterizedQuery userQ = `SELECT first_name, last_name, profile_image FROM users WHERE id = ${row.user_id}`;
+        stream<record {| string first_name; string last_name; string? profile_image; |}, sql:Error?> userStream = dbClient->query(userQ);
+        record {| record {| string first_name; string last_name; string? profile_image; |} value; |}|sql:Error? userRow = userStream.next();
+        error? uClose = userStream.close();
+        if uClose is error { log:printError("Error closing user stream", uClose); }
+        if userRow is record {| record {| string first_name; string last_name; string? profile_image; |} value; |} {
+            reporterFirst = userRow.value.first_name;
+            reporterLast = userRow.value.last_name;
+            reporterImage = userRow.value.profile_image;
+        }
+
         return {
             id: row.id,
             title: row.title,
@@ -780,7 +846,10 @@ public function updateHazardReport(
             location: location,
             created_at: row.created_at,
             status: row.status,
-            updated_at: row.updated_at
+            updated_at: row.updated_at,
+            reporter_first_name: reporterFirst,
+            reporter_last_name: reporterLast,
+            reporter_profile_image: reporterImage
         };
     } else {
         return error DatabaseError("Report not found or update failed");
@@ -801,6 +870,13 @@ public function deleteHazardReport(int reportId) returns boolean|error {
     } else {
         return error DatabaseError("Report not found or delete failed");
     }
+}
+
+public function updateUserProfileImage(int userId, string filename) returns boolean|error {
+    sql:ParameterizedQuery q = `UPDATE users SET profile_image = ${filename} WHERE id = ${userId}`;
+    sql:ExecutionResult res = check dbClient->execute(q);
+    if res.affectedRowCount > 0 { return true; }
+    return error DatabaseError("User not found or no update performed");
 }
 
 public function deleteOldReports() returns int|error {
@@ -927,17 +1003,22 @@ public function getReportsByUserId(int userId) returns record {|
     string status;
     string? updated_at;
     int user_id;
+    string reporter_first_name;
+    string reporter_last_name;
+    string? reporter_profile_image;
 |}[]|error {
     
     sql:ParameterizedQuery selectQuery = `
-        SELECT id, user_id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status, updated_at
-        FROM hazard_reports
-        WHERE user_id = ${userId}
-        ORDER BY created_at DESC
+        SELECT h.id, h.user_id, h.title, h.description, h.hazard_type, h.severity_level, h.images, 
+               h.latitude, h.longitude, h.address, h.created_at, h.status, h.updated_at,
+               u.first_name AS reporter_first_name, u.last_name AS reporter_last_name, u.profile_image AS reporter_profile_image
+        FROM hazard_reports h
+        JOIN users u ON h.user_id = u.id
+        WHERE h.user_id = ${userId}
+        ORDER BY h.created_at DESC
     `;
     
-    stream<record {|
+    stream<record {| 
         int id;
         int user_id;
         string title;
@@ -951,9 +1032,12 @@ public function getReportsByUserId(int userId) returns record {|
         string created_at;
         string status;
         string? updated_at;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
     |}, sql:Error?> resultStream = dbClient->query(selectQuery);
     
-    record {|
+    record {| 
         int id;
         string title;
         string? description;
@@ -969,119 +1053,9 @@ public function getReportsByUserId(int userId) returns record {|
         string status;
         string? updated_at;
         int user_id;
-    |}[] reports = [];
-    
-    error? fromResult = from var row in resultStream
-        do {
-            record {|
-                decimal lat;
-                decimal lng;
-                string? address;
-            |}? location = ();
-
-            if row.latitude is decimal && row.longitude is decimal {
-                decimal validLat = <decimal>row.latitude;
-                decimal validLng = <decimal>row.longitude;
-                location = {
-                    lat: validLat,
-                    lng: validLng,
-                    address: row.address
-                };
-            }
-
-            reports.push({
-                id: row.id,
-                user_id: row.user_id,
-                title: row.title,
-                description: row.description,
-                hazard_type: row.hazard_type,
-                severity_level: row.severity_level,
-                images: row.images,
-                location: location,
-                created_at: row.created_at,
-                status: row.status,
-                updated_at: row.updated_at
-            });
-        };
-    
-    if fromResult is error {
-        return fromResult;
-    }
-    
-    error? closeErr = resultStream.close();
-    if closeErr is error {
-        log:printError("Error closing result stream", closeErr);
-    }
-    
-    return reports;
-}
-
-public function getNearbyReports(decimal userLat, decimal userLng, decimal radiusKm) returns record {|
-    int id;
-    string title;
-    string? description;
-    string hazard_type;
-    string severity_level;
-    string[] images;
-    record {|
-        decimal lat;
-        decimal lng;
-        string? address;
-    |}? location;
-    string created_at;
-    string status;
-    string? updated_at;
-    int user_id;
-    decimal distance_km;
-|}[]|error {
-    
-    sql:ParameterizedQuery selectQuery = `
-        SELECT id, user_id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status, updated_at,
-               (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
-               cos(radians(longitude) - radians(${userLng})) + 
-               sin(radians(${userLat})) * sin(radians(latitude)))) as distance_km
-        FROM hazard_reports
-        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-        AND status IN ('active', 'pending', 'confirmed')
-        HAVING distance_km <= ${radiusKm}
-        ORDER BY distance_km ASC, created_at DESC
-    `;
-
-    stream<record {|
-        int id;
-        int user_id;
-        string title;
-        string? description;
-        string hazard_type;
-        string severity_level;
-        string[] images;
-        decimal? latitude;
-        decimal? longitude;
-        string? address;
-        string created_at;
-        string status;
-        string? updated_at;
-        decimal distance_km;
-    |}, sql:Error?> resultStream = dbClient->query(selectQuery);
-    
-    record {|
-        int id;
-        string title;
-        string? description;
-        string hazard_type;
-        string severity_level;
-        string[] images;
-        record {|
-            decimal lat;
-            decimal lng;
-            string? address;
-        |}? location;
-        string created_at;
-        string status;
-        string? updated_at;
-        int user_id;
-        decimal distance_km;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream
@@ -1114,7 +1088,137 @@ public function getNearbyReports(decimal userLat, decimal userLng, decimal radiu
                 created_at: row.created_at,
                 status: row.status,
                 updated_at: row.updated_at,
-                distance_km: row.distance_km
+                reporter_first_name: row.reporter_first_name,
+                reporter_last_name: row.reporter_last_name,
+                reporter_profile_image: row.reporter_profile_image
+            });
+        };
+    
+    if fromResult is error {
+        return fromResult;
+    }
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    return reports;
+}
+
+public function getNearbyReports(decimal userLat, decimal userLng, decimal radiusKm) returns record {|
+    int id;
+    string title;
+    string? description;
+    string hazard_type;
+    string severity_level;
+    string[] images;
+    record {|
+        decimal lat;
+        decimal lng;
+        string? address;
+    |}? location;
+    string created_at;
+    string status;
+    string? updated_at;
+    int user_id;
+    decimal distance_km;
+    string reporter_first_name;
+    string reporter_last_name;
+    string? reporter_profile_image;
+|}[]|error {
+    
+    sql:ParameterizedQuery selectQuery = `
+        SELECT h.id, h.user_id, h.title, h.description, h.hazard_type, h.severity_level, h.images, 
+               h.latitude, h.longitude, h.address, h.created_at, h.status, h.updated_at,
+               (6371 * acos(cos(radians(${userLat})) * cos(radians(latitude)) * 
+               cos(radians(h.longitude) - radians(${userLng})) + 
+               sin(radians(${userLat})) * sin(radians(h.latitude)))) as distance_km,
+               u.first_name AS reporter_first_name, u.last_name AS reporter_last_name, u.profile_image AS reporter_profile_image
+        FROM hazard_reports h
+        JOIN users u ON h.user_id = u.id
+        WHERE h.latitude IS NOT NULL AND h.longitude IS NOT NULL
+        AND h.status IN ('active', 'pending', 'confirmed')
+        HAVING distance_km <= ${radiusKm}
+        ORDER BY distance_km ASC, h.created_at DESC
+    `;
+
+    stream<record {| 
+        int id;
+        int user_id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string created_at;
+        string status;
+        string? updated_at;
+        decimal distance_km;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
+    |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    record {| 
+        int id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        record {|
+            decimal lat;
+            decimal lng;
+            string? address;
+        |}? location;
+        string created_at;
+        string status;
+        string? updated_at;
+        int user_id;
+        decimal distance_km;
+        string reporter_first_name;
+        string reporter_last_name;
+        string? reporter_profile_image;
+    |}[] reports = [];
+    
+    error? fromResult = from var row in resultStream
+        do {
+            record {|
+                decimal lat;
+                decimal lng;
+                string? address;
+            |}? location = ();
+
+            if row.latitude is decimal && row.longitude is decimal {
+                decimal validLat = <decimal>row.latitude;
+                decimal validLng = <decimal>row.longitude;
+                location = {
+                    lat: validLat,
+                    lng: validLng,
+                    address: row.address
+                };
+            }
+
+            reports.push({
+                id: row.id,
+                user_id: row.user_id,
+                title: row.title,
+                description: row.description,
+                hazard_type: row.hazard_type,
+                severity_level: row.severity_level,
+                images: row.images,
+                location: location,
+                created_at: row.created_at,
+                status: row.status,
+                updated_at: row.updated_at,
+                distance_km: row.distance_km,
+                reporter_first_name: row.reporter_first_name,
+                reporter_last_name: row.reporter_last_name,
+                reporter_profile_image: row.reporter_profile_image
             });
         };
     

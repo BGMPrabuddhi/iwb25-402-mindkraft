@@ -15,6 +15,10 @@ public type HazardReport record {|
     Location? location?;
     string created_at;
     string? updated_at?;
+    // Newly added reporter metadata
+    string? reporter_first_name?;
+    string? reporter_last_name?;
+    string? reporter_profile_image?;
 |};
 
 public type HazardReportPayload record {|

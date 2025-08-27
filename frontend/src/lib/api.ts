@@ -39,6 +39,10 @@ export interface HazardReport {
   };
   user_id?: number;
   distance_km?: number;
+  // Newly added reporter meta
+  reporter_first_name?: string;
+  reporter_last_name?: string;
+  reporter_profile_image?: string;
 }
 
 export interface ApiResponse {

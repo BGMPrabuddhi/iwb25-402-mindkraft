@@ -5,6 +5,7 @@ import ballerina/file;
 import ballerina/io;
 import ballerina/sql;
 import ballerinax/postgresql;
+import ballerina/mime;
 
 import saferoute/backend.database;
 import saferoute/backend.reports;
@@ -121,6 +122,41 @@ service /api on apiListener {
             message: "Profile updated successfully",
             user: createUserProfileResponse(updatedProfile)
         };
+    }
+
+    // Upload profile image (multipart form with field 'image')
+    resource function post me/profile_image(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+        // Get user for ID
+        database:User|error userRec = database:getUserByEmail(email);
+        if userRec is error { return createErrorResponse("not_found", "User not found"); }
+
+        string contentType = req.getContentType();
+        if !contentType.includes("multipart/form-data") {
+            return createErrorResponse("invalid_request", "Expected multipart/form-data");
+        }
+        mime:Entity[]|http:ClientError partsRes = req.getBodyParts();
+        if partsRes is http:ClientError { return createErrorResponse("invalid_payload", "Cannot read body parts"); }
+
+        mime:Entity? imagePart = (); 
+        foreach var p in partsRes { 
+            mime:ContentDisposition cd = p.getContentDisposition();
+            if cd.name == "image" { imagePart = p; break; }
+        }
+        if imagePart is () { return createErrorResponse("missing_field", "Field 'image' required"); }
+
+        // Reuse reports.saveImageFile utilities
+        string|error saved = reports:saveImageFile(<mime:Entity>imagePart);
+        if saved is error { return createErrorResponse("upload_failed", saved.message()); }
+
+        boolean|error upd = database:updateUserProfileImage(userRec.id, saved);
+        if upd is error { return createErrorResponse("update_failed", upd.message()); }
+
+        return { success: true, message: "Profile image updated", filename: saved, imageUrl: 
+            "http://localhost:" + serverPort.toString() + "/api/images/" + saved };
     }
 
     resource function get home(http:Request req) returns json {

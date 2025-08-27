@@ -39,6 +39,13 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
 
       <div className="grid gap-4">
         {reports.map((report) => (
+          // Debug each report's reporter fields once rendered
+          console.debug && console.debug('[HazardReportsList] report user meta', {
+            id: report.id,
+            reporter_first_name: report.reporter_first_name,
+            reporter_last_name: report.reporter_last_name,
+            reporter_profile_image: report.reporter_profile_image
+          }),
           <div 
             key={report.id} 
             id={`report-${report.id}`}
@@ -49,18 +56,52 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
+                {/* Reporter info now at top */}
+                <div className="flex items-center mb-3">
+                  {report.reporter_profile_image ? (() => {
+                    const raw = report.reporter_profile_image.trim();
+                    const isData = raw.startsWith('data:');
+                    const isHttp = raw.startsWith('http');
+                    const base = (isData || isHttp) ? raw : reportsAPI.getImageUrl(raw);
+                    const ver = (!isData && !isHttp) ? (report.updated_at || report.created_at || '').replace(/\s+/g,'_') : '';
+                    const sep = ver && base.includes('?') ? '&' : '?';
+                    const cacheBusted = ver ? `${base}${sep}v=${encodeURIComponent(ver)}` : base;
+                    return (
+                      <img
+                        key={cacheBusted}
+                        src={cacheBusted}
+                        alt={report.reporter_first_name || 'Reporter'}
+                        className="h-8 w-8 rounded-full object-cover border border-gray-200 mr-2"
+                        onClick={(e) => e.stopPropagation()}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; }}
+                      />
+                    );
+                  })() : (
+                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 mr-2">
+                      {((report.reporter_first_name?.charAt(0) || '') + (report.reporter_last_name?.charAt(0) || '')).toUpperCase() || 'U'}
+                    </div>
+                  )}
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-900">
+                      {[report.reporter_first_name, report.reporter_last_name].filter(Boolean).join(' ') || 'Unknown User'}
+                    </span>
+                    {report.created_at && (
+                      <span className="text-xs text-gray-500">
+                        {new Date(report.created_at).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <div className="flex items-center space-x-3 mb-2">
                   <h4 className="text-lg font-semibold text-gray-900">{report.title}</h4>
-                 
                   <span className="px-2 py-1 text-xs rounded-full border bg-gray-50 text-gray-700 border-gray-200">
                     {report.hazard_type}
                   </span>
                   <span className={`w-3 h-3 rounded-full ${getSeverityBgColor(report.severity_level)}`}></span>
                   <span className="text-xs font-medium text-gray-600">{report.severity_level.toUpperCase()}</span>
                 </div>
-                
                 {report.description && (
-                  <p className="text-gray-600 mb-3">{report.description}</p>
+                  <p className="text-gray-600 mb-3 whitespace-pre-line">{report.description}</p>
                 )}
                 
                 <div className="flex items-center space-x-4 text-sm text-gray-500">
