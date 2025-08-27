@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import UpdateReportModal from "@/Components/UpdateReportModal";
 import DeleteReportModal from "@/Components/DeleteReportModal";
 import Header  from "@/Components/layout/Header";
+import { Snackbar, SnackbarStack } from '@/Components/Snackbar';
 
 const ReportsHistoryPage = () => {
 	const router = useRouter();
@@ -44,8 +45,8 @@ const ReportsHistoryPage = () => {
 	const [showUpdateModal, setShowUpdateModal] = useState(false);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const [selectedReport, setSelectedReport] = useState<HazardReport | null>(null);
-	const [snackbar, setSnackbar] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
-		show: false,
+	const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({
+		open: false,
 		message: "",
 		type: 'success'
 	});
@@ -79,10 +80,7 @@ const ReportsHistoryPage = () => {
 	}, []);
 
 	const showSnackbar = (message: string, type: 'success' | 'error' = 'success') => {
-		setSnackbar({ show: true, message, type });
-		setTimeout(() => {
-			setSnackbar({ show: false, message: "", type: 'success' });
-		}, 3000);
+		setSnackbar({ open: true, message, type });
 	};
 
 	const handleUpdateFormChange = (field: keyof HazardReportData, value: string) => {
@@ -330,13 +328,9 @@ const ReportsHistoryPage = () => {
 				onDelete={handleDelete}
 			/>
 
-			{/* Snackbar */}
-			{snackbar.show && (
-				<div className={`fixed bottom-6 right-6 z-50 max-w-sm px-5 py-4 rounded-xl shadow-lg backdrop-blur-xl ring-1 ring-white/20 flex items-start gap-3 ${snackbar.type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
-					{snackbar.type === 'success' ? (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>) : (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>)}
-					<span className="text-sm font-semibold tracking-wide">{snackbar.message}</span>
-				</div>
-			)}
+			<SnackbarStack>
+				<Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
+			</SnackbarStack>
 		</main>
 	);
 };

@@ -294,7 +294,18 @@ private getAuthToken(): string | null {
           'Authorization': `Bearer ${token}`,
         },
       });
-      return await this.handleResponse<{ message: string; timestamp: string }>(response);
+      // Many backends return 204 No Content for delete. Handle gracefully.
+      if (response.status === 204) {
+        return { message: 'Report deleted successfully', timestamp: new Date().toISOString() };
+      }
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        return await this.handleResponse<{ message: string; timestamp: string }>(response);
+      }
+      if (response.ok) {
+        return { message: 'Report deleted successfully', timestamp: new Date().toISOString() };
+      }
+      throw new Error(`Delete failed: ${response.status} ${response.statusText}`);
     } catch (error) {
       throw error;
     }
