@@ -22,6 +22,7 @@ interface Report {
   status?: string
   resolved_at?: string
   original_report_id?: number
+  district?: string
 }
 
 type TabType = 'submitted' | 'resolved'
@@ -98,22 +99,6 @@ export default function RDADashboard() {
   useEffect(() => {
     checkAccess()
   }, [])
-
-  // Function to extract district from address
-  const extractDistrict = (address: string): string => {
-    if (!address) return 'Unknown'
-    
-    const addressLower = address.toLowerCase()
-    
-    // Check each district name in the address
-    for (const district of SRI_LANKA_DISTRICTS) {
-      if (addressLower.includes(district.toLowerCase())) {
-        return district
-      }
-    }
-    
-    return 'Unknown'
-  }
 
   // Image gallery functions
   const openImageGallery = (images: string[], initialIndex: number = 0, reportTitle: string) => {
@@ -362,8 +347,7 @@ export default function RDADashboard() {
     .filter(report => {
       // District filter
       if (selectedDistrict !== 'all') {
-        const reportDistrict = extractDistrict(report.location?.address || '')
-        if (reportDistrict !== selectedDistrict) return false
+        if (report.district !== selectedDistrict) return false
       }
       
       // Severity filter
@@ -578,7 +562,7 @@ export default function RDADashboard() {
                 )}
                   <div className="space-y-2 text-sm text-gray-500 mb-4">
                   <p><strong>Type:</strong> {report.hazard_type}</p>
-                  <p><strong>District:</strong> {extractDistrict(report.location?.address || '')}</p>
+                  <p><strong>District:</strong> {report.district || 'Unknown'}</p>
   
                 {/* Updated date/time display */}
                 {activeTab === 'submitted' ? (
@@ -586,7 +570,7 @@ export default function RDADashboard() {
                ) : (
                <>
                 <p><strong>Submitted:</strong> {new Date(report.created_at).toLocaleString()}</p>
-                <p><strong>Resolved:</strong> {new Date(report.resolved_at).toLocaleString()}</p>
+                <p><strong>Resolved:</strong> {report.resolved_at ? new Date(report.resolved_at).toLocaleString() : 'N/A'}</p>
                </>
             )}
   

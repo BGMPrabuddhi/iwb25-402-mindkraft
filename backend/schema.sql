@@ -48,6 +48,7 @@ CREATE TABLE hazard_reports (
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
     address TEXT,
+    district VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -69,6 +70,7 @@ CREATE INDEX idx_hazard_reports_severity ON hazard_reports(severity_level);
 CREATE INDEX idx_hazard_reports_status ON hazard_reports(status);
 CREATE INDEX idx_hazard_reports_coordinates ON hazard_reports(latitude, longitude);
 CREATE INDEX idx_hazard_reports_created_at ON hazard_reports(created_at);
+CREATE INDEX idx_hazard_reports_district ON hazard_reports(district);
 
 -- Add constraints for users table
 ALTER TABLE users ADD CONSTRAINT check_latitude CHECK (latitude >= -90 AND latitude <= 90);
@@ -81,6 +83,15 @@ ALTER TABLE hazard_reports ADD CONSTRAINT check_hazard_longitude CHECK (longitud
 ALTER TABLE hazard_reports ADD CONSTRAINT check_hazard_type CHECK (hazard_type IN ('pothole', 'construction', 'accident', 'flooding', 'debris', 'traffic_jam', 'road_closure', 'other'));
 ALTER TABLE hazard_reports ADD CONSTRAINT check_severity_level CHECK (severity_level IN ('low', 'medium', 'high', 'critical'));
 ALTER TABLE hazard_reports ADD CONSTRAINT check_status CHECK (status IN ('pending', 'active', 'resolved', 'archived'));
+ALTER TABLE hazard_reports ADD CONSTRAINT check_district CHECK (
+    district IS NULL OR district IN (
+        'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo',
+        'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara',
+        'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar',
+        'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya',
+        'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
+    )
+);
 
 -- Create trigger function for automatic timestamp updates
 CREATE OR REPLACE FUNCTION update_updated_at_column()

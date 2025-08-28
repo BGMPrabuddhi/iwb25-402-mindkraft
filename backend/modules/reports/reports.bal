@@ -413,6 +413,18 @@ function handleJsonSubmission(http:Caller caller, http:Request req, http:Respons
     string[] emptyImages = [];
     string description = report?.description ?: "";
     
+    // Extract location data
+    decimal? latitude = ();
+    decimal? longitude = ();
+    string? address = ();
+    
+    if report?.location is types:Location {
+        types:Location loc = <types:Location>report?.location;
+        latitude = loc.lat;
+        longitude = loc.lng;
+        address = loc?.address;
+    }
+    
     int|error result = database:insertHazardReport(
         user.id,
         report.title,
@@ -420,9 +432,9 @@ function handleJsonSubmission(http:Caller caller, http:Request req, http:Respons
         report.hazard_type,
         report.severity_level,
         emptyImages,
-        (),
-        (),
-        ()
+        latitude,
+        longitude,
+        address
     );
     
     if result is int {
