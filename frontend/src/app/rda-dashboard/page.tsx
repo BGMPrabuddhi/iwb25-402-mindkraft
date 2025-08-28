@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
+import { Snackbar, SnackbarStack } from '@/Components/Snackbar'
 import MapPopup from '@/Components/MapPopup'
 import ImageGallery from '@/Components/ImageGallery'
 import ConfirmationDialog from '@/Components/ConfirmationDialog'
@@ -45,6 +46,10 @@ export default function RDADashboard() {
   const [loading, setLoading] = useState(true)
   const [reportsLoading, setReportsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>('submitted')
+  const [snackbar, setSnackbar] = useState<{open:boolean; message:string; type:'success'|'error'|'info'|'warning'}>({open:false,message:'',type:'info'})
+  const showSnackbar = (message:string, type:'success'|'error'|'info'|'warning'='info') => {
+    setSnackbar({open:true,message,type})
+  }
   
   // Filter states
   const [selectedDistrict, setSelectedDistrict] = useState<string>('all')
@@ -300,18 +305,18 @@ export default function RDADashboard() {
         const responseData = await response.json();
         console.log('FRONTEND: Response data:', responseData);
 
-        if (response.ok && responseData.success) {
-            console.log('FRONTEND: Report status updated successfully');
-            loadReports()
-            closeConfirmDialog()
-            alert('Report marked as resolved successfully!');
-        } else {
-            console.error('FRONTEND: Failed to update report status');
-            alert(`Failed to update report: ${responseData.message || 'Unknown error'}`);
-        }
+    if (response.ok && responseData.success) {
+      console.log('FRONTEND: Report status updated successfully');
+      loadReports();
+      closeConfirmDialog();
+      showSnackbar('Report marked as resolved successfully','success');
+    } else {
+      console.error('FRONTEND: Failed to update report status');
+      showSnackbar(`Failed to update report: ${responseData.message || 'Unknown error'}`,'error');
+    }
     } catch (error) {
-        console.error('FRONTEND: Error updating report status:', error);
-        alert('Error updating report status. Please try again.');
+    console.error('FRONTEND: Error updating report status:', error);
+    showSnackbar('Error updating report status. Please try again.','error');
     }
 }
 
@@ -656,6 +661,9 @@ export default function RDADashboard() {
         type="info"
       />
      
+    <SnackbarStack>
+      <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev=>({...prev,open:false}))} />
+    </SnackbarStack>
     </div>
   )
 }

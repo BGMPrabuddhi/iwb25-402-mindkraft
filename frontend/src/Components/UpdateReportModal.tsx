@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { HazardReport, HazardReportData } from '../lib/api';
 
 interface UpdateReportModalProps {
@@ -57,19 +57,10 @@ const UpdateReportModal: React.FC<UpdateReportModalProps> = ({
             />
           </div>
           <div>
-            <label className="form-label">
-              Hazard Type
-            </label>
-            <select
-              value={updateForm.hazard_type || 'pothole'}
-              onChange={(e) => onFormChange('hazard_type', e.target.value)}
-              className="form-input"
-            >
-              <option value="pothole">Pothole</option>
-              <option value="accident">Accident</option>
-              <option value="Natural disaster">Natural Disaster</option>
-              <option value="construction">Construction</option>
-            </select>
+            <label className="form-label">Hazard Type</label>
+            <div className="form-input bg-gray-100 text-gray-600 cursor-not-allowed select-none">
+              {selectedReport.hazard_type}
+            </div>
           </div>
           <div>
             <label className="form-label">
