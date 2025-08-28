@@ -517,17 +517,17 @@ service /api on apiListener {
         return;
     }
 
-    // Only allow deletion of pothole/construction reports by RDA or the original submitter
-    if reportDetails.hazard_type == "pothole" || reportDetails.hazard_type == "construction" {
-        // Check if user is RDA or the original submitter
-        if profile.userRole != "rda" && profile.id != reportDetails.user_id {
-            check caller->respond(createErrorResponse("forbidden", "You can only delete your own reports or be an RDA officer"));
+    // Prevent owners from deleting resolved reports; they remain for history
+    if reportDetails.status == "resolved" {
+        check caller->respond(createErrorResponse("forbidden", "Resolved reports cannot be deleted"));
+        return;
+    }
+    // Allow deletion of any non-resolved report by its owner; RDA may also delete pothole/construction
+    if profile.id != reportDetails.user_id {
+        if !(profile.userRole == "rda" && (reportDetails.hazard_type == "pothole" || reportDetails.hazard_type == "construction")) {
+            check caller->respond(createErrorResponse("forbidden", "Only the owner or RDA (for road reports) can delete"));
             return;
         }
-    } else {
-        // Traffic/accident reports cannot be manually deleted
-        check caller->respond(createErrorResponse("invalid_operation", "Traffic and accident reports are automatically deleted after 24 hours"));
-        return;
     }
 
     check reports:handleDeleteReport(caller, req, reportId);
@@ -558,11 +558,21 @@ service /api on apiListener {
         if reportsResult is error {
             return createErrorResponse("internal_error", "Failed to retrieve reports");
         }
-
+        anydata[] filtered = [];
+        if reportsResult is anydata[] {
+            foreach var r in reportsResult {
+                if r is map<anydata> && r.hasKey("hazard_type") {
+                    string ht = <string>r["hazard_type"];
+                    if ht == "pothole" || ht == "construction" {
+                        filtered.push(r);
+                    }
+                }
+            }
+        }
         return {
             success: true,
-            reports: <json>reportsResult,
-            total_count: reportsResult.length()
+            reports: <json>filtered,
+            total_count: filtered.length()
         };
     }
 

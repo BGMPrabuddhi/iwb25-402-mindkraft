@@ -229,10 +229,7 @@ const ReportsHistoryPage = () => {
 						</div>
 						<h3 className="text-xl font-bold text-white mb-2">No Reports Yet</h3>
 						<p className="text-brand-100/70 mb-8">You haven&apos;t submitted any hazard reports yet.</p>
-						<button onClick={() => router.push('/home')} className="relative inline-flex items-center gap-2 rounded-xl px-6 py-3 font-semibold text-white text-sm tracking-wide bg-gradient-to-r from-brand-600 via-brand-500 to-brand-400 shadow-lg shadow-black/30 ring-1 ring-white/20 hover:from-brand-500 hover:via-brand-500 hover:to-brand-300 transition-all focus:outline-none focus:ring-4 focus:ring-brand-400/40">
-							Submit Your First Report
-							<span className="absolute inset-0 rounded-xl opacity-0 hover:opacity-100 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.2),transparent_70%)] transition-opacity" />
-						</button>
+						
 					</div>
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
