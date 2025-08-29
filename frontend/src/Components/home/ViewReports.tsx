@@ -33,6 +33,7 @@ const ViewReports = () => {
   const [calculatedRoutes, setCalculatedRoutes] = useState<any[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0)
 
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const fetchAllReports = async (reason: string = 'manual/initial') => {
     try {
       console.log('[Reports] Fetching reports from backend...', { reason })
@@ -76,6 +77,20 @@ const ViewReports = () => {
       setReports([])
     }
   }
+
+  useEffect(() => {
+  const fetchCurrentUser = async () => {
+    try {
+      // Assuming you have an API call to get current user
+      const user = await authAPI.getCurrentUser() // or however you get current user
+      setCurrentUser(user)
+    } catch (error) {
+      console.error('Failed to fetch current user:', error)
+    }
+  }
+  
+  fetchCurrentUser()
+}, [])
 
   // initial load
   useEffect(() => { fetchAllReports('initial-mount') }, [])
@@ -190,6 +205,7 @@ const ViewReports = () => {
             selectedReport={selectedReport}
             setSelectedReport={setSelectedReport}
             viewFilters={viewFilters}
+            currentUserId={currentUser?.id}
           />
         )}
 

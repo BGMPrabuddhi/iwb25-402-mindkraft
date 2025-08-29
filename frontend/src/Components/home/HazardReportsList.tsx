@@ -1,22 +1,27 @@
 // components/HazardReportsList.tsx
-import React from 'react'
-import { MapPinIcon } from '@heroicons/react/24/outline'
+import React, { useState } from 'react'
+import { MapPinIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
 import { reportsAPI } from '@/lib/api'
 import { ViewFilters, Report } from './types'
+import ReportComments from './ReportComments'
 
 interface HazardReportsListProps {
   reports: Report[]
   selectedReport: Report | null
   setSelectedReport: React.Dispatch<React.SetStateAction<Report | null>>
   viewFilters: ViewFilters
+  currentUserId?: number
 }
 
 const HazardReportsList: React.FC<HazardReportsListProps> = ({
   reports,
   selectedReport,
   setSelectedReport,
-  viewFilters
+  viewFilters,
+  currentUserId
 }) => {
+  const [expandedComments, setExpandedComments] = useState<Set<number>>(new Set())
+
   const getSeverityBgColor = (severity: string) => {
     switch (severity) {
       case 'high': return 'bg-red-500'
@@ -24,6 +29,19 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
       case 'low': return 'bg-blue-500'
       default: return 'bg-gray-500'
     }
+  }
+
+  const toggleComments = (reportId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExpandedComments(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(reportId)) {
+        newSet.delete(reportId)
+      } else {
+        newSet.add(reportId)
+      }
+      return newSet
+    })
   }
 
   return (
@@ -92,6 +110,7 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
                     )}
                   </div>
                 </div>
+                
                 <div className="flex items-center space-x-3 mb-2">
                   <h4 className="text-lg font-semibold text-gray-900">{report.title}</h4>
                   <span className="px-2 py-1 text-xs rounded-full border bg-gray-50 text-gray-700 border-gray-200">
@@ -100,11 +119,12 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
                   <span className={`w-3 h-3 rounded-full ${getSeverityBgColor(report.severity_level)}`}></span>
                   <span className="text-xs font-medium text-gray-600">{report.severity_level.toUpperCase()}</span>
                 </div>
+                
                 {report.description && (
                   <p className="text-gray-600 mb-3 whitespace-pre-line">{report.description}</p>
                 )}
                 
-                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
                   {report.created_at && (
                     <span>
                       {new Date(report.created_at).toLocaleDateString()}
@@ -121,7 +141,7 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
                 
                 {/* Images */}
                 {report.images && report.images.length > 0 && (
-                  <div className="mt-4">
+                  <div className="mb-4">
                     <p className="text-sm font-medium text-gray-700 mb-2">
                       Images ({report.images.length})
                     </p>
@@ -146,6 +166,29 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Comments Toggle Button */}
+                <div className="border-t border-gray-100 pt-3 mt-4">
+                  <button
+                    onClick={(e) => toggleComments(report.id, e)}
+                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                  >
+                    <ChatBubbleLeftIcon className="h-4 w-4" />
+                    <span>
+                      {expandedComments.has(report.id) ? 'Hide Comments' : 'View Comments'}
+                    </span>
+                  </button>
+                  
+                  {/* Comments Section */}
+                  {expandedComments.has(report.id) && (
+                    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                      <ReportComments 
+                        reportId={report.id} 
+                        currentUserId={currentUserId}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
               
               {selectedReport?.id === report.id && (

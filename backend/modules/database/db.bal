@@ -178,6 +178,20 @@ _ = check dbClient->execute(`
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `);
+
+// Add this to your initializeDatabase() function
+_ = check dbClient->execute(`
+    CREATE TABLE IF NOT EXISTS report_comments (
+        id SERIAL PRIMARY KEY,
+        report_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        comment_text TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (report_id) REFERENCES hazard_reports(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+`);
     
    // Create indexes for users
 _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
@@ -211,6 +225,11 @@ _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_hazard_reports_locat
 _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_user_id ON resolved_hazard_reports(user_id)`);
 _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_type ON resolved_hazard_reports(hazard_type)`);
 _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_resolved_at ON resolved_hazard_reports(resolved_at)`);
+
+// Add indexes for better performance
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_report_comments_report_id ON report_comments(report_id)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_report_comments_user_id ON report_comments(user_id)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_report_comments_created_at ON report_comments(created_at)`);
     log:printInfo("Database tables and indexes created successfully");
 }
 
@@ -1470,4 +1489,180 @@ public function getResolvedReports() returns record {|
     }
     
     return reports;
+}
+
+public function addReportComment(int reportId, int userId, string commentText) returns record {|
+    int id;
+    int report_id;
+    int user_id;
+    string comment_text;
+    string created_at;
+    string updated_at;
+    string commenter_first_name;
+    string commenter_last_name;
+    string? commenter_profile_image;
+|}|error {
+    
+    sql:ParameterizedQuery insertQuery = `
+        INSERT INTO report_comments (report_id, user_id, comment_text)
+        VALUES (${reportId}, ${userId}, ${commentText})
+        RETURNING id, report_id, user_id, comment_text, created_at, updated_at
+    `;
+    
+    stream<record {|
+        int id;
+        int report_id;
+        int user_id;
+        string comment_text;
+        string created_at;
+        string updated_at;
+    |}, sql:Error?> resultStream = dbClient->query(insertQuery);
+    
+    record {| record {|
+        int id;
+        int report_id;
+        int user_id;
+        string comment_text;
+        string created_at;
+        string updated_at;
+    |} value; |}|sql:Error? streamResult = check resultStream.next();
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    if streamResult is record {| record {|
+        int id;
+        int report_id;
+        int user_id;
+        string comment_text;
+        string created_at;
+        string updated_at;
+    |} value; |} {
+        
+        // Get commenter details
+        sql:ParameterizedQuery userQuery = `
+            SELECT first_name, last_name, profile_image 
+            FROM users WHERE id = ${userId}
+        `;
+        
+        stream<record {| string first_name; string last_name; string? profile_image; |}, sql:Error?> userStream = dbClient->query(userQuery);
+        record {| record {| string first_name; string last_name; string? profile_image; |} value; |}|sql:Error? userRow = userStream.next();
+        error? userClose = userStream.close();
+        if userClose is error { log:printError("Error closing user stream", userClose); }
+        
+        string firstName = "";
+        string lastName = "";
+        string? profileImage = ();
+        
+        if userRow is record {| record {| string first_name; string last_name; string? profile_image; |} value; |} {
+            firstName = userRow.value.first_name;
+            lastName = userRow.value.last_name;
+            profileImage = userRow.value.profile_image;
+        }
+        
+        return {
+            id: streamResult.value.id,
+            report_id: streamResult.value.report_id,
+            user_id: streamResult.value.user_id,
+            comment_text: streamResult.value.comment_text,
+            created_at: streamResult.value.created_at,
+            updated_at: streamResult.value.updated_at,
+            commenter_first_name: firstName,
+            commenter_last_name: lastName,
+            commenter_profile_image: profileImage
+        };
+    } else {
+        return error DatabaseError("Failed to add comment");
+    }
+}
+
+public function getReportComments(int reportId) returns record {|
+    int id;
+    int report_id;
+    int user_id;
+    string comment_text;
+    string created_at;
+    string updated_at;
+    string commenter_first_name;
+    string commenter_last_name;
+    string? commenter_profile_image;
+|}[]|error {
+    
+    sql:ParameterizedQuery selectQuery = `
+        SELECT c.id, c.report_id, c.user_id, c.comment_text, c.created_at, c.updated_at,
+               u.first_name AS commenter_first_name, u.last_name AS commenter_last_name, 
+               u.profile_image AS commenter_profile_image
+        FROM report_comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.report_id = ${reportId}
+        ORDER BY c.created_at ASC
+    `;
+    
+    stream<record {|
+        int id;
+        int report_id;
+        int user_id;
+        string comment_text;
+        string created_at;
+        string updated_at;
+        string commenter_first_name;
+        string commenter_last_name;
+        string? commenter_profile_image;
+    |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    record {|
+        int id;
+        int report_id;
+        int user_id;
+        string comment_text;
+        string created_at;
+        string updated_at;
+        string commenter_first_name;
+        string commenter_last_name;
+        string? commenter_profile_image;
+    |}[] comments = [];
+    
+    error? fromResult = from var row in resultStream
+        do {
+            comments.push({
+                id: row.id,
+                report_id: row.report_id,
+                user_id: row.user_id,
+                comment_text: row.comment_text,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                commenter_first_name: row.commenter_first_name,
+                commenter_last_name: row.commenter_last_name,
+                commenter_profile_image: row.commenter_profile_image
+            });
+        };
+    
+    if fromResult is error {
+        return fromResult;
+    }
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    return comments;
+}
+
+public function deleteComment(int commentId, int userId) returns boolean|error {
+    sql:ParameterizedQuery deleteQuery = `
+        DELETE FROM report_comments 
+        WHERE id = ${commentId} AND user_id = ${userId}
+    `;
+    
+    sql:ExecutionResult result = check dbClient->execute(deleteQuery);
+    
+    if result.affectedRowCount > 0 {
+        log:printInfo("Comment deleted with ID: " + commentId.toString());
+        return true;
+    } else {
+        return error DatabaseError("Comment not found or unauthorized");
+    }
 }

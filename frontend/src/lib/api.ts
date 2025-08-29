@@ -45,6 +45,18 @@ export interface HazardReport {
   reporter_profile_image?: string;
 }
 
+export interface ReportComment {
+  id: number;
+  report_id: number;
+  user_id: number;
+  comment_text: string;
+  created_at: string;
+  updated_at: string;
+  commenter_first_name: string;
+  commenter_last_name: string;
+  commenter_profile_image?: string;
+}
+
 export interface ApiResponse {
   message: string;
   data?: HazardReport;
@@ -70,6 +82,24 @@ export interface HazardReportsListResponse {
     page_size: number;
     has_more: boolean;
   };
+}
+
+export interface CommentsResponse {
+  success: boolean;
+  comments: ReportComment[];
+  total_count: number;
+  report_id: number;
+}
+
+export interface AddCommentResponse {
+  success: boolean;
+  message: string;
+  comment: ReportComment;
+}
+
+export interface DeleteCommentResponse {
+  success: boolean;
+  message: string;
 }
 
 export interface ValidationErrorResponse {
@@ -483,6 +513,84 @@ private getAuthToken(): string | null {
         reports: HazardReport[];
         total_count: number;
       }>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // ============ COMMENT FUNCTIONALITY ============
+
+  // Get comments for a specific report
+  async getReportComments(reportId: number): Promise<CommentsResponse> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/reports/${reportId}/comments`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      return await this.handleResponse<CommentsResponse>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Add a comment to a report
+  async addReportComment(reportId: number, commentText: string): Promise<AddCommentResponse> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      if (!commentText.trim()) {
+        throw new Error('Comment text cannot be empty');
+      }
+
+      if (commentText.length > 500) {
+        throw new Error('Comment text too long (max 500 characters)');
+      }
+
+      const response = await fetch(`${this.baseUrl}/reports/${reportId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ comment_text: commentText.trim() }),
+      });
+      
+      return await this.handleResponse<AddCommentResponse>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Delete a comment (user can only delete their own comments)
+  async deleteComment(commentId: number): Promise<DeleteCommentResponse> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      return await this.handleResponse<DeleteCommentResponse>(response);
     } catch (error) {
       throw error;
     }
