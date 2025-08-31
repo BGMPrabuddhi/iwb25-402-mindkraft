@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { authAPI } from '@/lib/auth'
 import LocationInput from '@/Components/LocationInput'
+import { Snackbar, SnackbarStack } from '@/Components/Snackbar'
 
 type SignupFormData = {
     firstName: string
@@ -41,6 +42,8 @@ export default function SignupPage() {
   const [isVisible, setIsVisible] = useState(false)
   const [locationData, setLocationData] = useState<LocationData | null>(null)
   const [googleMapsScriptLoaded, setGoogleMapsScriptLoaded] = useState(false)
+  const [snackbar, setSnackbar] = useState<{open:boolean; message:string; type:'success'|'error'|'info'|'warning'}>({open:false,message:'',type:'info'})
+  const showSnackbar = (message:string, type:'success'|'error'|'info'|'warning'='info') => setSnackbar({open:true,message,type})
 
   useEffect(() => {
     setIsVisible(true)
@@ -155,9 +158,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       sessionStorage.setItem('user_role', formData.userRole) // Store user role for redirect logic
       
       if (formData.userRole === 'rda') {
-        alert('RDA account created successfully! Please check your email to verify your account before accessing the RDA Dashboard.')
+        showSnackbar('RDA account created successfully! Please verify via email before accessing the Dashboard.', 'success')
       } else {
-        alert('Account created successfully! Please check your email to verify your account.')
+        showSnackbar('Account created successfully! Please verify your email.', 'success')
       }
       
       // Both user types go to email verification first
@@ -558,6 +561,9 @@ const handleSubmit = async (e: React.FormEvent) => {
           .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25); }
         `}</style>
       </div> {/* end min-h-screen */}
+      <SnackbarStack>
+        <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({...prev, open:false}))} />
+      </SnackbarStack>
     </>  
   )
 }

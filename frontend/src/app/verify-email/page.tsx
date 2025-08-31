@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authAPI } from '@/lib/auth';
+import { Snackbar, SnackbarStack } from '@/Components/Snackbar';
 
 export default function VerifyEmail() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function VerifyEmail() {
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [snackbar, setSnackbar] = useState<{open:boolean; message:string; type:'success'|'error'|'info'|'warning'}>({open:false,message:'',type:'info'});
+  const showSnackbar = (message:string, type:'success'|'error'|'info'|'warning'='info') => setSnackbar({open:true,message,type});
 
   useEffect(() => { setIsVisible(true); }, []);
 
@@ -51,11 +54,11 @@ export default function VerifyEmail() {
         sessionStorage.removeItem('user_role');
         if (result.token) localStorage.setItem('auth_token', result.token);
         if (role === 'rda') {
-          alert('Email verified successfully! Redirecting to RDA Dashboard.');
-          router.push('/rda-dashboard');
+          showSnackbar('Email verified successfully! Redirecting to RDA Dashboard.', 'success');
+          setTimeout(() => router.push('/rda-dashboard'), 800);
         } else {
-          alert('Email verified successfully!');
-          router.push('/home');
+          showSnackbar('Email verified successfully!', 'success');
+          setTimeout(() => router.push('/home'), 800);
         }
       } else {
         setErrorMessage(result.message || 'Invalid verification code. Please try again.');
@@ -77,7 +80,7 @@ export default function VerifyEmail() {
         setCountdown(60);
         setCanResend(false);
         setErrorMessage('');
-        alert('Verification code resent!');
+        showSnackbar('Verification code resent!', 'success');
       } else {
         setErrorMessage(result.message || 'Failed to resend verification code');
       }
@@ -255,6 +258,10 @@ export default function VerifyEmail() {
         .animation-delay-4000 { animation-delay: 4s; }
         .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0,0,0,0.25); }
       `}</style>
+
+      <SnackbarStack>
+        <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({...prev, open:false}))} />
+      </SnackbarStack>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
-import Snackbar from '@/Components/Snackbar'
+import { Snackbar, SnackbarStack } from '@/Components/Snackbar'
 
 type ResetPasswordFormData = {
   newPassword: string
@@ -120,19 +120,20 @@ export default function ResetPasswordPage() {
   const passwordStrength = getPasswordStrength(formData.newPassword)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-4 -left-4 w-72 h-72 bg-gradient-to-br from-blue-200 to-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -top-4 -right-4 w-72 h-72 bg-gradient-to-br from-yellow-200 to-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-gradient-to-br from-pink-200 to-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+    <div className="min-h-screen relative overflow-hidden bg-white text-gray-900">
+      {/* Decorative brand blobs for consistency with sign-up/login */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -left-20 w-[28rem] h-[28rem] rounded-full bg-gradient-to-br from-brand-600/35 via-brand-500/25 to-brand-400/20 blur-3xl animate-blob" />
+        <div className="absolute top-1/3 -right-24 w-[30rem] h-[30rem] rounded-full bg-gradient-to-tr from-brand-500/30 via-brand-400/25 to-brand-300/20 blur-3xl animate-blob animation-delay-2000" />
+        <div className="absolute -bottom-40 left-1/4 w-[34rem] h-[34rem] rounded-full bg-gradient-to-br from-brand-400/30 via-brand-500/20 to-brand-600/25 blur-3xl animate-blob animation-delay-4000" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_60%,rgba(10,209,200,0.18),transparent_65%)]" />
       </div>
 
       {/* Back to Login */}
       <div className="absolute top-6 left-6 z-20">
-        <Link 
-          href="/login" 
-          className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-all duration-300 transform hover:scale-105"
+        <Link
+          href="/login"
+          className="flex items-center gap-2 text-brand-200 hover:text-black/30 transition-all duration-300 transform hover:scale-105"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -141,26 +142,22 @@ export default function ResetPasswordPage() {
         </Link>
       </div>
 
-      <div className="relative z-10 flex items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 flex items-center justify-center min-h-screen py-16 px-2 sm:px-6 lg:px-8">
         <div className={`max-w-md w-full space-y-8 transform transition-all duration-1000 ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           {/* Header */}
-          <div className="text-center transform transition-all duration-700 delay-200">
-            <div className="inline-block p-3 bg-gradient-to-r from-green-500 to-blue-600 rounded-full mb-4 animate-pulse-slow">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
-            </div>
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2 animate-gradient">
-              SafeRoute
+          <div className="text-center transition-all duration-700 delay-200">
+            <h1 className="text-4xl font-extrabold leading-tight tracking-tight mb-3">
+              <span className="bg-clip-text text-transparent bg-green-500 animate-gradient bg-[length:200%_200%]">Reset Password</span>
             </h1>
-            <h2 className="text-2xl font-semibold text-gray-700 mb-2 animate-fade-in-up">Reset Password</h2>
-            <p className="text-gray-600 animate-fade-in-up animation-delay-300">Create a new secure password for your account</p>
+            <p className="text-sm font-medium uppercase tracking-wider text-black/45 mb-2 animate-fade-in-up">Secure Your Account</p>
+            <p className="text-black/65 text-sm animate-fade-in-up animation-delay-300">Create a strong new password for continued access.</p>
           </div>
 
-          {/* Reset Password Form */}
-          <div className="bg-white/80 backdrop-blur-lg py-8 px-6 shadow-2xl rounded-2xl border border-white/20 transform transition-all duration-700 delay-400 hover:shadow-3xl hover:scale-105">
+          {/* Reset Password Card */}
+          <div className="relative bg-white/10 backdrop-blur-xl py-8 px-7 shadow-lg rounded-2xl border border-white/20 ring-1 ring-white/10 hover:ring-brand-400/30 transform transition-all duration-700 delay-400 hover:shadow-3xl hover:scale-[1.02]">
+            <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-white/10 via-white/5 to-transparent pointer-events-none" />
             <form className="space-y-6" onSubmit={handleSubmit}>
               
               {/* New Password */}
@@ -177,13 +174,13 @@ export default function ResetPasswordPage() {
                   <input
                     id="newPassword"
                     name="newPassword"
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={formData.newPassword}
                     onChange={handleChange}
                     className={`appearance-none block w-full pl-10 pr-12 py-3 border ${
-                      errors.newPassword ? 'border-red-300 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
+                      errors.newPassword ? 'border-red-400 shake' : 'border-gray-300'
+                    } rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/60 backdrop-blur hover:bg-white/80 focus:bg-white`}
                     placeholder="Enter new password"
                   />
                   <button
@@ -247,14 +244,14 @@ export default function ResetPasswordPage() {
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     required
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     className={`appearance-none block w-full pl-10 pr-12 py-3 border ${
-                      errors.confirmPassword ? 'border-red-300 shake' : 
-                      formData.confirmPassword && formData.newPassword === formData.confirmPassword ? 'border-green-300' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white`}
+                      errors.confirmPassword ? 'border-red-400 shake' :
+                      formData.confirmPassword && formData.newPassword === formData.confirmPassword ? 'border-green-400' : 'border-gray-300'
+                    } rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/60 backdrop-blur hover:bg-white/80 focus:bg-white`}
                     placeholder="Confirm new password"
                   />
                   <button
@@ -305,15 +302,15 @@ export default function ResetPasswordPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-medium text-white transition-all duration-300 transform ${
-                    isLoading 
-                      ? 'bg-blue-400 cursor-not-allowed scale-95' 
-                      : 'bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 active:scale-95'
+                  className={`w-full flex justify-center py-3 px-4 rounded-xl shadow-lg text-sm font-semibold text-brand-900 transition-all duration-300 transform ${
+                    isLoading
+                      ? 'bg-brand-500/60 cursor-not-allowed scale-95'
+                      : 'bg-gradient-to-r from-brand-500 via-brand-400 to-brand-300 hover:from-brand-400 hover:via-brand-300 hover:to-brand-200 hover:scale-[1.03] hover:shadow-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/40 active:scale-95'
                   }`}
                 >
                   {isLoading ? (
                     <div className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-brand-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
@@ -343,71 +340,31 @@ export default function ResetPasswordPage() {
             </div>
           </div>
 
-          {/* Features */}
-          <div className="text-center transform transition-all duration-700 delay-600">
-            <p className="text-sm text-gray-500 mb-4 animate-fade-in-up">Secure password reset</p>
-            <div className="flex justify-center space-x-8 text-sm text-gray-400">
-              <span className="flex items-center space-x-2 hover:text-blue-500 transition-colors duration-300 transform hover:scale-110">
-                <span className="animate-bounce">🔒</span>
-                <span>Encrypted</span>
-              </span>
-              <span className="flex items-center space-x-2 hover:text-purple-500 transition-colors duration-300 transform hover:scale-110">
-                <span className="animate-pulse">🛡️</span>
-                <span>Secure</span>
-              </span>
-              <span className="flex items-center space-x-2 hover:text-green-500 transition-colors duration-300 transform hover:scale-110">
-                <span className="animate-bounce animation-delay-1000">✅</span>
-                <span>Verified</span>
-              </span>
-            </div>
+          {/* Footer / Secondary info */}
+          <div className="text-center">
+            <p className="text-xs text-gray-500">Remember your password? <Link href="/login" className="text-green-700 hover:underline">Sign in</Link></p>
           </div>
         </div>
       </div>
-
-      <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
+      <SnackbarStack>
+        <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
+      </SnackbarStack>
 
       <style jsx>{`
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        @keyframes gradient {
-          0%, 100% { background-size: 200% 200%; background-position: left center; }
-          50% { background-size: 200% 200%; background-position: right center; }
-        }
-        @keyframes fade-in-up {
-          0% { opacity: 0; transform: translateY(20px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fade-in-down {
-          0% { opacity: 0; transform: translateY(-10px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-          20%, 40%, 60%, 80% { transform: translateX(2px); }
-        }
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.8; }
-        }
-        
-        .animate-blob { animation: blob 7s infinite; }
-        .animate-gradient { animation: gradient 3s ease infinite; }
+        @keyframes blob { 0% { transform: translate(0px, 0px) scale(1); } 33% { transform: translate(30px, -50px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.9); } 100% { transform: translate(0px, 0px) scale(1); } }
+        @keyframes gradient { 0%, 100% { background-size: 200% 200%; background-position: left center; } 50% { background-size: 200% 200%; background-position: right center; } }
+        @keyframes fade-in-up { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
+        @keyframes fade-in-down { 0% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 1; transform: translateY(0); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); } 20%, 40%, 60%, 80% { transform: translateX(2px); } }
+        .animate-blob { animation: blob 8s ease-in-out infinite; }
+        .animate-gradient { animation: gradient 6s ease infinite; }
         .animate-fade-in-up { animation: fade-in-up 0.6s ease-out; }
         .animate-fade-in-down { animation: fade-in-down 0.3s ease-out; }
-        .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
         .shake { animation: shake 0.5s ease-in-out; }
-        
-        .animation-delay-300 { animation-delay: 0.3s; }
-        .animation-delay-1000 { animation-delay: 1s; }
         .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-300 { animation-delay: 0.3s; }
         .animation-delay-4000 { animation-delay: 4s; }
-        
-        .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25); }
+        .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0,0,0,0.25); }
       `}</style>
     </div>
   )
