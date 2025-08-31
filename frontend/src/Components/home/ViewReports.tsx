@@ -127,6 +127,8 @@ const ViewReports = () => {
         src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry,routes&v=weekly`}
         onLoad={() => setGoogleMapsScriptLoaded(true)}
         onError={() => setError('Failed to load Google Maps')}
+        async
+        defer
       />
 
       <div className="space-y-6">

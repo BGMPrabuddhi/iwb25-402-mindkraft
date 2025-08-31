@@ -28,6 +28,7 @@ const ReportLikes: React.FC<ReportLikesProps> = ({ reportId, currentUserId }) =>
   const fetchLikeStats = async () => {
     try {
       const response = await reportsAPI.getReportLikeStats(reportId)
+      console.debug('[ReportLikes] getReportLikeStats response:', response)
       if (response.success) {
         setLikeStats({
           total_likes: response.total_likes || 0,
@@ -44,7 +45,9 @@ const ReportLikes: React.FC<ReportLikesProps> = ({ reportId, currentUserId }) =>
   }
 
   const handleLike = async (isLike: boolean) => {
-    if (!currentUserId) {
+    // Allow action if user is authenticated (has token) even when parent didn't pass currentUserId
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+    if (!currentUserId && !token) {
       alert('Please log in to like or unlike reports')
       return
     }
@@ -53,18 +56,57 @@ const ReportLikes: React.FC<ReportLikesProps> = ({ reportId, currentUserId }) =>
 
     setActionLoading(true)
     
+    // Optimistic UI update
+    const prev = likeStats
+    const optimistic: LikeStats = { ...prev }
+
+    if (isLike) {
+      if (prev.user_liked) {
+        optimistic.user_liked = false
+        optimistic.total_likes = Math.max(0, prev.total_likes - 1)
+      } else {
+        optimistic.user_liked = true
+        optimistic.total_likes = prev.total_likes + 1
+        if (prev.user_unliked) {
+          optimistic.user_unliked = false
+          optimistic.total_unlikes = Math.max(0, prev.total_unlikes - 1)
+        }
+      }
+    } else {
+      if (prev.user_unliked) {
+        optimistic.user_unliked = false
+        optimistic.total_unlikes = Math.max(0, prev.total_unlikes - 1)
+      } else {
+        optimistic.user_unliked = true
+        optimistic.total_unlikes = prev.total_unlikes + 1
+        if (prev.user_liked) {
+          optimistic.user_liked = false
+          optimistic.total_likes = Math.max(0, prev.total_likes - 1)
+        }
+      }
+    }
+
+    setLikeStats(optimistic)
+
     try {
-      const response = await reportsAPI.toggleReportLike(reportId, isLike)
-      
+      // Always send Authorization header with token
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+      const response = await reportsAPI.toggleReportLike(reportId, isLike, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
+
       if (response.success && response.data) {
-        setLikeStats({
-          total_likes: response.data.total_likes || 0,
-          total_unlikes: response.data.total_unlikes || 0,
-          user_liked: response.data.user_liked || false,
-          user_unliked: response.data.user_unliked || false
-        })
+        // Always re-fetch stats after a like/unlike to get latest counts
+        await fetchLikeStats()
+      } else {
+        // revert on unexpected response
+        setLikeStats(prev)
+        console.error('Unexpected toggleReportLike response:', response)
+        alert('Failed to update like. Please try again.')
       }
     } catch (error) {
+      // revert optimistic update on error
+      setLikeStats(prev)
       console.error('Failed to toggle like:', error)
       alert('Failed to update like. Please try again.')
     } finally {
@@ -72,9 +114,11 @@ const ReportLikes: React.FC<ReportLikesProps> = ({ reportId, currentUserId }) =>
     }
   }
 
+  // Re-fetch like stats when reportId or currentUserId changes
   useEffect(() => {
     fetchLikeStats()
-  }, [reportId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportId, currentUserId])
 
   if (loading) {
     return (

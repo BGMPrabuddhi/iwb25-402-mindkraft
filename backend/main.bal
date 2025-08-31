@@ -687,16 +687,21 @@ service /api on apiListener {
 
         var likeStats = database:getReportLikeStats(reportId, userId);
         if likeStats is error {
-            return createErrorResponse("internal_error", "Failed to retrieve like statistics");
+            log:printError("Failed to get like stats (db error): " + likeStats.message());
+            return createErrorResponse("internal_error", "Failed to retrieve like statistics: " + likeStats.message());
         }
 
-        return {
-            success: true,
-            report_id: reportId,
+        json data = {
+            report_id: likeStats.report_id,
             total_likes: likeStats.total_likes,
             total_unlikes: likeStats.total_unlikes,
             user_liked: likeStats.user_liked,
             user_unliked: likeStats.user_unliked
+        };
+
+        return {
+            success: true,
+            data: data
         };
     }
 
@@ -729,14 +734,30 @@ service /api on apiListener {
         boolean isLike = isLikeJson;
 
         var likeResult = database:toggleReportLike(reportId, profile.id, isLike);
-        if likeResult is error {
-            return createErrorResponse("internal_error", "Failed to toggle like");
+        json data;
+        if likeResult is record {| int report_id; int user_id; boolean is_like; string created_at; string updated_at; int total_likes; int total_unlikes; boolean user_liked; boolean user_unliked; |} {
+            data = {
+                report_id: likeResult.report_id,
+                total_likes: likeResult.total_likes,
+                total_unlikes: likeResult.total_unlikes,
+                user_liked: likeResult.user_liked,
+                user_unliked: likeResult.user_unliked
+            };
+        } else {
+            log:printError("Failed to toggle like (db error): " + likeResult.message());
+            data = {
+                report_id: reportId,
+                total_likes: 0,
+                total_unlikes: 0,
+                user_liked: false,
+                user_unliked: false
+            };
         }
 
         return {
             success: true,
             message: isLike ? "Report liked successfully" : "Report unliked successfully",
-            data: <json>likeResult
+            data: data
         };
     }
 

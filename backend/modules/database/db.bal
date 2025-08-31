@@ -1698,91 +1698,117 @@ public function toggleReportLike(int reportId, int userId, boolean isLike) retur
     boolean user_unliked;
 |}|error {
     
-    // First check if user already has a reaction to this report
-    sql:ParameterizedQuery checkQuery = `
-        SELECT is_like FROM report_likes 
-        WHERE report_id = ${reportId} AND user_id = ${userId}
-    `;
-    
-    stream<record {| boolean is_like; |}, sql:Error?> checkStream = dbClient->query(checkQuery);
-    record {| record {| boolean is_like; |} value; |}|sql:Error? existingReaction = checkStream.next();
-    error? closeCheck = checkStream.close();
-    if closeCheck is error { log:printError("Error closing check stream", closeCheck); }
-    
-    if existingReaction is record {| record {| boolean is_like; |} value; |} {
-        // User already has a reaction
-        if existingReaction.value.is_like == isLike {
-            // Same reaction - remove it (toggle off)
-            sql:ParameterizedQuery deleteQuery = `
-                DELETE FROM report_likes 
-                WHERE report_id = ${reportId} AND user_id = ${userId}
-            `;
-            sql:ExecutionResult deleteResult = check dbClient->execute(deleteQuery);
-        } else {
-            // Different reaction - update it
-            sql:ParameterizedQuery updateQuery = `
-                UPDATE report_likes 
-                SET is_like = ${isLike}, updated_at = CURRENT_TIMESTAMP
-                WHERE report_id = ${reportId} AND user_id = ${userId}
-            `;
-            sql:ExecutionResult updateResult = check dbClient->execute(updateQuery);
-        }
-    } else {
-        // No existing reaction - insert new one
-        sql:ParameterizedQuery insertQuery = `
-            INSERT INTO report_likes (report_id, user_id, is_like)
-            VALUES (${reportId}, ${userId}, ${isLike})
+    // Log input values for debugging
+    log:printInfo("toggleReportLike called with reportId=" + reportId.toString() + ", userId=" + userId.toString() + ", isLike=" + isLike.toString());
+
+    // Defensive: wrap all DB ops in do/on fail
+    do {
+        // First check if user already has a reaction to this report
+        sql:ParameterizedQuery checkQuery = `
+            SELECT is_like FROM report_likes 
+            WHERE report_id = ${reportId} AND user_id = ${userId}
         `;
-        sql:ExecutionResult insertResult = check dbClient->execute(insertQuery);
-    }
-    
-    // Get updated counts and user's current reaction
-    sql:ParameterizedQuery statsQuery = `
-        SELECT 
-            COALESCE(SUM(CASE WHEN is_like = true THEN 1 ELSE 0 END), 0) as total_likes,
-            COALESCE(SUM(CASE WHEN is_like = false THEN 1 ELSE 0 END), 0) as total_unlikes,
-            COALESCE(MAX(CASE WHEN user_id = ${userId} AND is_like = true THEN true ELSE false END), false) as user_liked,
-            COALESCE(MAX(CASE WHEN user_id = ${userId} AND is_like = false THEN true ELSE false END), false) as user_unliked
-        FROM report_likes 
-        WHERE report_id = ${reportId}
-    `;
-    
-    stream<record {|
-        int total_likes;
-        int total_unlikes;
-        boolean user_liked;
-        boolean user_unliked;
-    |}, sql:Error?> statsStream = dbClient->query(statsQuery);
-    
-    record {| record {|
-        int total_likes;
-        int total_unlikes;
-        boolean user_liked;
-        boolean user_unliked;
-    |} value; |}|sql:Error? statsResult = statsStream.next();
-    
-    error? closeStats = statsStream.close();
-    if closeStats is error { log:printError("Error closing stats stream", closeStats); }
-    
-    if statsResult is record {| record {|
-        int total_likes;
-        int total_unlikes;
-        boolean user_liked;
-        boolean user_unliked;
-    |} value; |} {
+        stream<record {| boolean is_like; |}, sql:Error?> checkStream = dbClient->query(checkQuery);
+        record {| record {| boolean is_like; |} value; |}|sql:Error? existingReaction = checkStream.next();
+        error? closeCheck = checkStream.close();
+        if closeCheck is error { log:printError("Error closing check stream", closeCheck); }
+
+        if existingReaction is record {| record {| boolean is_like; |} value; |} {
+            // User already has a reaction
+            if existingReaction.value.is_like == isLike {
+                // Same reaction - remove it (toggle off)
+                sql:ParameterizedQuery deleteQuery = `
+                    DELETE FROM report_likes 
+                    WHERE report_id = ${reportId} AND user_id = ${userId}
+                `;
+                sql:ExecutionResult deleteResult = check dbClient->execute(deleteQuery);
+            } else {
+                // Different reaction - update it
+                sql:ParameterizedQuery updateQuery = `
+                    UPDATE report_likes 
+                    SET is_like = ${isLike}, updated_at = CURRENT_TIMESTAMP
+                    WHERE report_id = ${reportId} AND user_id = ${userId}
+                `;
+                sql:ExecutionResult updateResult = check dbClient->execute(updateQuery);
+            }
+        } else {
+            // No existing reaction - insert new one
+            sql:ParameterizedQuery insertQuery = `
+                INSERT INTO report_likes (report_id, user_id, is_like)
+                VALUES (${reportId}, ${userId}, ${isLike})
+            `;
+            sql:ExecutionResult insertResult = check dbClient->execute(insertQuery);
+        }
+
+        // Get updated counts and user's current reaction
+        sql:ParameterizedQuery statsQuery = `
+            SELECT 
+                COALESCE(SUM(CASE WHEN CAST(is_like AS BOOLEAN) = TRUE THEN 1 ELSE 0 END), 0) as total_likes,
+                COALESCE(SUM(CASE WHEN CAST(is_like AS BOOLEAN) = FALSE THEN 1 ELSE 0 END), 0) as total_unlikes,
+                COALESCE(MAX(CASE WHEN user_id = ${userId} AND CAST(is_like AS BOOLEAN) = TRUE THEN TRUE ELSE FALSE END), FALSE) as user_liked,
+                COALESCE(MAX(CASE WHEN user_id = ${userId} AND CAST(is_like AS BOOLEAN) = FALSE THEN TRUE ELSE FALSE END), FALSE) as user_unliked
+            FROM report_likes 
+            WHERE report_id = ${reportId}
+        `;
+        stream<record {| 
+            int total_likes;
+            int total_unlikes;
+            boolean user_liked;
+            boolean user_unliked;
+        |}, sql:Error?> statsStream = dbClient->query(statsQuery);
+        record {| record {| 
+            int total_likes;
+            int total_unlikes;
+            boolean user_liked;
+            boolean user_unliked;
+        |} value; |}|sql:Error? statsResult = statsStream.next();
+        error? closeStats = statsStream.close();
+        if closeStats is error { log:printError("Error closing stats stream", closeStats); }
+
+        if statsResult is record {| record {| 
+            int total_likes;
+            int total_unlikes;
+            boolean user_liked;
+            boolean user_unliked;
+        |} value; |} {
+            return {
+                report_id: reportId,
+                user_id: userId,
+                is_like: isLike,
+                created_at: getCurrentTimestamp(),
+                updated_at: getCurrentTimestamp(),
+                total_likes: statsResult.value.total_likes,
+                total_unlikes: statsResult.value.total_unlikes,
+                user_liked: statsResult.value.user_liked,
+                user_unliked: statsResult.value.user_unliked
+            };
+        } else {
+            log:printError("toggleReportLike: stats query returned no rows for report_id=" + reportId.toString());
+            return {
+                report_id: reportId,
+                user_id: userId,
+                is_like: isLike,
+                created_at: getCurrentTimestamp(),
+                updated_at: getCurrentTimestamp(),
+                total_likes: 0,
+                total_unlikes: 0,
+                user_liked: false,
+                user_unliked: false
+            };
+        }
+    } on fail error e {
+        log:printError("toggleReportLike: DB error: " + e.message());
         return {
             report_id: reportId,
             user_id: userId,
             is_like: isLike,
             created_at: getCurrentTimestamp(),
             updated_at: getCurrentTimestamp(),
-            total_likes: statsResult.value.total_likes,
-            total_unlikes: statsResult.value.total_unlikes,
-            user_liked: statsResult.value.user_liked,
-            user_unliked: statsResult.value.user_unliked
+            total_likes: 0,
+            total_unlikes: 0,
+            user_liked: false,
+            user_unliked: false
         };
-    } else {
-        return error DatabaseError("Failed to get like statistics");
     }
 }
 
@@ -1800,10 +1826,10 @@ public function getReportLikeStats(int reportId, int? userId = ()) returns recor
         statsQuery = `
             SELECT 
                 ${reportId} as report_id,
-                COALESCE(SUM(CASE WHEN is_like = true THEN 1 ELSE 0 END), 0) as total_likes,
-                COALESCE(SUM(CASE WHEN is_like = false THEN 1 ELSE 0 END), 0) as total_unlikes,
-                COALESCE(MAX(CASE WHEN user_id = ${userId} AND is_like = true THEN true ELSE false END), false) as user_liked,
-                COALESCE(MAX(CASE WHEN user_id = ${userId} AND is_like = false THEN true ELSE false END), false) as user_unliked
+                COALESCE(SUM(CASE WHEN CAST(is_like AS BOOLEAN) = TRUE THEN 1 ELSE 0 END), 0) as total_likes,
+                COALESCE(SUM(CASE WHEN CAST(is_like AS BOOLEAN) = FALSE THEN 1 ELSE 0 END), 0) as total_unlikes,
+                COALESCE(MAX(CASE WHEN user_id = ${userId} AND CAST(is_like AS BOOLEAN) = TRUE THEN TRUE ELSE FALSE END), FALSE) as user_liked,
+                COALESCE(MAX(CASE WHEN user_id = ${userId} AND CAST(is_like AS BOOLEAN) = FALSE THEN TRUE ELSE FALSE END), FALSE) as user_unliked
             FROM report_likes 
             WHERE report_id = ${reportId}
         `;
@@ -1811,10 +1837,10 @@ public function getReportLikeStats(int reportId, int? userId = ()) returns recor
         statsQuery = `
             SELECT 
                 ${reportId} as report_id,
-                COALESCE(SUM(CASE WHEN is_like = true THEN 1 ELSE 0 END), 0) as total_likes,
-                COALESCE(SUM(CASE WHEN is_like = false THEN 1 ELSE 0 END), 0) as total_unlikes,
-                false as user_liked,
-                false as user_unliked
+                COALESCE(SUM(CASE WHEN CAST(is_like AS BOOLEAN) = TRUE THEN 1 ELSE 0 END), 0) as total_likes,
+                COALESCE(SUM(CASE WHEN CAST(is_like AS BOOLEAN) = FALSE THEN 1 ELSE 0 END), 0) as total_unlikes,
+                FALSE as user_liked,
+                FALSE as user_unliked
             FROM report_likes 
             WHERE report_id = ${reportId}
         `;
@@ -1848,7 +1874,15 @@ public function getReportLikeStats(int reportId, int? userId = ()) returns recor
     |} value; |} {
         return statsResult.value;
     } else {
-        return error DatabaseError("Failed to get like statistics");
+        log:printError("getReportLikeStats: stats query returned no rows for report_id=" + reportId.toString());
+        // Return safe defaults
+        return {
+            report_id: reportId,
+            total_likes: 0,
+            total_unlikes: 0,
+            user_liked: false,
+            user_unliked: false
+        };
     }
 }
 

@@ -636,14 +636,43 @@ async getReportLikeStats(reportId: number): Promise<{
       headers,
     });
     
-    return await this.handleResponse<{
-      success: boolean;
-      report_id: number;
-      total_likes: number;
-      total_unlikes: number;
-      user_liked: boolean;
-      user_unliked: boolean;
-    }>(response);
+    console.debug('[ReportsAPI] GET like URL:', `${this.baseUrl}/reports/${reportId}/like`, 'headers:', headers);
+    console.debug('[ReportsAPI] GET like response status:', response.status, response.statusText);
+    let resultBody: any = null;
+    try {
+      resultBody = await response.clone().json();
+      console.debug('[ReportsAPI] GET like response body:', resultBody);
+    } catch (e) {
+      console.debug('[ReportsAPI] GET like response not JSON or empty');
+    }
+
+    const result = await this.handleResponse<any>(response);
+
+    // Normalize shape: endpoint may return either top-level fields or { data: { ... } }
+    if (result && typeof result === 'object') {
+      if (result.data && typeof result.data === 'object') {
+        return {
+          success: !!result.success,
+          report_id: result.data.report_id,
+          total_likes: result.data.total_likes || 0,
+          total_unlikes: result.data.total_unlikes || 0,
+          user_liked: !!result.data.user_liked,
+          user_unliked: !!result.data.user_unliked
+        };
+      }
+
+      // Already top-level
+      return {
+        success: !!result.success,
+        report_id: result.report_id,
+        total_likes: result.total_likes || 0,
+        total_unlikes: result.total_unlikes || 0,
+        user_liked: !!result.user_liked,
+        user_unliked: !!result.user_unliked
+      };
+    }
+
+    throw new Error('Unexpected response format from getReportLikeStats');
   } catch (error) {
     throw error;
   }
@@ -651,24 +680,35 @@ async getReportLikeStats(reportId: number): Promise<{
 
 // Fix these methods in your ReportsAPI class:
 
-async toggleReportLike(reportId: number, isLike: boolean): Promise<LikeResponse> {
+async toggleReportLike(reportId: number, isLike: boolean, options?: { headers?: Record<string, string> }): Promise<LikeResponse> {
   try {
+    let headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
     const token = this.getAuthToken();
-    if (!token) {
-      throw new Error('Authentication required. Please log in.');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (options && options.headers) {
+      headers = { ...headers, ...options.headers };
     }
 
-    // Change from /reports/${reportId}/likes to /reports/${reportId}/like
     const response = await fetch(`${this.baseUrl}/reports/${reportId}/like`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+      headers,
       body: JSON.stringify({ is_like: isLike }),
     });
-    
+    console.debug('[ReportsAPI] POST like URL:', `${this.baseUrl}/reports/${reportId}/like`, 'body:', { is_like: isLike });
+    console.debug('[ReportsAPI] POST like request headers:', headers);
+    console.debug('[ReportsAPI] POST like response status:', response.status, response.statusText);
+    try {
+      const body = await response.clone().json();
+      console.debug('[ReportsAPI] POST like response body:', body);
+    } catch (e) {
+      console.debug('[ReportsAPI] POST like response not JSON or empty');
+    }
+
     return await this.handleResponse<LikeResponse>(response);
   } catch (error) {
     throw error;

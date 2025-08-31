@@ -1,5 +1,6 @@
 // components/ReportComments.tsx
 import React, { useState, useEffect } from 'react'
+import { UserCircleIcon } from '@heroicons/react/24/solid'
 import { reportsAPI } from '@/lib/api'
 
 interface Comment {
@@ -135,9 +136,7 @@ const ReportComments: React.FC<ReportCommentsProps> = ({ reportId, currentUserId
                       className="h-8 w-8 rounded-full object-cover border border-gray-200"
                     />
                   ) : (
-                    <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-600">
-                      {((comment.commenter_first_name?.charAt(0) || '') + (comment.commenter_last_name?.charAt(0) || '')).toUpperCase() || 'U'}
-                    </div>
+                    <UserCircleIcon className="h-8 w-8 text-gray-300" />
                   )}
                   <div>
                     <p className="font-medium text-gray-900">
