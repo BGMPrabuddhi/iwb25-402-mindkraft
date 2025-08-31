@@ -2,6 +2,7 @@ import ballerinax/postgresql;
 import ballerinax/postgresql.driver as _;
 import ballerina/sql;
 import ballerina/log;
+import saferoute/backend.location;
 
 public type DatabaseError distinct error;
 
@@ -232,11 +233,24 @@ public function insertHazardReport(
         status = "pending"; // These need RDA review
     }
     
+    // Determine district from coordinates or address
+    string? district = ();
+    if latitude is decimal && longitude is decimal {
+        district = location:getDistrictFromCoordinates(latitude, longitude);
+    }
+    
+    // Fallback to extracting from address if coordinates didn't work
+    if district is () && address is string {
+        district = location:extractDistrictFromAddress(address);
+    }
+    
+    log:printInfo("DATABASE: Inserting hazard report with district: " + (district ?: "Unknown"));
+    
     sql:ParameterizedQuery insertQuery = `
         INSERT INTO hazard_reports (
-            user_id, title, description, hazard_type, severity_level, status, images, latitude, longitude, address
+            user_id, title, description, hazard_type, severity_level, status, images, latitude, longitude, address, district
         ) VALUES (
-            ${userId}, ${title}, ${description}, ${hazardType}, ${severityLevel}, ${status}, ${imageNames}, ${latitude}, ${longitude}, ${address}
+            ${userId}, ${title}, ${description}, ${hazardType}, ${severityLevel}, ${status}, ${imageNames}, ${latitude}, ${longitude}, ${address}, ${district}
         ) RETURNING id;
     `;
     
@@ -403,11 +417,12 @@ public function getAllReports() returns record {|
     string status;
     string? updated_at;
     int user_id;
+    string? district;
 |}[]|error {
     
     sql:ParameterizedQuery selectQuery = `
         SELECT id, user_id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status, updated_at
+               latitude, longitude, address, district, created_at, status, updated_at
         FROM hazard_reports
         ORDER BY created_at DESC
     `;
@@ -423,6 +438,7 @@ public function getAllReports() returns record {|
         decimal? latitude;
         decimal? longitude;
         string? address;
+        string? district;
         string created_at;
         string status;
         string? updated_at;
@@ -444,6 +460,7 @@ public function getAllReports() returns record {|
         string status;
         string? updated_at;
         int user_id;
+        string? district;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream
@@ -475,7 +492,8 @@ public function getAllReports() returns record {|
                 location: location,
                 created_at: row.created_at,
                 status: row.status,
-                updated_at: row.updated_at
+                updated_at: row.updated_at,
+                district: row.district
             });
         };
     
@@ -516,11 +534,12 @@ public function getFilteredHazardReports(
     string created_at;
     string status;
     string? updated_at;
+    string? district;
 |}[]|error {
     
     sql:ParameterizedQuery baseQuery = `
         SELECT id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status, updated_at
+               latitude, longitude, address, district, created_at, status, updated_at
         FROM hazard_reports WHERE 1=1
     `;
     
@@ -555,6 +574,7 @@ public function getFilteredHazardReports(
         decimal? latitude;
         decimal? longitude;
         string? address;
+        string? district;
         string created_at;
         string status;
         string? updated_at;
@@ -575,6 +595,7 @@ public function getFilteredHazardReports(
         string created_at;
         string status;
         string? updated_at;
+        string? district;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream
@@ -605,7 +626,8 @@ public function getFilteredHazardReports(
                 location: location,
                 created_at: row.created_at,
                 status: row.status,
-                updated_at: row.updated_at
+                updated_at: row.updated_at,
+                district: row.district
             });
         };
     
@@ -927,11 +949,12 @@ public function getReportsByUserId(int userId) returns record {|
     string status;
     string? updated_at;
     int user_id;
+    string? district;
 |}[]|error {
     
     sql:ParameterizedQuery selectQuery = `
         SELECT id, user_id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at, status, updated_at
+               latitude, longitude, address, district, created_at, status, updated_at
         FROM hazard_reports
         WHERE user_id = ${userId}
         ORDER BY created_at DESC
@@ -948,6 +971,7 @@ public function getReportsByUserId(int userId) returns record {|
         decimal? latitude;
         decimal? longitude;
         string? address;
+        string? district;
         string created_at;
         string status;
         string? updated_at;
@@ -969,6 +993,7 @@ public function getReportsByUserId(int userId) returns record {|
         string status;
         string? updated_at;
         int user_id;
+        string? district;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream
@@ -1000,7 +1025,8 @@ public function getReportsByUserId(int userId) returns record {|
                 location: location,
                 created_at: row.created_at,
                 status: row.status,
-                updated_at: row.updated_at
+                updated_at: row.updated_at,
+                district: row.district
             });
         };
     
@@ -1160,7 +1186,7 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
     
     sql:ParameterizedQuery selectQuery = `
         SELECT user_id, title, description, hazard_type, severity_level, images, 
-               latitude, longitude, address, created_at
+               latitude, longitude, address, district, created_at
         FROM hazard_reports 
         WHERE id = ${reportId}
     `;
@@ -1177,6 +1203,7 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
         decimal? latitude;
         decimal? longitude;
         string? address;
+        string? district;
         string created_at;
     |}, sql:Error?> resultStream = dbClient->query(selectQuery);
     
@@ -1190,6 +1217,7 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
         decimal? latitude;
         decimal? longitude;
         string? address;
+        string? district;
         string created_at;
     |} value; |}|sql:Error? streamResult = check resultStream.next();
     
@@ -1220,6 +1248,7 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
         decimal? latitude;
         decimal? longitude;
         string? address;
+        string? district;
         string created_at;
     |} report = streamResult.value;
     
@@ -1228,11 +1257,11 @@ public function resolveHazardReport(int reportId, int resolvedByUserId) returns 
     sql:ParameterizedQuery insertQuery = `
         INSERT INTO resolved_hazard_reports (
             original_report_id, user_id, title, description, hazard_type, 
-            severity_level, images, latitude, longitude, address, created_at, resolved_by
+            severity_level, images, latitude, longitude, address, district, created_at, resolved_by
         ) VALUES (
             ${reportId}, ${report.user_id}, ${report.title}, ${report.description}, 
             ${report.hazard_type}, ${report.severity_level}, ${report.images}, 
-            ${report.latitude}, ${report.longitude}, ${report.address}, 
+            ${report.latitude}, ${report.longitude}, ${report.address}, ${report.district},
             ${report.created_at}::timestamp, ${resolvedByUserId}
         )
     `;
@@ -1283,11 +1312,12 @@ public function getResolvedReports() returns record {|
     string created_at;
     string resolved_at;
     int original_report_id;
+    string? district;
 |}[]|error {
     
     sql:ParameterizedQuery selectQuery = `
         SELECT id, original_report_id, title, description, hazard_type, severity_level, 
-               images, latitude, longitude, address, created_at, resolved_at
+               images, latitude, longitude, address, district, created_at, resolved_at
         FROM resolved_hazard_reports
         ORDER BY resolved_at DESC
     `;
@@ -1303,6 +1333,7 @@ public function getResolvedReports() returns record {|
         decimal? latitude;
         decimal? longitude;
         string? address;
+        string? district;
         string created_at;
         string resolved_at;
     |}, sql:Error?> resultStream = dbClient->query(selectQuery);
@@ -1322,6 +1353,7 @@ public function getResolvedReports() returns record {|
         string created_at;
         string resolved_at;
         int original_report_id;
+        string? district;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream
@@ -1352,7 +1384,8 @@ public function getResolvedReports() returns record {|
                 images: row.images,
                 location: location,
                 created_at: row.created_at,
-                resolved_at: row.resolved_at
+                resolved_at: row.resolved_at,
+                district: row.district
             });
         };
     

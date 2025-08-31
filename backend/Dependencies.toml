@@ -422,6 +422,7 @@ modules = [
 	{org = "saferoute", packageName = "backend", moduleName = "backend.database"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.email"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.email_verification"},
+	{org = "saferoute", packageName = "backend", moduleName = "backend.location"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.reports"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.types"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.user"}
