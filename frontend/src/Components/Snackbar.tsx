@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useEffect } from 'react';
 
 type SnackbarProps = {
   open: boolean;
@@ -16,10 +16,19 @@ const typeStyles: Record<string, string> = {
 };
 
 export const Snackbar: React.FC<SnackbarProps> = ({ open, message, type = 'info', onClose }) => {
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => {
+      onClose?.();
+    }, 4500);
+    return () => clearTimeout(t);
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
-    <div className={`snackbar ${typeStyles[type] || ''}`}>      
-      <div className="flex items-center gap-3">
+    <div className={`snackbar ${typeStyles[type] || ''} animate-slide-in`}>      
+      <div className="flex items-start gap-3 pr-2">
+        <div className="pt-0.5">
         {type === 'success' && (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -40,9 +49,10 @@ export const Snackbar: React.FC<SnackbarProps> = ({ open, message, type = 'info'
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
         )}
-        <span className="font-medium">{message}</span>
+        </div>
+        <div className="flex-1 text-sm leading-snug">{message}</div>
         {onClose && (
-          <button onClick={onClose} className="ml-4 text-white/80 hover:text-white">
+          <button onClick={onClose} className="text-white/80 hover:text-white">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -52,5 +62,10 @@ export const Snackbar: React.FC<SnackbarProps> = ({ open, message, type = 'info'
     </div>
   );
 };
+
+// Container for stacking (optional: can be placed once at root if migrating usages)
+export const SnackbarStack: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="fixed top-6 right-6 z-[60] flex flex-col gap-3 w-80 max-w-[90vw]">{children}</div>
+);
 
 export default Snackbar;

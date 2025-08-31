@@ -650,14 +650,15 @@ public function getReportDetails(int reportId) returns record {|
     int user_id;
     string hazard_type;
     string title;
+    string status;
 |}|error {
     sql:ParameterizedQuery selectQuery = `
-        SELECT user_id, hazard_type, title FROM hazard_reports WHERE id = ${reportId}
+        SELECT user_id, hazard_type, title, status FROM hazard_reports WHERE id = ${reportId}
     `;
     
-    stream<record {| int user_id; string hazard_type; string title; |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    stream<record {| int user_id; string hazard_type; string title; string status; |}, sql:Error?> resultStream = dbClient->query(selectQuery);
     
-    record {| record {| int user_id; string hazard_type; string title; |} value; |}|sql:Error? streamResult = check resultStream.next();
+    record {| record {| int user_id; string hazard_type; string title; string status; |} value; |}|sql:Error? streamResult = check resultStream.next();
     
     error? closeErr = resultStream.close();
     if closeErr is error {
@@ -675,7 +676,8 @@ public function getReportDetails(int reportId) returns record {|
     return {
         user_id: streamResult.value.user_id,
         hazard_type: streamResult.value.hazard_type,
-        title: streamResult.value.title
+        title: streamResult.value.title,
+        status: streamResult.value.status
     };
 }
 

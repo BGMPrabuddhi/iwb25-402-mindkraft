@@ -3,9 +3,7 @@ import { PhoneIcon, EnvelopeIcon, MapPinIcon, ExclamationTriangleIcon } from '@h
 
 const Footer = () => {
   return (
-    <footer className="mt-auto relative text-gray-800">
-      <div className="absolute inset-0 bg-blue-950  backdrop-blur-xl" aria-hidden="true" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(10,209,200,0.15),transparent_60%)]" aria-hidden="true" />
+    <footer className="mt-auto relative text-gray-800 bg-black/85 border-brand-800 shadow-md">
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           

@@ -18,9 +18,14 @@ interface SubmitForm {
   };
 }
 
+
+// Remove strict re-declaration of window.google (conflicts with existing typings);
+// keep a loose declaration only if not already available.
+
 declare global {
   interface Window {
-    google: typeof google;
+     // Use any to avoid duplicate type conflicts when @types/google.maps is present.
+    google: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   }
 }
 
@@ -362,8 +367,9 @@ const SubmitReport = () => {
       const reportData: HazardReportData = {
         title: submitForm.title.trim(),
         description: submitForm.description.trim() || undefined,
-        hazard_type: submitForm.hazard_type as 'accident' | 'pothole' | 'Natural disaster' | 'construction',
-        severity_level: submitForm.severity_level as 'low' | 'medium' | 'high',
+        // Cast to the API union type (after validating it's non-empty above)
+        hazard_type: submitForm.hazard_type as HazardReportData['hazard_type'],
+        severity_level: submitForm.severity_level as HazardReportData['severity_level'],
         images: submitForm.images,
         location: submitForm.location,
       }

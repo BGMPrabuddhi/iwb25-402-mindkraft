@@ -235,7 +235,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       onChange={handleChange}
                       className={`appearance-none block w-full px-3 py-3 border ${
                       errors.firstName ? 'border-red-400 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-brand-200/60 text-white focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/10 backdrop-blur hover:bg-white/20 focus:bg-white/20`}
+                    } rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur hover:bg-white/70 focus:bg-white`}
                     placeholder="First name"
                   />
                     {errors.firstName && (
@@ -256,7 +256,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       onChange={handleChange}
                       className={`appearance-none block w-full px-3 py-3 border ${
                       errors.lastName ? 'border-red-400 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-brand-200/60 text-white focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/10 backdrop-blur hover:bg-white/20 focus:bg-white/20`}
+                    } rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur hover:bg-white/70 focus:bg-white`}
                     placeholder="Last name"
                   />
                     {errors.lastName && (
@@ -285,7 +285,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       onChange={handleChange}
                       className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
                       errors.email ? 'border-red-400 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/10 backdrop-blur hover:bg-white/20 focus:bg-white/30`}
+                    } rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/60 backdrop-blur hover:bg-white/80 focus:bg-white`}
                     placeholder="Enter your email"
                   />
                   </div>
@@ -311,7 +311,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       name="userRole"
                       value={formData.userRole}
                       onChange={handleChange}
-                      className="appearance-none block w-full pl-10 pr-8 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur-sm hover:bg-white/70 focus:bg-white"
+                      className="appearance-none block w-full pl-10 pr-8 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/70 text-gray-900 hover:bg-white focus:bg-white"
                     >
                       <option value="general">General User</option>
                       <option value="rda">RDA Officer</option>
@@ -363,7 +363,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       onChange={handleChange}
                       className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
                       errors.password ? 'border-red-400 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-500 text-black focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/40 backdrop-blur hover:bg-white/60 focus:bg-white/70`}
+                    } rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/70 backdrop-blur hover:bg-white focus:bg-white`}
                     placeholder="Create a strong password"
                   />
                   </div>
@@ -395,7 +395,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       onChange={handleChange}
                       className={`appearance-none block w-full pl-10 pr-3 py-3 border ${
                       errors.confirmPassword ? 'border-red-400 shake' : 'border-gray-300'
-                    } rounded-xl placeholder-gray-500 text-black focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/40 backdrop-blur hover:bg-white/60 focus:bg-white/70`}
+                    } rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-300 bg-white/70 backdrop-blur hover:bg-white focus:bg-white`}
                     placeholder="Confirm your password"
                   />
                   </div>
@@ -473,54 +473,56 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             </div>
 
-            {/* Full-width Features Row */}
-            <div className="relative z-10 w-full pb-16 px-4 sm:px-8 md:px-12">
-              <div className="max-w-7xl mx-auto">
-                <p className="text-center text-xs font-semibold tracking-wider text-brand-200/60 mb-8 uppercase">
-                  Why Choose SafeRoute
-                </p>
-                <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-8">
-                  {/* Secure */}
-                  <div className="group relative rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-3 sm:p-4 md:p-6 flex items-start gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
-                    <div className="relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br from-brand-600 via-brand-500 to-brand-400 text-white shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform">
-                      <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 22c6.5-2 8-7 8-11V5l-8-3-8 3v6c0 4 1.5 9 8 11z" />
-                      </svg>
-                      <span className="absolute -inset-1 rounded-xl bg-brand-400/0 group-hover:bg-brand-400/15 blur-sm transition" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-[11px] sm:text-sm md:text-base font-semibold text-brand-100 group-hover:text-white transition-colors">Secure</h4>
-                      <p className="text-[9px] sm:text-[10px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Encrypted data & protected accounts.</p>
-                    </div>
-                  </div>
-                  {/* Fast */}
-                  <div className="group relative rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-3 sm:p-4 md:p-6 flex items-start gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
-                    <div className="relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br from-brand-500 via-brand-400 to-brand-300 text-brand-900 shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform">
-                      <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      <span className="absolute -inset-1 rounded-xl bg-brand-300/0 group-hover:bg-brand-300/25 blur-sm transition" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-[11px] sm:text-sm md:text-base font-semibold text-brand-100 group-hover:text-white transition-colors">Fast</h4>
-                      <p className="text-[9px] sm:text-[10px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Quick signup & real-time alerts.</p>
-                    </div>
-                  </div>
-                  {/* User Friendly */}
-                  <div className="group relative rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-3 sm:p-4 md:p-6 flex items-start gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
-                    <div className="relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-lg md:rounded-xl bg-gradient-to-br from-brand-400 via-brand-500 to-brand-300 text-brand-900 shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform">
-                      <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l4 2" />
-                        <circle cx="12" cy="12" r="10" strokeWidth="2" />
-                      </svg>
-                      <span className="absolute -inset-1 rounded-xl bg-brand-400/0 group-hover:bg-brand-400/15 blur-sm transition" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-[11px] sm:text-sm md:text-base font-semibold text-brand-100 group-hover:text-white transition-colors">User Friendly</h4>
-                      <p className="text-[9px] sm:text-[10px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Intuitive & responsive design.</p>
-                    </div>
-                  </div>
+            {/* (features row moved below) */}
+          </div> {/* end max-w-md wrapper */}
+        </div> {/* end centered flex container */}
+
+        {/* Full-width Features Row */}
+        <div className="relative z-10 w-full pb-12 sm:pb-14 md:pb-20 px-2 sm:px-6 lg:px-10 xl:px-16 mt-4">
+          <div className="w-full">
+            <p className="text-center text-[10px] sm:text-xs font-semibold tracking-wider text-brand-200/60 mb-6 sm:mb-8 uppercase">
+              Why Choose SafeRoute
+            </p>
+            <div className="grid grid-cols-3 w-full gap-2 sm:gap-4 md:gap-8">
+              {/* Secure */}
+              <div className="group relative flex-1 rounded-lg sm:rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-2.5 sm:p-4 md:p-6 flex items-start gap-2.5 sm:gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
+                <div className="relative h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center rounded-md sm:rounded-lg md:rounded-xl bg-gradient-to-br from-brand-600 via-brand-500 to-brand-400 text-white shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform text-[11px]">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 22c6.5-2 8-7 8-11V5l-8-3-8 3v6c0 4 1.5 9 8 11z" />
+                  </svg>
+                  <span className="absolute -inset-1 rounded-xl bg-brand-400/0 group-hover:bg-brand-400/15 blur-sm transition" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[10px] sm:text-[11px] md:text-base font-semibold text-brand-100 group-hover:text-black/55 transition-colors leading-snug">Secure</h4>
+                  <p className="text-[8px] sm:text-[9px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Encrypted data & protected accounts.</p>
+                </div>
+              </div>
+              {/* Fast */}
+              <div className="group relative flex-1 rounded-lg sm:rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-2.5 sm:p-4 md:p-6 flex items-start gap-2.5 sm:gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
+                <div className="relative h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center rounded-md sm:rounded-lg md:rounded-xl bg-gradient-to-br from-brand-500 via-brand-400 to-brand-300 text-brand-900 shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform text-[11px]">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="absolute -inset-1 rounded-xl bg-brand-300/0 group-hover:bg-brand-300/25 blur-sm transition" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[10px] sm:text-[11px] md:text-base font-semibold text-brand-100 group-hover:text-black/55transition-colors leading-snug">Fast</h4>
+                  <p className="text-[8px] sm:text-[9px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Quick signup & real-time alerts.</p>
+                </div>
+              </div>
+              {/* User Friendly */}
+              <div className="group relative flex-1 rounded-lg sm:rounded-xl md:rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-2.5 sm:p-4 md:p-6 flex items-start gap-2.5 sm:gap-3 md:gap-4 hover:border-brand-400/40 hover:bg-white/10 transition-all duration-300 h-full">
+                <div className="relative h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center rounded-md sm:rounded-lg md:rounded-xl bg-gradient-to-br from-brand-400 via-brand-500 to-brand-300 text-brand-900 shadow ring-1 ring-white/20 group-hover:scale-105 transition-transform text-[11px]">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l4 2" />
+                    <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                  </svg>
+                  <span className="absolute -inset-1 rounded-xl bg-brand-400/0 group-hover:bg-brand-400/15 blur-sm transition" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[10px] sm:text-[11px] md:text-base font-semibold text-brand-100 group-hover:text-black/55 transition-colors leading-snug">User Friendly</h4>
+                  <p className="text-[8px] sm:text-[9px] md:text-xs leading-snug md:leading-relaxed text-brand-200/65 mt-1">Intuitive & responsive design.</p>
                 </div>
               </div>
             </div>
@@ -575,7 +577,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           
           .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25); }
         `}</style>
-      </div>
-    </>
+      </div> {/* end min-h-screen */}
+    </>  
   )
 }

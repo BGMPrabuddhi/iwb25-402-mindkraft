@@ -97,6 +97,52 @@ const Header = () => {
     const active = pathname === href;
     return `${navLinkBase} ${active ? 'text-brand-400 after:w-6' : 'text-brand-300 hover:text-brand-200'}`
   }
+   const isRDAUser = !!user && (((user as any).userRole === 'rda') || (user as any).email === 'rdasrilanka0@gmail.com')
+
+  if (isRDAUser) {
+    const displayName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'RDA User'
+    return (
+      <header className="sticky top-0 z-50 bg-black/85 border-brand-800 shadow-md">
+        <div className="max-w-8xl mx-auto pl-1 pr-4 sm:pl-4 sm:pr-6 lg:pl-6 lg:pr-8">
+          <div className="flex items-center h-20 w-full gap-4">
+            {/* Logo */}
+            <Link href="/" className="group flex items-center shrink-0">
+              <div className="flex flex-row gap-2 items-center">
+                <div className="relative h-16 w-16 drop-shadow-xl rounded-2xl overflow-hidden ring-2 ring-brand-600 bg-brand-800 p-1.5 transition-all duration-300 group-hover:shadow-2xl group-hover:scale-[1.06] group-hover:ring-brand-400">
+                  <Image
+                    src={logo}
+                    alt="SafeRoute logo"
+                    fill
+                    sizes="80px"
+                    className="object-contain select-none"
+                    priority
+                  />
+                </div>
+              </div>
+            </Link>
+            {/* Dashboard Title */}
+            <h1 className="flex-1 text-center text-white text-base sm:text-lg md:text-4xl font-bold tracking-tight select-none">
+              RDA Operations Dashboard
+            </h1>
+            {/* User Name */}
+            <div className="flex items-center justify-end min-w-[160px] gap-3">
+              <p className="text-sm md:text-base font-semibold text-brand-400 select-none whitespace-nowrap">
+                {displayName}
+              </p>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-red-600 to-red-500 px-3 py-1.5 text-xs md:text-sm font-semibold text-white shadow hover:from-red-500 hover:to-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                aria-label="Sign out"
+              >
+                <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+    )
+  }
 
   return (
   <header className="sticky top-0 z-50   bg-black/85  border-brand-800 shadow-md">
