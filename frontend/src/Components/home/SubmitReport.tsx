@@ -3,6 +3,7 @@ import { PhotoIcon, XMarkIcon, MapPinIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { reportsAPI, type HazardReportData } from '@/lib/api'
 import Script from 'next/script'
+import Snackbar from '@/Components/Snackbar'
 
 interface SubmitForm {
   title: string;
@@ -17,9 +18,14 @@ interface SubmitForm {
   };
 }
 
+
+// Remove strict re-declaration of window.google (conflicts with existing typings);
+// keep a loose declaration only if not already available.
+
 declare global {
   interface Window {
-    google: any;
+     // Use any to avoid duplicate type conflicts when @types/google.maps is present.
+    google: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   }
 }
 
@@ -34,9 +40,9 @@ const SubmitReport = () => {
     images: [],
     location: undefined,
   })
+  const [snackbar, setSnackbar] = useState<{open: boolean; message: string; type: 'success' | 'error' | 'warning' | 'info'}>({ open: false, message: '', type: 'info' })
 
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   
   // Map-related state
@@ -195,7 +201,7 @@ const SubmitReport = () => {
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by this browser.')
+      setSnackbar({ open: true, message: 'Geolocation is not supported by this browser.', type: 'error' })
       return
     }
 
@@ -218,7 +224,7 @@ const SubmitReport = () => {
       },
       (error) => {
         console.error('Error getting location:', error)
-        alert('Unable to retrieve your location. Please set it manually on the map.')
+        setSnackbar({ open: true, message: 'Unable to retrieve your location. Please set it manually on the map.', type: 'error' })
         setIsLoadingLocation(false)
       },
       {
@@ -241,14 +247,8 @@ const SubmitReport = () => {
   }
   
   const confirmLocation = () => setShowMap(false)
-  
-  const removeLocation = () => {
-    setSubmitForm(prev => ({
-      ...prev,
-      location: undefined
-    }))
-  }
 
+  // Handle form submissions
   // Edit and Remove Location functionality
   const handleEditLocation = () => {
     console.log('Edit Location clicked');
@@ -294,7 +294,7 @@ const SubmitReport = () => {
     }
 
     if (errors.length > 0) {
-      alert('Image Upload Errors:\n\n' + errors.join('\n'))
+      setSnackbar({ open: true, message: 'Image Upload Errors: ' + errors.join(' | '), type: 'error' })
     }
 
     if (validFiles.length > 0) {
@@ -340,28 +340,37 @@ const SubmitReport = () => {
     if (submitForm.title.trim().length > 255) {
       errors.push('Title must be 255 characters or less')
     }
+    if (!submitForm.hazard_type || submitForm.hazard_type.trim() === '') {
+      errors.push('Please select a hazard type')
+    }
     if (!submitForm.severity_level || submitForm.severity_level.trim() === '') {
       errors.push('Please select a severity level')
     }
     if (submitForm.description.length > 2000) {
       errors.push('Description must be 2000 characters or less')
     }
+    if (!submitForm.location) {
+      errors.push('Please set a location for the hazard')
+    }
+    if (submitForm.images.length === 0) {
+      errors.push('Please add at least one photo of the hazard')
+    }
     
     if (errors.length > 0) {
-      alert('Validation Errors:\n\n' + errors.join('\n'))
+      setSnackbar({ open: true, message: 'Validation Errors: ' + errors.join(' | '), type: 'error' })
       return
     }
 
     setIsLoading(true)
-    setError(null)
 
     try {
       const reportData: HazardReportData = {
         title: submitForm.title.trim(),
         description: submitForm.description.trim() || undefined,
-        hazard_type: submitForm.hazard_type as 'accident' | 'pothole' | 'Natural disaster' | 'construction',
-        severity_level: submitForm.severity_level as 'low' | 'medium' | 'high',
-        images: submitForm.images.length > 0 ? submitForm.images : undefined,
+        // Cast to the API union type (after validating it's non-empty above)
+        hazard_type: submitForm.hazard_type as HazardReportData['hazard_type'],
+        severity_level: submitForm.severity_level as HazardReportData['severity_level'],
+        images: submitForm.images,
         location: submitForm.location,
       }
 
@@ -373,8 +382,11 @@ const SubmitReport = () => {
       
       console.log('Success response:', response)
       
+      const timestamp = response.timestamp || new Date().toISOString()
+      const formattedDate = new Date(timestamp).toLocaleString()
+
       const locationText = submitForm.location ? `\nLocation: ${submitForm.location.address || `${submitForm.location.lat.toFixed(6)}, ${submitForm.location.lng.toFixed(6)}`}` : ''
-      alert(`SUCCESS!\n\n${response.message}\n\nReport ID: ${response.report_id}\nImages uploaded: ${submitForm.images.length}${locationText}\nTimestamp: ${new Date(response.timestamp || '').toLocaleString()}`)
+      setSnackbar({ open: true, message: response.message || 'Report submitted successfully', type: 'success' })
       
       setSubmitForm({
         title: '',
@@ -388,9 +400,7 @@ const SubmitReport = () => {
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('Submit error:', error)
-      setError(errorMessage)
-      alert(`Failed to submit report!\n\n${errorMessage}`)
+      setSnackbar({ open: true, message: 'Failed to submit report: ' + errorMessage, type: 'error' })
     } finally {
       setIsLoading(false)
     }
@@ -408,7 +418,7 @@ const SubmitReport = () => {
           }}
           onError={() => {
             console.error('Failed to load Google Maps script')
-            alert('Failed to load Google Maps. Please check your API key and internet connection.')
+            setSnackbar({ open: true, message: 'Failed to load Google Maps. Please check your API key and internet connection.', type: 'error' })
           }}
         />
       )}
@@ -463,6 +473,8 @@ const SubmitReport = () => {
             </label>
             <select 
               required
+              aria-label="Hazard Type"
+              title="Select hazard type"
               value={submitForm.hazard_type}
               onChange={(e) => setSubmitForm(prev => ({...prev, hazard_type: e.target.value}))}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -482,6 +494,8 @@ const SubmitReport = () => {
             </label>
             <select 
               required
+              aria-label="Severity Level"
+              title="Select severity level"
               value={submitForm.severity_level}
               onChange={(e) => setSubmitForm(prev => ({...prev, severity_level: e.target.value}))}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -587,6 +601,8 @@ const SubmitReport = () => {
                         />
                         <button
                           type="button"
+                          title="Remove image"
+                          aria-label={`Remove image ${index + 1}`}
                           onClick={() => removeImage(index)}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
                           disabled={isLoading}
@@ -607,12 +623,15 @@ const SubmitReport = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full py-3 px-6 rounded-lg font-medium transition-colors focus:ring-4 focus:ring-blue-200 ${
-              isLoading 
-                ? 'bg-gray-400 cursor-not-allowed text-gray-600' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            className={`relative w-full py-3.5 px-6 rounded-xl font-semibold tracking-wide transition-all focus:outline-none focus:ring-4 focus:ring-brand-400/40 disabled:cursor-not-allowed disabled:opacity-60 shadow-md shadow-black/20 ring-1 ring-white/20 overflow-hidden ${
+              isLoading
+                ? 'bg-gradient-to-r from-brand-300 via-blue-300 to-brand-200 text-brand-800'
+                : 'bg-gradient-to-r from-brand-600 via-blue-600 to-brand-400 hover:from-brand-500 hover:via-blue-500 hover:to-brand-300 text-white'
             }`}
           >
+            {!isLoading && (
+              <span className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_65%)]" aria-hidden="true" />
+            )}
             {isLoading ? (
               <span className="flex items-center justify-center">
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -636,6 +655,9 @@ const SubmitReport = () => {
               <div className="flex items-center justify-between p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">Set Hazard Location</h3>
                 <button
+                  type="button"
+                  title="Close map"
+                  aria-label="Close location selector"
                   onClick={closeMapModal}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
@@ -745,6 +767,7 @@ const SubmitReport = () => {
            </div>
          </div>
        )}
+       <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
      </div>
    </>
  )

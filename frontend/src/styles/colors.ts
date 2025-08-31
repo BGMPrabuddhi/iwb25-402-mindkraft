@@ -2,6 +2,15 @@
 // Use these colors in Tailwind config or inline styles
 
 const colors = {
+  brand: {
+    900: '#213A57',
+    800: '#0B6477',
+    600: '#14919B',
+    500: '#0AD1C8', // DEFAULT
+    400: '#45DFB1',
+    300: '#80ED99',
+    DEFAULT: '#0AD1C8',
+  },
   primary: {
     DEFAULT: "#2563EB", // Blue-600
     light: "#3B82F6",   // Blue-500

@@ -61,6 +61,20 @@ dependencies = [
 
 [[package]]
 org = "ballerina"
+name = "email"
+version = "2.12.0"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "mime"},
+	{org = "ballerina", name = "task"}
+]
+modules = [
+	{org = "ballerina", packageName = "email", moduleName = "email"}
+]
+
+[[package]]
+org = "ballerina"
 name = "file"
 version = "1.12.0"
 dependencies = [
@@ -76,7 +90,7 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "http"
-version = "2.14.3"
+version = "2.14.4"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "cache"},
@@ -275,6 +289,18 @@ dependencies = [
 
 [[package]]
 org = "ballerina"
+name = "random"
+version = "1.6.0"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "time"}
+]
+modules = [
+	{org = "ballerina", packageName = "random", moduleName = "random"}
+]
+
+[[package]]
+org = "ballerina"
 name = "sql"
 version = "1.16.0"
 dependencies = [
@@ -295,6 +321,9 @@ dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "time"},
 	{org = "ballerina", name = "uuid"}
+]
+modules = [
+	{org = "ballerina", packageName = "task", moduleName = "task"}
 ]
 
 [[package]]
@@ -371,13 +400,16 @@ name = "backend"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "crypto"},
+	{org = "ballerina", name = "email"},
 	{org = "ballerina", name = "file"},
 	{org = "ballerina", name = "http"},
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jwt"},
 	{org = "ballerina", name = "log"},
 	{org = "ballerina", name = "mime"},
+	{org = "ballerina", name = "random"},
 	{org = "ballerina", name = "sql"},
+	{org = "ballerina", name = "task"},
 	{org = "ballerina", name = "time"},
 	{org = "ballerina", name = "uuid"},
 	{org = "ballerinai", name = "observe"},
@@ -388,6 +420,9 @@ modules = [
 	{org = "saferoute", packageName = "backend", moduleName = "backend"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.auth"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.database"},
+	{org = "saferoute", packageName = "backend", moduleName = "backend.email"},
+	{org = "saferoute", packageName = "backend", moduleName = "backend.email_verification"},
+	{org = "saferoute", packageName = "backend", moduleName = "backend.location"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.reports"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.types"},
 	{org = "saferoute", packageName = "backend", moduleName = "backend.user"}

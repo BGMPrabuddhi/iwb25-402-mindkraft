@@ -1,10 +1,7 @@
 public type LocationDetails record {
     decimal latitude;
     decimal longitude;
-    string city;
-    string state;
-    string country;
-    string fullAddress;
+    string address;
 };
 
 public type RegisterRequest record {
@@ -14,6 +11,7 @@ public type RegisterRequest record {
     string password;
     string location;
     LocationDetails locationDetails;
+    string userRole;
 };
 
 public type LoginRequest record {
@@ -33,8 +31,8 @@ public type UserProfile record {
     string firstName;
     string lastName;
     string email;
-    string location;
     LocationDetails locationDetails;
+    string userRole;
     string? profileImage?;
     string createdAt?;
 };
@@ -42,7 +40,7 @@ public type UserProfile record {
 public type UpdateProfileRequest record {
     string firstName;
     string lastName;
-    string location;
+    LocationDetails locationDetails;
     string? profileImage?; // Base64 encoded image - optional
 };
 
@@ -50,5 +48,63 @@ public type UpdateProfileResponse record {
     boolean success;
     string message;
     UserProfile? user?;
+    string? errorCode?;
+};
+
+// Password Recovery Types
+public type ForgotPasswordRequest record {
+    string email;
+};
+
+public type ForgotPasswordResponse record {
+    boolean success;
+    string message;
+    string? errorCode?;
+};
+
+public type VerifyOtpRequest record {
+    string email;
+    string otp;
+};
+
+public type VerifyOtpResponse record {
+    boolean success;
+    string message;
+    string? resetToken?;
+    string? errorCode?;
+};
+
+public type ResetPasswordRequest record {
+    string resetToken;
+    string newPassword;
+    string confirmPassword;
+};
+
+public type ResetPasswordResponse record {
+    boolean success;
+    string message;
+    string? errorCode?;
+};
+
+// Email Verification Types
+public type SendVerificationRequest record {
+    string email;
+};
+
+public type SendVerificationResponse record {
+    boolean success;
+    string message;
+    string? errorCode?;
+};
+
+public type VerifyEmailOtpRequest record {
+    string email;
+    string otp;
+};
+
+public type VerifyEmailOtpResponse record {
+    boolean success;
+    string message;
+    string? token?;
     string? errorCode?;
 };

@@ -2,6 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/* SafeRoute Brand Colors */
+:root {
+  /* Primary Colors */
+  --color-primary: #072110;          /* Dark green - main brand color */
+  --color-primary-light: #0a2e16;    /* Lighter shade of primary */
+  --color-primary-dark: #051a0c;     /* Darker shade of primary */
+  
+  /* Secondary Primary */
+  --color-secondary-primary: #64B334; /* Bright green - accent color */
+  --color-secondary-primary-light: #73c642; /* Lighter shade */
+  --color-secondary-primary-dark: #5aa52e; /* Darker shade */
+  
+  /* Secondary Colors */
+  --color-secondary: #246F75;        /* Teal - secondary brand color */
+  --color-secondary-light: #2a7d84;  /* Lighter shade */
+  --color-secondary-dark: #1f5f64;   /* Darker shade */
+  
+  /* Second Secondary */
+  --color-second-secondary: #1F6FA4; /* Blue - additional accent */
+  --color-second-secondary-light: #2980b9; /* Lighter shade */
+  --color-second-secondary-dark: #1a5d8a; /* Darker shade */
+  
+  /* Neutral Colors */
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  
+  /* Status Colors */
+  --color-success: var(--color-secondary-primary);
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: var(--color-second-secondary);
+
+  /* New Brand Palette */
+  --brand-900: #213A57; /* Deep navy teal */
+  --brand-800: #0B6477; /* Dark teal */
+
+  --brand-500: #0AD1C8; /* Bright aqua (primary midpoint) */
+  --brand-400: #45DFB1; /* Mint green */
+
+  --brand-600:#80E961;
+  --brand-300:#009665;
+}
+
 /* Custom styles for SafeRoute */
 @layer base {
   html {
@@ -12,35 +65,187 @@
     @apply antialiased;
   }
 
-  * {
-    @apply border-gray-200;
-  }
+  
 }
 
 @layer components {
+  
+  /* Primary Buttons */
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors focus:ring-4 focus:ring-blue-200;
+    @apply bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-green-200 shadow-md hover:shadow-lg;
   }
   
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors;
-  }
-  
-  .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+    @apply bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-teal-200 shadow-md hover:shadow-lg;
   }
 
+  .btn-outline {
+    @apply border-2 border-green-500 text-green-600 hover:bg-green-500 hover:text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-green-200;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-red-200 shadow-md hover:shadow-lg;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-shadow;
+  }
+
+  .card-header {
+    @apply bg-gradient-to-r from-slate-800 to-teal-600 text-white p-4 rounded-t-xl;
+  }
+
+  /* Text Colors */
+  .text-primary {
+    @apply text-slate-800;
+  }
+
+  .text-secondary-primary {
+    @apply text-green-600;
+  }
+
+  .text-secondary {
+    @apply text-teal-600;
+  }
+
+  .text-second-secondary {
+    @apply text-blue-600;
+  }
+
+  /* Background Colors */
+  .bg-primary {
+    @apply bg-slate-800;
+  }
+
+  .bg-secondary-primary {
+    @apply bg-green-500;
+  }
+
+  .bg-secondary {
+    @apply bg-teal-600;
+  }
+
+  .bg-second-secondary {
+    @apply bg-blue-600;
+  }
+
+  /* Alert/Status Components */
   .alert-high {
-    @apply bg-red-50 border-red-200 text-red-800;
+    @apply bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg;
   }
 
   .alert-medium {
-    @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+    @apply bg-orange-50 border border-orange-200 text-orange-800 p-4 rounded-lg;
   }
 
   .alert-low {
-    @apply bg-blue-50 border-blue-200 text-blue-800;
+    @apply bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg;
   }
+
+  .alert-success {
+    @apply bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg;
+  }
+
+  .alert-info {
+    @apply bg-teal-50 border border-teal-200 text-teal-800 p-4 rounded-lg;
+  }
+
+  /* Status Badges */
+  .badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply bg-orange-100 text-orange-700;
+  }
+
+  .badge-error {
+    @apply bg-red-100 text-red-700;
+  }
+
+  .badge-info {
+    @apply bg-teal-100 text-teal-800;
+  }
+
+  .badge-neutral {
+    @apply bg-gray-100 text-gray-700;
+  }
+
+  /* Form Elements */
+  .input-field {
+    @apply w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-200 focus:border-transparent transition-colors;
+  }
+
+  .select-field {
+    @apply w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-200 focus:border-transparent transition-colors bg-white;
+  }
+
+  .textarea-field {
+    @apply w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-200 focus:border-transparent resize-none transition-colors;
+  }
+
+  /* Layout Components */
+  .page-header {
+    @apply bg-gradient-to-r from-slate-800 to-teal-600 text-white p-6 rounded-xl mb-6;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold text-slate-800 mb-4;
+  }
+
+  .gradient-bg {
+    @apply bg-gradient-to-br from-gray-50 to-gray-100;
+  }
+
+  /* Loading States */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-b-2 border-green-500;
+  }
+
+  /* Modals */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4;
+  }
+
+  .modal-container {
+    @apply bg-white rounded-xl shadow-2xl overflow-hidden;
+  }
+
+  .modal-header {
+    @apply bg-gradient-to-r from-slate-800 to-teal-600 p-6 rounded-t-xl;
+  }
+
+  .modal-header-danger {
+    @apply bg-gradient-to-r from-red-500 to-red-600 p-6 rounded-t-xl;
+  }
+
+  /* Form Elements */
+  .form-label {
+    @apply block text-sm font-medium text-slate-800 mb-2;
+  }
+
+  .form-input {
+    @apply w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-200 focus:border-transparent transition-colors;
+  }
+
+  /* Snackbars */
+  .snackbar {
+    @apply fixed top-6 right-6 px-6 py-4 rounded-lg text-white z-50 shadow-lg transform transition-all duration-300;
+  }
+
+  .snackbar-success {
+    @apply bg-green-500;
+  }
+
+  .snackbar-error {
+    @apply bg-red-500;
+  }
+  .animate-slide-in { animation: slide-in .4s cubic-bezier(.4,0,.2,1); }
 }
 
 /* Loading animations */
@@ -51,6 +256,11 @@
   50% {
     opacity: 0.5;
   }
+}
+
+@keyframes slide-in {
+  0% { transform: translateY(-8px) translateX(20px); opacity:0; }
+  100% { transform: translateY(0) translateX(0); opacity:1; }
 }
 
 .animate-pulse-slow {
@@ -72,4 +282,41 @@
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-500;
+}
+
+/* Google Maps Autocomplete Styling */
+.pac-container {
+  z-index: 9999 !important;
+  background-color: white !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  margin-top: 4px !important;
+}
+
+.pac-item {
+  padding: 12px 16px !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background-color: #f3f4f6 !important;
+}
+
+.pac-item:last-child {
+  border-bottom: none !important;
+}
+
+.pac-item-query {
+  font-weight: 600 !important;
+  color: #374151 !important;
+}
+
+.pac-matched {
+  font-weight: 700 !important;
+  color: #059669 !important;
 }

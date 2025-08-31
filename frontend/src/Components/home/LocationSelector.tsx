@@ -7,6 +7,7 @@ interface LocationSelectorProps {
   viewFilters: ViewFilters
   setViewFilters: React.Dispatch<React.SetStateAction<ViewFilters>>
   googleMapsScriptLoaded?: boolean // Add this prop
+  onNotify?: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void
 }
 
 declare const google: any
@@ -14,7 +15,8 @@ declare const google: any
 const LocationSelector: React.FC<LocationSelectorProps> = ({ 
   viewFilters, 
   setViewFilters,
-  googleMapsScriptLoaded = false 
+  googleMapsScriptLoaded = false,
+  onNotify
 }) => {
   const fromInputRef = useRef<HTMLInputElement>(null)
   const toInputRef = useRef<HTMLInputElement>(null)
@@ -62,7 +64,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         autocompleteToRef.current = new google.maps.places.Autocomplete(toInputRef.current, {
           types: ['geocode'],
           componentRestrictions: { country: 'LK' },
-          fields: ['place_id', 'formatted_address', 'geometry']
+          fields: ['place_id', 'formatted_address', 'geometry'
+          ]
         })
 
         autocompleteToRef.current.addListener('place_changed', () => {
@@ -88,7 +91,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const getCurrentLocation = (locationType: 'from' | 'to') => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by this browser.')
+      onNotify && onNotify('Geolocation is not supported by this browser.', 'error')
       return
     }
 
@@ -141,7 +144,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       },
       (error) => {
         console.error('Error getting location:', error)
-        alert('Could not get your current location. Please ensure location services are enabled.')
+        onNotify && onNotify('Could not get your current location. Please ensure location services are enabled.', 'error')
       },
       {
         enableHighAccuracy: true,

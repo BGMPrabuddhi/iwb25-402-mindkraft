@@ -1,3 +1,4 @@
+//app/api/user/profile/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
 // Types for the update profile request

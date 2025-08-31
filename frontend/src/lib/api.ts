@@ -3,8 +3,8 @@
 export interface HazardReportData {
   title: string;
   description?: string;
-  hazard_type: 'accident' | 'pothole' | 'Natural disaster' | 'construction';
-  severity_level: 'low' | 'medium' | 'high';
+  hazard_type: 'accident' | 'pothole' | 'construction' | 'flooding' | 'debris' | 'traffic_jam' | 'road_closure' | 'other';
+  severity_level: 'low' | 'medium' | 'high' | 'critical';
   images?: File[];
   location?: {
     lat: number;
@@ -25,9 +25,9 @@ export interface HazardReport {
   id: number;
   title: string;
   description?: string;
-  hazard_type: 'accident' | 'pothole' | 'Natural disaster' | 'construction';
-  severity_level: 'low' | 'medium' | 'high';
-  status: 'active' | 'resolved' | 'in_progress';
+  hazard_type: 'accident' | 'pothole' | 'construction' | 'flooding' | 'debris' | 'traffic_jam' | 'road_closure' | 'other';
+  severity_level: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'resolved' | 'pending' | 'archived';
   created_at: string;
   updated_at: string;
   images?: string[];
@@ -37,6 +37,8 @@ export interface HazardReport {
     lng: number;
     address?: string;
   };
+  user_id?: number;
+  distance_km?: number;
 }
 
 export interface ApiResponse {
@@ -90,6 +92,21 @@ class ReportsAPI {
     this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
   }
 
+private getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  
+  // Only check 'auth_token' to match your auth system
+  const token = localStorage.getItem('auth_token');
+  
+  if (!token) {
+    console.warn('No auth token found in localStorage');
+    return null;
+  }
+  
+  console.log('Token found, length:', token.length);
+  return token;
+}
+
   private async handleResponse<T>(response: Response): Promise<T> {
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
@@ -100,6 +117,12 @@ class ReportsAPI {
       if (response.status === 400) {
         const validationError = data as ValidationErrorResponse;
         throw new Error(`Validation failed: ${validationError.errors.join(', ')}`);
+      }
+      if (response.status === 401) {
+        throw new Error(data.message || 'Authentication required. Please log in.');
+      }
+      if (response.status === 403) {
+        throw new Error(data.message || 'Access denied.');
       }
       if (response.status === 404) {
         throw new Error(data.message || 'Resource not found');
@@ -115,6 +138,11 @@ class ReportsAPI {
   // Submit a new hazard report (with optional images and location)
   async submitReport(reportData: HazardReportData): Promise<ApiResponse> {
     try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
       // If no images, use JSON
       if (!reportData.images || reportData.images.length === 0) {
         const response = await fetch(`${this.baseUrl}/reports`, {
@@ -122,6 +150,7 @@ class ReportsAPI {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify(reportData),
         });
@@ -151,11 +180,14 @@ class ReportsAPI {
 
       const response = await fetch(`${this.baseUrl}/reports`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData, // No Content-Type header - browser will set it with boundary
       });
 
       return await this.handleResponse<ApiResponse>(response);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error('Network error: Unable to connect to the server. Please check if the backend is running.');
       }
@@ -224,11 +256,17 @@ class ReportsAPI {
     timestamp: string;
   }> {
     try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
       const response = await fetch(`${this.baseUrl}/reports/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(updateData),
       });
@@ -244,11 +282,214 @@ class ReportsAPI {
 
   async deleteReport(id: number): Promise<{ message: string; timestamp: string }> {
     try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
       const response = await fetch(`${this.baseUrl}/reports/${id}`, {
         method: 'DELETE',
-        headers: { 'Accept': 'application/json' },
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
-      return await this.handleResponse<{ message: string; timestamp: string }>(response);
+      // Many backends return 204 No Content for delete. Handle gracefully.
+      if (response.status === 204) {
+        return { message: 'Report deleted successfully', timestamp: new Date().toISOString() };
+      }
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        return await this.handleResponse<{ message: string; timestamp: string }>(response);
+      }
+      if (response.ok) {
+        return { message: 'Report deleted successfully', timestamp: new Date().toISOString() };
+      }
+      throw new Error(`Delete failed: ${response.status} ${response.statusText}`);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get user's own reports
+  async getUserReports(): Promise<HazardReportsListResponse> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/reports/user`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return await this.handleResponse<HazardReportsListResponse>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get nearby reports based on user's location
+  async getNearbyReports(radiusKm: number = 20): Promise<{
+    success: boolean;
+    reports: HazardReport[];
+    total_count: number;
+    user_location: {
+      latitude: number;
+      longitude: number;
+      city: string;
+    };
+    radius_km: number;
+  }> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const params = new URLSearchParams();
+      params.append('radius', radiusKm.toString());
+
+      const response = await fetch(`${this.baseUrl}/reports/nearby?${params}`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return await this.handleResponse<{
+        success: boolean;
+        reports: HazardReport[];
+        total_count: number;
+        user_location: {
+          latitude: number;
+          longitude: number;
+          city: string;
+        };
+        radius_km: number;
+      }>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get current traffic alerts within 25km and 24 hours
+  async getCurrentTrafficAlerts(): Promise<{
+    success: boolean;
+    alerts: HazardReport[];
+    total_count: number;
+    user_location: {
+      latitude: number;
+      longitude: number;
+      address: string;
+    };
+    criteria: {
+      radius_km: number;
+      time_window_hours: number;
+    };
+    message: string;
+  }> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      console.log('Making request to traffic alerts endpoint...');
+      
+      const response = await fetch(`${this.baseUrl}/reports/traffic-alerts`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('Traffic alerts response status:', response.status);
+      
+      const result = await this.handleResponse<{
+        success: boolean;
+        alerts: HazardReport[];
+        total_count: number;
+        user_location: {
+          latitude: number;
+          longitude: number;
+          address: string;
+        };
+        criteria: {
+          radius_km: number;
+          time_window_hours: number;
+        };
+        message: string;
+      }>(response);
+
+      console.log('Traffic alerts result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error in getCurrentTrafficAlerts:', error);
+      throw error;
+    }
+  }
+
+  // Resolve a report (RDA only)
+  async resolveReport(id: number): Promise<{ 
+    success: boolean; 
+    message: string; 
+    timestamp: string 
+  }> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/reports/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: 'resolved' }),
+      });
+      
+      return await this.handleResponse<{ 
+        success: boolean; 
+        message: string; 
+        timestamp: string 
+      }>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get resolved reports
+  async getResolvedReports(): Promise<{
+    success: boolean;
+    reports: HazardReport[];
+    total_count: number;
+  }> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/resolved-reports`, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return await this.handleResponse<{
+        success: boolean;
+        reports: HazardReport[];
+        total_count: number;
+      }>(response);
     } catch (error) {
       throw error;
     }

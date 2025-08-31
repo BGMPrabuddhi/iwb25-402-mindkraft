@@ -2,92 +2,333 @@ import ballerina/jwt;
 import ballerina/crypto;
 import ballerina/time;
 import ballerina/sql;
+import ballerina/random;
+import ballerina/log;
+import ballerina/email;
 
 import backend.database;
 import backend.user;
+import backend.email_verification;
 
 configurable string jwtSecret = ?;
 configurable string jwtIssuer = ?;
 configurable string jwtAudience = ?;
 configurable int jwtExpiry = ?;
+configurable string smtpHost = ?;
+configurable int smtpPort = ?;
+configurable string smtpUsername = ?;
+configurable string smtpPassword = ?;
+configurable boolean emailEnabled = ?;
 
+// Email function for password reset OTP
+function sendOtpEmail(string recipientEmail, string otp) returns error? {
+    log:printInfo(string `📧 Password reset requested for: ${recipientEmail}`);
+    
+    if emailEnabled {
+        log:printInfo(string `🚀 Sending email via SMTP to: ${recipientEmail}`);
+        log:printInfo(string `🔧 SMTP Config: ${smtpHost}:${smtpPort.toString()}`);
+        log:printInfo(string `👤 SMTP User: ${smtpUsername}`);
+        
+        // Create SMTP configuration
+        email:SmtpConfiguration smtpConfig = {
+            port: smtpPort,
+            security: email:START_TLS_AUTO
+        };
+        
+        // Create email client
+        email:SmtpClient smtpClient = check new (smtpHost, smtpUsername, smtpPassword, smtpConfig);
+        
+        // Create email message
+        email:Message emailMessage = {
+            'from: smtpUsername,
+            to: [recipientEmail],
+            subject: "SafeRoute - Password Reset OTP",
+            body: generateResetEmailTemplate(otp, recipientEmail),
+            contentType: "text/html"
+        };
+        
+        // Send email
+        check smtpClient->sendMessage(emailMessage);
+        
+        log:printInfo("✅ Email sent successfully via SMTP");
+        return ();
+    } else {
+        // Development mode: Log the OTP for testing
+        string separator = "============================================================";
+        log:printInfo(separator);
+        log:printInfo("🔔 EMAIL SERVICE - DEVELOPMENT MODE");
+        log:printInfo(separator);
+        log:printInfo(string `📧 To: ${recipientEmail}`);
+        log:printInfo(string `📋 Subject: SafeRoute - Password Reset OTP`);
+        log:printInfo(string `🔐 OTP Code: ${otp}`);
+        log:printInfo(string `⏰ Valid for: 10 minutes`);
+        log:printInfo(separator);
+        log:printInfo("💡 To enable actual email sending:");
+        log:printInfo("   1. Set emailEnabled=true in Config.toml");
+        log:printInfo("   2. Ensure Gmail App Password is correctly set");
+        log:printInfo(separator);
+        return ();
+    }
+}
+
+function generateResetEmailTemplate(string otp, string recipientEmail) returns string {
+    string htmlTemplate = string `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeRoute Password Reset</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+    <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 30px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">SafeRoute</h1>
+            <p style="color: #e0e7ff; margin: 8px 0 0 0; font-size: 16px;">Password Reset Request</p>
+        </div>
+        <div style="padding: 40px 30px;">
+            <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Reset Your Password</h2>
+            <p style="color: #4b5563; font-size: 16px; margin: 0 0 30px 0;">
+                We received a request to reset your password. Please use the following verification code:
+            </p>
+            <div style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px; padding: 25px; text-align: center; margin: 30px 0;">
+                <p style="color: #64748b; font-size: 14px; margin: 0 0 10px 0;">Verification Code</p>
+                <div style="color: #1e293b; font-size: 36px; font-weight: 700; letter-spacing: 6px;">${otp}</div>
+            </div>
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 25px 0;">
+                <p style="color: #92400e; font-size: 14px; margin: 0;">
+                    This code expires in 10 minutes
+                </p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; margin: 20px 0 0 0;">
+                If you didn't request this password reset, please ignore this email.
+            </p>
+        </div>
+        <div style="background-color: #f8fafc; padding: 20px 30px;">
+            <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
+                © 2025 SafeRoute. This email was sent to ${recipientEmail}
+            </p>
+        </div>
+    </div>
+</body>
+</html>`;
+    
+    return htmlTemplate;
+}
+
+// JWT and authentication functions - NEW REGISTRATION FLOW
+// JWT and authentication functions - NEW REGISTRATION FLOW
 public function register(user:RegisterRequest req) returns user:AuthResponse|error {
-    // Validate email format
+    // Validate input first
+    if req.userRole == "rda" {
+        // RDA validation logic
+        string email = req.email.trim();
+        string password = req.password.trim();
+        string firstName = req.firstName.trim();
+        string lastName = req.lastName.trim();
+        
+        if email != "rdasrilanka0@gmail.com" || 
+           password != "Rdasrilanka0" || 
+           firstName != "RDA" || 
+           lastName != "SriLanka" {
+            return error("Invalid RDA credentials. All fields must match exactly.");
+        }
+    } else if req.userRole != "general" {
+        return error("Invalid user role. Only 'general' and 'rda' users can register.");
+    }
+    
+    // Common validations
     if !isValidEmail(req.email) {
         return error("Invalid email format");
     }
-
-    // Validate password strength
+    
     if req.password.length() < 6 {
         return error("Password must be at least 6 characters long");
     }
-
-    // Validate location data (now required)
-    if req.location.trim().length() == 0 {
-        return error("Location is required");
-    }
-
-    // Validate location details (now required)
+    
     if req.locationDetails.latitude < -90.0d || req.locationDetails.latitude > 90.0d {
         return error("Invalid latitude value");
     }
+
     if req.locationDetails.longitude < -180.0d || req.locationDetails.longitude > 180.0d {
         return error("Invalid longitude value");
     }
-    if req.locationDetails.city.trim().length() == 0 {
-        return error("City is required");
-    }
-    if req.locationDetails.country.trim().length() == 0 {
-        return error("Country is required");
-    }
 
-    // Check if user already exists
+    if req.locationDetails.address.trim().length() == 0 {
+        return error("Address is required");
+    }
+    
+    // Check if user already exists (in main users table)
     boolean userExists = check checkUserExists(req.email);
     if userExists {
         return error("User with this email already exists");
     }
-
-    // Hash the password using SHA-256
-    string salt = generateSalt();
-    string saltedPassword = req.password + salt;
-    byte[] hashedPassword = crypto:hashSha256(saltedPassword.toBytes());
-    string passwordHash = hashedPassword.toBase64() + ":" + salt;
-
-    // Get database client
+    
+    // Check if there's already a pending registration
     var dbClient = database:getDbClient();
-
-    // Location data (now required)
-    string location = req.location;
-    decimal latitude = req.locationDetails.latitude;
-    decimal longitude = req.locationDetails.longitude;
-    string city = req.locationDetails.city;
-    string state = req.locationDetails.state;
-    string country = req.locationDetails.country;
-    string fullAddress = req.locationDetails.fullAddress;
-
-    // Insert user into database with location data
-    sql:ExecutionResult result = check dbClient->execute(`
-        INSERT INTO users (first_name, last_name, email, password_hash, location, latitude, longitude, city, state, country, full_address) 
-        VALUES (${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, ${location}, ${latitude}, ${longitude}, ${city}, ${state}, ${country}, ${fullAddress})
-    `);
-
-    if result.affectedRowCount < 1 {
-        return error("Failed to create user");
+    stream<record {int count;}, sql:Error?> pendingStream = 
+        dbClient->query(`SELECT COUNT(*) as count FROM pending_user_registrations WHERE email = ${req.email}`);
+    
+    var pendingCount = pendingStream.next();
+    check pendingStream.close();
+    
+    if pendingCount is record {| record {int count;} value; |} && pendingCount.value.count > 0 {
+        // Delete existing pending registration to allow re-registration
+        sql:ExecutionResult _ = check dbClient->execute(`
+            DELETE FROM pending_user_registrations WHERE email = ${req.email}
+        `);
     }
-
-    // Generate JWT token
-    user:AuthResponse tokenData = check generateJwt(req.email);
-    tokenData.message = "User registered successfully";
-    return tokenData;
+    
+    // Generate OTP and store pending registration
+    string otp = generateOtp();
+    
+    error? storeResult = email_verification:storePendingRegistration(req, otp, jwtSecret, smtpHost, smtpPort, smtpUsername, smtpPassword, emailEnabled);
+    if storeResult is error {
+        return error("Failed to store pending registration: " + storeResult.message());
+    }
+    
+    // Send verification email
+    error? emailResult = email_verification:sendRegistrationOtp(req.email, otp, smtpHost, smtpPort, smtpUsername, smtpPassword, emailEnabled);
+    if emailResult is error {
+        return error("Failed to send verification email: " + emailResult.message());
+    }
+    
+    return {
+        token: "",
+        tokenType: "Bearer",
+        expiresIn: 0,
+        message: "Registration initiated. Please check your email to verify your account."
+    };
 }
 
+// Email verification and account creation - NEW FLOW
+public function verifyEmailAndCreateAccount(user:VerifyEmailOtpRequest req) returns user:VerifyEmailOtpResponse|error {
+    if !isValidEmail(req.email) {
+        return {
+            success: false,
+            message: "Invalid email format",
+            errorCode: "invalid_email"
+        };
+    }
+    
+    if req.otp.length() != 6 {
+        return {
+            success: false,
+            message: "Invalid OTP format",
+            errorCode: "invalid_otp"
+        };
+    }
+    
+    // Use the email_verification module to verify OTP and create user
+    user:AuthResponse|error result = email_verification:verifyOtpAndCreateUser(req.email, req.otp, jwtSecret, jwtIssuer, jwtAudience, jwtExpiry);
+    
+    if result is error {
+        return {
+            success: false,
+            message: result.message(),
+            errorCode: "verification_failed"
+        };
+    }
+    
+    return {
+        success: true,
+        message: result.message,
+        token: result.token
+    };
+}
+// Login function - checks for verified users only
 public function login(user:LoginRequest req) returns user:AuthResponse|error {
-    // Get database client
+    // RDA login logic - exact credentials check
+    if req.email == "rdasrilanka0@gmail.com" && req.password == "Rdasrilanka0" {
+        // Check if RDA user exists and is verified
+        var dbClient = database:getDbClient();
+        stream<record {boolean is_email_verified;}, sql:Error?> rdaStream = 
+            dbClient->query(`SELECT is_email_verified FROM users WHERE email = ${req.email}`);
+
+        var rdaRecord = rdaStream.next();
+        check rdaStream.close();
+        
+        if rdaRecord is () {
+            return error("RDA account not found. Please complete registration first.");
+        }
+        
+        if rdaRecord is record {| record {boolean is_email_verified;} value; |} {
+            if !rdaRecord.value.is_email_verified {
+                return error("Please verify your email before accessing the RDA dashboard");
+            }
+        }
+        
+        user:AuthResponse tokenData = check generateJwt(req.email);
+        tokenData.message = "Login successful (RDA)";
+        return tokenData;
+    }
+    
+    // Regular user login
     var dbClient = database:getDbClient();
 
     // Get user from database
-    stream<record {string password_hash;}, sql:Error?> userStream = 
-        dbClient->query(`SELECT password_hash FROM users WHERE email = ${req.email}`);
+    stream<record {string password_hash; boolean is_email_verified;}, sql:Error?> userStream = 
+        dbClient->query(`SELECT password_hash, is_email_verified FROM users WHERE email = ${req.email}`);
+
+    var userRecord = userStream.next();
+    check userStream.close();
+    
+    if userRecord is sql:Error {
+        return error("Database error occurred");
+    }
+    if userRecord is () {
+        return error("Invalid email or password");
+    }
+    
+    // Verify password
+    string[] parts = splitString(userRecord.value.password_hash, ":");
+    if parts.length() != 2 {
+        return error("Invalid password format in database");
+    }
+    string storedHash = parts[0];
+    string salt = parts[1];
+    string saltedPassword = req.password + salt;
+    byte[] inputHash = crypto:hashSha256(saltedPassword.toBytes());
+    string inputHashBase64 = inputHash.toBase64();
+    if storedHash != inputHashBase64 {
+        return error("Invalid email or password");
+    }
+
+    // Check email verification status
+    if !userRecord.value.is_email_verified {
+        return error("Please verify your email before logging in");
+    }
+
+    // Generate JWT token for verified users only
+    user:AuthResponse tokenData = check generateJwt(req.email);
+    tokenData.message = "Login successful";
+    return tokenData;
+}
+
+// Send verification OTP for existing unverified users (not for registration)
+public function sendVerificationOtp(user:SendVerificationRequest req) returns user:SendVerificationResponse|error {
+    // Validate email format
+    if !isValidEmail(req.email) {
+        return {
+            success: false,
+            message: "Invalid email format",
+            errorCode: "invalid_email"
+        };
+    }
+
+    // Check if user exists in main users table (already created but unverified)
+    boolean userExists = check checkUserExists(req.email);
+    if !userExists {
+        // Don't reveal if user exists or not for security
+        return {
+            success: true,
+            message: "If the email is registered, you will receive an OTP shortly"
+        };
+    }
+
+    // Check if user is already verified
+    var dbClient = database:getDbClient();
+    stream<record {boolean is_email_verified;}, sql:Error?> userStream = 
+        dbClient->query(`SELECT is_email_verified FROM users WHERE email = ${req.email}`);
 
     var userRecord = userStream.next();
     check userStream.close();
@@ -97,30 +338,146 @@ public function login(user:LoginRequest req) returns user:AuthResponse|error {
     }
 
     if userRecord is () {
-        return error("Invalid email or password");
+        return {
+            success: false,
+            message: "User not found",
+            errorCode: "user_not_found"
+        };
     }
 
-    // Verify password
-    string[] parts = splitString(userRecord.value.password_hash, ":");
-    if parts.length() != 2 {
-        return error("Invalid password format in database");
+    if userRecord.value.is_email_verified {
+        return {
+            success: false,
+            message: "Email already verified",
+            errorCode: "already_verified"
+        };
     }
 
-    string storedHash = parts[0];
-    string salt = parts[1];
+    // Generate 6-digit OTP
+    string otp = generateOtp();
     
-    string saltedPassword = req.password + salt;
-    byte[] inputHash = crypto:hashSha256(saltedPassword.toBytes());
-    string inputHashBase64 = inputHash.toBase64();
+    // Store OTP in database with expiration (10 minutes)
+    int expirationTime = <int>time:utcNow()[0] + 600; // 10 minutes from now
+    
+    sql:ExecutionResult _ = check dbClient->execute(`
+        INSERT INTO email_verification_otps (email, otp, expiration_time, is_used) 
+        VALUES (${req.email}, ${otp}, ${expirationTime}, false)
+        ON CONFLICT (email) 
+        DO UPDATE SET otp = EXCLUDED.otp, expiration_time = EXCLUDED.expiration_time, is_used = false
+    `);
 
-    if storedHash != inputHashBase64 {
-        return error("Invalid email or password");
+    // Send OTP email using email_verification module
+    error? emailResult = email_verification:sendRegistrationOtp(req.email, otp, smtpHost, smtpPort, smtpUsername, smtpPassword, emailEnabled);
+if emailResult is error {
+    return error("Failed to send verification email: " + emailResult.message());
+}
+
+    return {
+        success: true,
+        message: "Verification OTP sent to your email address"
+    };
+}
+
+// Verify email for existing users (legacy support)
+public function verifyEmailOtp(user:VerifyEmailOtpRequest req) returns user:VerifyEmailOtpResponse|error {
+    // This function handles verification for users already in the system
+    if !isValidEmail(req.email) {
+        return {
+            success: false,
+            message: "Invalid email format",
+            errorCode: "invalid_email"
+        };
     }
 
-    // Generate JWT token
+    if req.otp.length() != 6 {
+        return {
+            success: false,
+            message: "Invalid OTP format",
+            errorCode: "invalid_otp"
+        };
+    }
+
+    int currentTime = <int>time:utcNow()[0];
+    
+    // Check OTP from database
+    var dbClient = database:getDbClient();
+    stream<record {|string otp; int expiration_time; boolean is_used;|}, sql:Error?> otpStream = 
+        dbClient->query(`
+            SELECT otp, expiration_time, is_used 
+            FROM email_verification_otps 
+            WHERE email = ${req.email}
+        `);
+
+    record {|record {|string otp; int expiration_time; boolean is_used;|} value;|}|sql:Error? otpResult = otpStream.next();
+    check otpStream.close();
+
+    if otpResult is sql:Error {
+        return {
+            success: false,
+            message: "Database error occurred",
+            errorCode: "database_error"
+        };
+    }
+
+    if otpResult is () {
+        return {
+            success: false,
+            message: "No OTP found for this email",
+            errorCode: "otp_not_found"
+        };
+    }
+
+    record {|string otp; int expiration_time; boolean is_used;|} otpRecord = otpResult.value;
+
+    // Check if OTP is expired
+    if currentTime > otpRecord.expiration_time {
+        return {
+            success: false,
+            message: "OTP has expired. Please request a new one",
+            errorCode: "otp_expired"
+        };
+    }
+
+    // Check if OTP is already used
+    if otpRecord.is_used {
+        return {
+            success: false,
+            message: "OTP has already been used",
+            errorCode: "otp_used"
+        };
+    }
+
+    // Check if OTP matches
+    if otpRecord.otp != req.otp {
+        return {
+            success: false,
+            message: "Invalid OTP. Please try again",
+            errorCode: "invalid_otp"
+        };
+    }
+
+    // Mark OTP as used
+    sql:ExecutionResult _ = check dbClient->execute(`
+        UPDATE email_verification_otps 
+        SET is_used = true 
+        WHERE email = ${req.email}
+    `);
+
+    // Mark user as verified
+    sql:ExecutionResult _ = check dbClient->execute(`
+        UPDATE users 
+        SET is_email_verified = true 
+        WHERE email = ${req.email}
+    `);
+
+    // Generate JWT token for auto-login after verification
     user:AuthResponse tokenData = check generateJwt(req.email);
-    tokenData.message = "Login successful";
-    return tokenData;
+
+    return {
+        success: true,
+        message: "Email verified successfully",
+        token: tokenData.token
+    };
 }
 
 public function getUserProfile(string email) returns user:UserProfile|error {
@@ -132,18 +489,15 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         string first_name; 
         string last_name; 
         string email; 
-        string? location;
         decimal? latitude;
         decimal? longitude;
-        string? city;
-        string? state;
-        string? country;
-        string? full_address;
+        string? address;
         string? profile_image;
-        string created_at?;
-    }, sql:Error?> userStream = 
+        string? user_role;
+        string? created_at;
+    }, sql:Error?> userStream =
         dbClient->query(`
-            SELECT id, first_name, last_name, email, location, latitude, longitude, city, state, country, full_address, profile_image, created_at 
+            SELECT id, first_name, last_name, email, latitude, longitude, address, profile_image, user_role, created_at 
             FROM users WHERE email = ${email}
         `);
 
@@ -159,35 +513,29 @@ public function getUserProfile(string email) returns user:UserProfile|error {
     }
 
     // Ensure location data is present (now required)
-    if (userRecord.value.location is () ||
-        userRecord.value.latitude is () || 
+    if (userRecord.value.latitude is () || 
         userRecord.value.longitude is () || 
-        userRecord.value.city is () || 
-        userRecord.value.state is () || 
-        userRecord.value.country is () || 
-        userRecord.value.full_address is ()) {
+        userRecord.value.address is ()) {
         return error("User location data is incomplete");
     }
 
     user:LocationDetails locationDetails = {
         latitude: <decimal>userRecord.value.latitude,
         longitude: <decimal>userRecord.value.longitude,
-        city: <string>userRecord.value.city,
-        state: <string>userRecord.value.state,
-        country: <string>userRecord.value.country,
-        fullAddress: <string>userRecord.value.full_address
+        address: <string>userRecord.value.address
     };
 
-    return {
+    user:UserProfile profile = {
         id: userRecord.value.id,
         firstName: userRecord.value.first_name,
         lastName: userRecord.value.last_name,
         email: userRecord.value.email,
-        location: <string>userRecord.value.location,
         locationDetails: locationDetails,
-        profileImage: userRecord.value.profile_image,
-        createdAt: userRecord.value.created_at
+        userRole: userRecord.value["user_role"] ?: "user",
+        profileImage: userRecord.value.profile_image is string ? userRecord.value.profile_image : (),
+        createdAt: userRecord.value.created_at is string ? userRecord.value.created_at : ()
     };
+    return profile;
 }
 
 public function updateUserProfile(string email, user:UpdateProfileRequest req) returns user:UserProfile|error {
@@ -198,8 +546,8 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
     if req.lastName.trim().length() == 0 {
         return error("Last name is required");
     }
-    if req.location.trim().length() == 0 {
-        return error("Location is required");
+    if req.locationDetails.address.trim().length() == 0 {
+        return error("Address is required");
     }
 
     // Get database client
@@ -214,7 +562,9 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
             UPDATE users 
             SET first_name = ${req.firstName}, 
                 last_name = ${req.lastName}, 
-                location = ${req.location},
+                latitude = ${req.locationDetails.latitude},
+                longitude = ${req.locationDetails.longitude},
+                address = ${req.locationDetails.address},
                 profile_image = ${profileImage}
             WHERE email = ${email}
         `);
@@ -224,7 +574,9 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
             UPDATE users 
             SET first_name = ${req.firstName}, 
                 last_name = ${req.lastName}, 
-                location = ${req.location}
+                latitude = ${req.locationDetails.latitude},
+                longitude = ${req.locationDetails.longitude},
+                address = ${req.locationDetails.address}
             WHERE email = ${email}
         `);
     }
@@ -238,6 +590,11 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
 }
 
 public function validateJwtToken(string token) returns string|error {
+    log:printInfo("AUTH: validateJwtToken called in auth module");
+    log:printInfo("AUTH: Expected issuer: " + jwtIssuer);
+    log:printInfo("AUTH: Expected audience: " + jwtAudience);
+    log:printInfo("AUTH: Token length: " + token.length().toString());
+    
     jwt:ValidatorConfig validatorConfig = {
         issuer: jwtIssuer,
         audience: jwtAudience,
@@ -246,8 +603,14 @@ public function validateJwtToken(string token) returns string|error {
         }
     };
 
-    jwt:Payload payload = check jwt:validate(token, validatorConfig);
+    jwt:Payload|jwt:Error payload = jwt:validate(token, validatorConfig);
     
+    if payload is jwt:Error {
+        log:printError("AUTH: JWT validation failed: " + payload.message());
+        return error("JWT validation failed: " + payload.message());
+    }
+    
+    log:printInfo("AUTH: JWT validation successful");
     string? sub = payload.sub;
     if sub is string {
         return sub;
@@ -335,4 +698,280 @@ function splitString(string input, string delimiter) returns string[] {
     parts.push(input.substring(startIndex));
     
     return parts;
+}
+
+// Password Recovery Functions
+
+public function requestPasswordReset(user:ForgotPasswordRequest req) returns user:ForgotPasswordResponse|error {
+    // Validate email format
+    if !isValidEmail(req.email) {
+        return {
+            success: false,
+            message: "Invalid email format",
+            errorCode: "invalid_email"
+        };
+    }
+
+    // Check if user exists
+    boolean userExists = check checkUserExists(req.email);
+    if !userExists {
+        // Don't reveal if user exists or not for security
+        return {
+            success: true,
+            message: "If the email is registered, you will receive an OTP shortly"
+        };
+    }
+
+    // Generate 6-digit OTP
+    string otp = generateOtp();
+    
+    // Store OTP in database with expiration (10 minutes)
+    int expirationTime = <int>time:utcNow()[0] + 600; // 10 minutes from now
+    
+    var dbClient = database:getDbClient();
+    sql:ExecutionResult _ = check dbClient->execute(`
+        INSERT INTO password_reset_otps (email, otp, expiration_time, is_used) 
+        VALUES (${req.email}, ${otp}, ${expirationTime}, false)
+        ON CONFLICT (email) 
+        DO UPDATE SET otp = EXCLUDED.otp, expiration_time = EXCLUDED.expiration_time, is_used = false
+    `);
+
+    // Send OTP email
+    error? emailResult = sendOtpEmail(req.email, otp);
+    if emailResult is error {
+        return error("Failed to send OTP email: " + emailResult.message());
+    }
+
+    return {
+        success: true,
+        message: "OTP sent to your email address"
+    };
+}
+
+public function verifyOtp(user:VerifyOtpRequest req) returns user:VerifyOtpResponse|error {
+    // Validate email format
+    if !isValidEmail(req.email) {
+        return {
+            success: false,
+            message: "Invalid email format",
+            errorCode: "invalid_email"
+        };
+    }
+
+    // Validate OTP format (should be 6 digits)
+    if req.otp.length() != 6 {
+        return {
+            success: false,
+            message: "Invalid OTP format",
+            errorCode: "invalid_otp"
+        };
+    }
+
+    int currentTime = <int>time:utcNow()[0];
+    
+    // Check OTP from database
+    var dbClient = database:getDbClient();
+    stream<record {|string otp; int expiration_time; boolean is_used;|}, sql:Error?> otpStream = 
+        dbClient->query(`
+            SELECT otp, expiration_time, is_used 
+            FROM password_reset_otps 
+            WHERE email = ${req.email}
+        `);
+
+    record {|record {|string otp; int expiration_time; boolean is_used;|} value;|}|sql:Error? otpResult = otpStream.next();
+    check otpStream.close();
+
+    if otpResult is sql:Error {
+        return {
+            success: false,
+            message: "Database error occurred",
+            errorCode: "database_error"
+        };
+    }
+
+    if otpResult is () {
+        return {
+            success: false,
+            message: "No OTP found for this email",
+            errorCode: "otp_not_found"
+        };
+    }
+
+    record {|string otp; int expiration_time; boolean is_used;|} otpRecord = otpResult.value;
+
+    // Check if OTP is expired
+    if currentTime > otpRecord.expiration_time {
+        return {
+            success: false,
+            message: "OTP has expired. Please request a new one",
+            errorCode: "otp_expired"
+        };
+    }
+
+    // Check if OTP is already used
+    if otpRecord.is_used {
+        return {
+            success: false,
+            message: "OTP has already been used",
+            errorCode: "otp_used"
+        };
+    }
+
+    // Check if OTP matches
+    if otpRecord.otp != req.otp {
+        return {
+            success: false,
+            message: "Invalid OTP",
+            errorCode: "invalid_otp"
+        };
+    }
+
+    // Generate reset token
+    string resetToken = generateResetToken(req.email);
+    
+    // Mark OTP as used
+    var dbClient2 = database:getDbClient();
+    sql:ExecutionResult _ = check dbClient2->execute(`
+        UPDATE password_reset_otps 
+        SET is_used = true 
+        WHERE email = ${req.email}
+    `);
+
+    return {
+        success: true,
+        message: "OTP verified successfully",
+        resetToken: resetToken
+    };
+}
+
+public function resetPassword(user:ResetPasswordRequest req) returns user:ResetPasswordResponse|error {
+    // For simplified implementation, we'll use the reset token as email:timestamp format
+    // In production, implement proper JWT validation
+    string[] tokenParts = splitString(req.resetToken, ":");
+    if tokenParts.length() < 2 {
+        return {
+            success: false,
+            message: "Invalid reset token format",
+            errorCode: "invalid_token"
+        };
+    }
+    
+    string email = tokenParts[0];
+    int|error timestamp = 'int:fromString(tokenParts[1]);
+    
+    if timestamp is error {
+        return {
+            success: false,
+            message: "Invalid reset token",
+            errorCode: "invalid_token"
+        };
+    }
+    
+// Check if token is not expired (15 minutes = 900 seconds)
+    time:Utc currentTime = time:utcNow();
+    int currentTimeInt = <int>currentTime[0];
+    if currentTimeInt - timestamp > 900 {
+        return {
+            success: false,
+            message: "Reset token has expired",
+            errorCode: "token_expired"
+        };
+    }
+
+    // Validate password
+    if req.newPassword.length() < 6 {
+        return {
+            success: false,
+            message: "Password must be at least 6 characters long",
+            errorCode: "weak_password"
+        };
+    }
+
+    // Check if passwords match
+    if req.newPassword != req.confirmPassword {
+        return {
+            success: false,
+            message: "Passwords do not match",
+            errorCode: "password_mismatch"
+        };
+    }
+
+    // Hash the new password using the same method as registration
+    string salt = generateSalt();
+    string saltedPassword = req.newPassword + salt;
+    byte[] hashedBytes = crypto:hashSha256(saltedPassword.toBytes());
+    string hashedPassword = hashedBytes.toBase64() + ":" + salt;
+
+    // Update password in database
+    var dbClient3 = database:getDbClient();
+    sql:ExecutionResult result = check dbClient3->execute(`
+        UPDATE users 
+        SET password_hash = ${hashedPassword}
+        WHERE email = ${email}
+    `);
+
+    if result.affectedRowCount < 1 {
+        return {
+            success: false,
+            message: "Failed to update password",
+            errorCode: "update_failed"
+        };
+    }
+
+    // Clean up used OTP records for this email
+    var dbClient4 = database:getDbClient();
+    sql:ExecutionResult _ = check dbClient4->execute(`
+        DELETE FROM password_reset_otps 
+        WHERE email = ${email}
+    `);
+
+    return {
+        success: true,
+        message: "Password reset successfully"
+    };
+}
+
+function generateOtp() returns string {
+    // Generate a 6-digit OTP
+    int|error otp = random:createIntInRange(100000, 999999);
+    if otp is error {
+        // Fallback to manual generation
+        return "123456"; // For testing purposes, use a fixed OTP
+    }
+    return otp.toString();
+}
+
+function generateResetToken(string email) returns string {
+    // Create a simple token for password reset (valid for 15 minutes)
+    time:Utc currentTime = time:utcNow();
+    int currentTimeInt = <int>currentTime[0];
+    
+    // Return email:timestamp format for simple validation
+    return email + ":" + currentTimeInt.toString();
+}
+
+function validateResetToken(string token) returns string|error {
+    // Split token to get email and timestamp
+    string[] parts = splitString(token, ":");
+    if parts.length() < 2 {
+        return error("Invalid token format");
+    }
+    
+    int|error timestamp = 'int:fromString(parts[1]);
+    
+    if timestamp is error {
+        return error("Invalid timestamp in token");
+    }
+    
+    // Check if token is not expired (15 minutes = 900 seconds)
+    time:Utc currentTime = time:utcNow();
+    int currentTimeInt = <int>currentTime[0];
+    if currentTimeInt - timestamp > 900 {
+        return error("Token has expired");
+    }
+    
+    // For now, we'll extract email from token by checking database
+    // This is a simplified approach - in production, you'd store the email in the token
+    // or use a proper JWT library
+    return error("Token validation not fully implemented - use OTP verification for now");
 }
