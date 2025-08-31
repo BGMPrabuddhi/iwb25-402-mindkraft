@@ -282,7 +282,7 @@ service /api on apiListener {
         };
     }
 
-    // Verify email with OTP
+   // Verify email with OTP
     resource function post auth/verify\-email(user:VerifyEmailOtpRequest req) returns json {
         user:VerifyEmailOtpResponse|error result = auth:verifyEmailAndCreateAccount(req);
         if result is error {
@@ -449,6 +449,11 @@ service /api on apiListener {
         check respondWithCorsHeaders(caller);
     }
 
+    // OPTIONS handlers for likes endpoints
+    resource function options reports/[int reportId]/likes(http:Caller caller, http:Request req) returns error? {
+        check respondWithCorsHeaders(caller);
+    }
+
     // Get comments for a report
     resource function get reports/[int reportId]/comments(http:Request req) returns json {
         string|error email = validateAuthHeader(req);
@@ -541,6 +546,76 @@ service /api on apiListener {
         return {
             success: true,
             message: "Comment deleted successfully"
+        };
+    }
+
+    // ============ LIKE/UNLIKE ENDPOINTS ============
+
+    // Get like stats for a report
+    resource function get reports/[int reportId]/likes(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        int? userId = ();
+        
+        if email is string {
+            user:UserProfile|error profile = auth:getUserProfile(email);
+            if profile is user:UserProfile {
+                userId = profile.id;
+            }
+        }
+
+        var likeStats = database:getReportLikeStats(reportId, userId);
+        if likeStats is error {
+            return createErrorResponse("internal_error", "Failed to retrieve like statistics");
+        }
+
+        return {
+            success: true,
+            report_id: reportId,
+            total_likes: likeStats.total_likes,
+            total_unlikes: likeStats.total_unlikes,
+            user_liked: likeStats.user_liked,
+            user_unliked: likeStats.user_unliked
+        };
+    }
+
+    // Toggle like/unlike on a report
+    resource function post reports/[int reportId]/likes(http:Request req) returns json {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            return createErrorResponse("internal_error", "Failed to retrieve user profile");
+        }
+
+        json|error payload = req.getJsonPayload();
+        if payload is error {
+            return createErrorResponse("invalid_request", "Invalid JSON payload");
+        }
+
+        json|error isLikeResult = payload.is_like;
+        if isLikeResult is error {
+            return createErrorResponse("invalid_request", "Invalid is_like field");
+        }
+        
+        json isLikeJson = isLikeResult;
+        if isLikeJson !is boolean {
+            return createErrorResponse("invalid_request", "is_like must be a boolean");
+        }
+
+        boolean isLike = isLikeJson;
+
+        var likeResult = database:toggleReportLike(reportId, profile.id, isLike);
+        if likeResult is error {
+            return createErrorResponse("internal_error", "Failed to toggle like");
+        }
+
+        return {
+            success: true,
+            message: isLike ? "Report liked successfully" : "Report unliked successfully",
+            data: <json>likeResult
         };
     }
 

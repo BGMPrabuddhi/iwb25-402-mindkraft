@@ -192,6 +192,21 @@ _ = check dbClient->execute(`
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
 `);
+
+// Create report_likes table
+_ = check dbClient->execute(`
+    CREATE TABLE IF NOT EXISTS report_likes (
+        id SERIAL PRIMARY KEY,
+        report_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        is_like BOOLEAN NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (report_id) REFERENCES hazard_reports(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(report_id, user_id)
+    )
+`);
     
    // Create indexes for users
 _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
@@ -230,6 +245,9 @@ _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_resolved_reports_res
 _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_report_comments_report_id ON report_comments(report_id)`);
 _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_report_comments_user_id ON report_comments(user_id)`);
 _ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_report_comments_created_at ON report_comments(created_at)`);
+
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_report_likes_report_id ON report_likes(report_id)`);
+_ = check dbClient->execute(`CREATE INDEX IF NOT EXISTS idx_report_likes_user_id ON report_likes(user_id)`);
     log:printInfo("Database tables and indexes created successfully");
 }
 
@@ -1665,4 +1683,175 @@ public function deleteComment(int commentId, int userId) returns boolean|error {
     } else {
         return error DatabaseError("Comment not found or unauthorized");
     }
+}
+
+public function toggleReportLike(int reportId, int userId, boolean isLike) returns record {|
+    int report_id;
+    int user_id;
+    boolean is_like;
+    string created_at;
+    string updated_at;
+    int total_likes;
+    int total_unlikes;
+    boolean user_liked;
+    boolean user_unliked;
+|}|error {
+    
+    // First check if user already has a reaction to this report
+    sql:ParameterizedQuery checkQuery = `
+        SELECT is_like FROM report_likes 
+        WHERE report_id = ${reportId} AND user_id = ${userId}
+    `;
+    
+    stream<record {| boolean is_like; |}, sql:Error?> checkStream = dbClient->query(checkQuery);
+    record {| record {| boolean is_like; |} value; |}|sql:Error? existingReaction = checkStream.next();
+    error? closeCheck = checkStream.close();
+    if closeCheck is error { log:printError("Error closing check stream", closeCheck); }
+    
+    if existingReaction is record {| record {| boolean is_like; |} value; |} {
+        // User already has a reaction
+        if existingReaction.value.is_like == isLike {
+            // Same reaction - remove it (toggle off)
+            sql:ParameterizedQuery deleteQuery = `
+                DELETE FROM report_likes 
+                WHERE report_id = ${reportId} AND user_id = ${userId}
+            `;
+            sql:ExecutionResult deleteResult = check dbClient->execute(deleteQuery);
+        } else {
+            // Different reaction - update it
+            sql:ParameterizedQuery updateQuery = `
+                UPDATE report_likes 
+                SET is_like = ${isLike}, updated_at = CURRENT_TIMESTAMP
+                WHERE report_id = ${reportId} AND user_id = ${userId}
+            `;
+            sql:ExecutionResult updateResult = check dbClient->execute(updateQuery);
+        }
+    } else {
+        // No existing reaction - insert new one
+        sql:ParameterizedQuery insertQuery = `
+            INSERT INTO report_likes (report_id, user_id, is_like)
+            VALUES (${reportId}, ${userId}, ${isLike})
+        `;
+        sql:ExecutionResult insertResult = check dbClient->execute(insertQuery);
+    }
+    
+    // Get updated counts and user's current reaction
+    sql:ParameterizedQuery statsQuery = `
+        SELECT 
+            COALESCE(SUM(CASE WHEN is_like = true THEN 1 ELSE 0 END), 0) as total_likes,
+            COALESCE(SUM(CASE WHEN is_like = false THEN 1 ELSE 0 END), 0) as total_unlikes,
+            COALESCE(MAX(CASE WHEN user_id = ${userId} AND is_like = true THEN true ELSE false END), false) as user_liked,
+            COALESCE(MAX(CASE WHEN user_id = ${userId} AND is_like = false THEN true ELSE false END), false) as user_unliked
+        FROM report_likes 
+        WHERE report_id = ${reportId}
+    `;
+    
+    stream<record {|
+        int total_likes;
+        int total_unlikes;
+        boolean user_liked;
+        boolean user_unliked;
+    |}, sql:Error?> statsStream = dbClient->query(statsQuery);
+    
+    record {| record {|
+        int total_likes;
+        int total_unlikes;
+        boolean user_liked;
+        boolean user_unliked;
+    |} value; |}|sql:Error? statsResult = statsStream.next();
+    
+    error? closeStats = statsStream.close();
+    if closeStats is error { log:printError("Error closing stats stream", closeStats); }
+    
+    if statsResult is record {| record {|
+        int total_likes;
+        int total_unlikes;
+        boolean user_liked;
+        boolean user_unliked;
+    |} value; |} {
+        return {
+            report_id: reportId,
+            user_id: userId,
+            is_like: isLike,
+            created_at: getCurrentTimestamp(),
+            updated_at: getCurrentTimestamp(),
+            total_likes: statsResult.value.total_likes,
+            total_unlikes: statsResult.value.total_unlikes,
+            user_liked: statsResult.value.user_liked,
+            user_unliked: statsResult.value.user_unliked
+        };
+    } else {
+        return error DatabaseError("Failed to get like statistics");
+    }
+}
+
+public function getReportLikeStats(int reportId, int? userId = ()) returns record {|
+    int report_id;
+    int total_likes;
+    int total_unlikes;
+    boolean user_liked;
+    boolean user_unliked;
+|}|error {
+    
+    sql:ParameterizedQuery statsQuery;
+    
+    if userId is int {
+        statsQuery = `
+            SELECT 
+                ${reportId} as report_id,
+                COALESCE(SUM(CASE WHEN is_like = true THEN 1 ELSE 0 END), 0) as total_likes,
+                COALESCE(SUM(CASE WHEN is_like = false THEN 1 ELSE 0 END), 0) as total_unlikes,
+                COALESCE(MAX(CASE WHEN user_id = ${userId} AND is_like = true THEN true ELSE false END), false) as user_liked,
+                COALESCE(MAX(CASE WHEN user_id = ${userId} AND is_like = false THEN true ELSE false END), false) as user_unliked
+            FROM report_likes 
+            WHERE report_id = ${reportId}
+        `;
+    } else {
+        statsQuery = `
+            SELECT 
+                ${reportId} as report_id,
+                COALESCE(SUM(CASE WHEN is_like = true THEN 1 ELSE 0 END), 0) as total_likes,
+                COALESCE(SUM(CASE WHEN is_like = false THEN 1 ELSE 0 END), 0) as total_unlikes,
+                false as user_liked,
+                false as user_unliked
+            FROM report_likes 
+            WHERE report_id = ${reportId}
+        `;
+    }
+    
+    stream<record {|
+        int report_id;
+        int total_likes;
+        int total_unlikes;
+        boolean user_liked;
+        boolean user_unliked;
+    |}, sql:Error?> statsStream = dbClient->query(statsQuery);
+    
+    record {| record {|
+        int report_id;
+        int total_likes;
+        int total_unlikes;
+        boolean user_liked;
+        boolean user_unliked;
+    |} value; |}|sql:Error? statsResult = statsStream.next();
+    
+    error? closeStats = statsStream.close();
+    if closeStats is error { log:printError("Error closing stats stream", closeStats); }
+    
+    if statsResult is record {| record {|
+        int report_id;
+        int total_likes;
+        int total_unlikes;
+        boolean user_liked;
+        boolean user_unliked;
+    |} value; |} {
+        return statsResult.value;
+    } else {
+        return error DatabaseError("Failed to get like statistics");
+    }
+}
+
+// Helper function to get current timestamp
+function getCurrentTimestamp() returns string {
+    return time:utcToString(time:utcNow());
 }

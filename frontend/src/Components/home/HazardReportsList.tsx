@@ -4,6 +4,7 @@ import { MapPinIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
 import { reportsAPI } from '@/lib/api'
 import { ViewFilters, Report } from './types'
 import ReportComments from './ReportComments'
+import ReportLikes from './ReportLikes'
 
 interface HazardReportsListProps {
   reports: Report[]
@@ -167,17 +168,20 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
                   </div>
                 )}
 
-                {/* Comments Toggle Button */}
+                {/* Likes and Comments Section */}
                 <div className="border-t border-gray-100 pt-3 mt-4">
-                  <button
-                    onClick={(e) => toggleComments(report.id, e)}
-                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
-                  >
-                    <ChatBubbleLeftIcon className="h-4 w-4" />
-                    <span>
-                      {expandedComments.has(report.id) ? 'Hide Comments' : 'View Comments'}
-                    </span>
-                  </button>
+                  <div className="flex items-center justify-between mb-3">
+                    <ReportLikes reportId={report.id} currentUserId={currentUserId} />
+                    <button
+                      onClick={(e) => toggleComments(report.id, e)}
+                      className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                    >
+                      <ChatBubbleLeftIcon className="h-4 w-4" />
+                      <span>
+                        {expandedComments.has(report.id) ? 'Hide Comments' : 'View Comments'}
+                      </span>
+                    </button>
+                  </div>
                   
                   {/* Comments Section */}
                   {expandedComments.has(report.id) && (

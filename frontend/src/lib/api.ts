@@ -57,6 +57,20 @@ export interface ReportComment {
   commenter_profile_image?: string;
 }
 
+export interface LikeStats {
+  report_id: number;
+  total_likes: number;
+  total_unlikes: number;
+  user_liked: boolean;
+  user_unliked: boolean;
+}
+
+export interface LikeResponse {
+  success: boolean;
+  message: string;
+  data: LikeStats;
+}
+
 export interface ApiResponse {
   message: string;
   data?: HazardReport;
@@ -591,6 +605,67 @@ private getAuthToken(): string | null {
       });
       
       return await this.handleResponse<DeleteCommentResponse>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // ============ LIKE/UNLIKE FUNCTIONALITY ============
+
+  // Get like stats for a specific report
+  async getReportLikeStats(reportId: number): Promise<{
+    success: boolean;
+    report_id: number;
+    total_likes: number;
+    total_unlikes: number;
+    user_liked: boolean;
+    user_unliked: boolean;
+  }> {
+    try {
+      const token = this.getAuthToken();
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${this.baseUrl}/reports/${reportId}/likes`, {
+        method: 'GET',
+        headers,
+      });
+      
+      return await this.handleResponse<{
+        success: boolean;
+        report_id: number;
+        total_likes: number;
+        total_unlikes: number;
+        user_liked: boolean;
+        user_unliked: boolean;
+      }>(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Toggle like/unlike on a report
+  async toggleReportLike(reportId: number, isLike: boolean): Promise<LikeResponse> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const response = await fetch(`${this.baseUrl}/reports/${reportId}/likes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ is_like: isLike }),
+      });
+      
+      return await this.handleResponse<LikeResponse>(response);
     } catch (error) {
       throw error;
     }
