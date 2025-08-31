@@ -129,18 +129,20 @@ _ = check dbClient->execute(`
             description TEXT,
             hazard_type VARCHAR(100) NOT NULL,
             severity_level VARCHAR(50) NOT NULL,
-            status VARCHAR(50) DEFAULT 'active',
+            status VARCHAR(50) DEFAULT 'pending',
             images TEXT[] DEFAULT '{}',
+            image_metadata JSONB,
             latitude DECIMAL(10, 8),
             longitude DECIMAL(11, 8),
             address TEXT,
+            district VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     `);
 
-     // Create resolved_hazard_reports table
+    // Create resolved_hazard_reports table
     _ = check dbClient->execute(`
         CREATE TABLE IF NOT EXISTS resolved_hazard_reports (
             id SERIAL PRIMARY KEY,
@@ -154,6 +156,7 @@ _ = check dbClient->execute(`
             latitude DECIMAL(10, 8),
             longitude DECIMAL(11, 8),
             address TEXT,
+            district VARCHAR(50),
             created_at TIMESTAMP NOT NULL,
             resolved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             resolved_by INTEGER,
