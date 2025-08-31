@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { authAPI } from '@/lib/auth'
 import LocationInput from '@/Components/LocationInput'
+import { Snackbar, SnackbarStack } from '@/Components/Snackbar'
 
 type SignupFormData = {
     firstName: string
@@ -41,6 +42,8 @@ export default function SignupPage() {
   const [isVisible, setIsVisible] = useState(false)
   const [locationData, setLocationData] = useState<LocationData | null>(null)
   const [googleMapsScriptLoaded, setGoogleMapsScriptLoaded] = useState(false)
+  const [snackbar, setSnackbar] = useState<{open:boolean; message:string; type:'success'|'error'|'info'|'warning'}>({open:false,message:'',type:'info'})
+  const showSnackbar = (message:string, type:'success'|'error'|'info'|'warning'='info') => setSnackbar({open:true,message,type})
 
   useEffect(() => {
     setIsVisible(true)
@@ -155,9 +158,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       sessionStorage.setItem('user_role', formData.userRole) // Store user role for redirect logic
       
       if (formData.userRole === 'rda') {
-        alert('RDA account created successfully! Please check your email to verify your account before accessing the RDA Dashboard.')
+        showSnackbar('RDA account created successfully! Please verify via email before accessing the Dashboard.', 'success')
       } else {
-        alert('Account created successfully! Please check your email to verify your account.')
+        showSnackbar('Account created successfully! Please verify your email.', 'success')
       }
       
       // Both user types go to email verification first
@@ -404,26 +407,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
                 </div>
 
-                {/* Terms and Conditions */}
-                <div className="flex items-center group">
-                  <input
-                    id="terms"
-                    name="terms"
-                    type="checkbox"
-                    required
-                    className="h-4 w-4 text-green-700 focus:ring-brand-400 border-white/30 bg-white/10 rounded transition-all duration-300 hover:scale-110"
-                  />
-                  <label htmlFor="terms" className="ml-2 block text-sm text-black">
-                    I agree to the{' '}
-                    <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
-                      Terms and Conditions
-                    </a>{' '}
-                    and{' '}
-                    <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
-                      Privacy Policy
-                    </a>
-                  </label>
-                </div>
 
                 {/* Submit Button */}
                 <div>
@@ -578,6 +561,9 @@ const handleSubmit = async (e: React.FormEvent) => {
           .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25); }
         `}</style>
       </div> {/* end min-h-screen */}
+      <SnackbarStack>
+        <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({...prev, open:false}))} />
+      </SnackbarStack>
     </>  
   )
 }

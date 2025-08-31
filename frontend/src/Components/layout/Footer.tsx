@@ -75,7 +75,7 @@ const Footer = () => {
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Email</p>
                   <Link href="mailto:support@saferoute.lk" className="text-green-600 text-sm font-medium">
-                    support@saferoute.lk
+                    saferoute0@gmail.com
                   </Link>
                 </div>
               </div>

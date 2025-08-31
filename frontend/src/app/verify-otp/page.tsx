@@ -217,7 +217,7 @@ export default function VerifyOtpPage() {
                         error
                           ? 'border-red-400 shake bg-red-500/10'
                           : 'border-gray-300 bg-white/10 backdrop-blur hover:bg-white/20 focus:bg-white/30 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/40'
-                      } text-white placeholder-white/40`}
+                      } text-gray-900 placeholder-gray-400`}
                     />
                   ))}
                 </div>
