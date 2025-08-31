@@ -6,3 +6,7 @@ generated/
 
 node_modules/
 
+# Secret configuration files
+.env
+backend/Config.toml
+
