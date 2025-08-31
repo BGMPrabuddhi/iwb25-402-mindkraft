@@ -10,6 +10,7 @@ public type User record {
     int id;
     string first_name;
     string last_name;
+    string contact_number;
     string email;
     string password_hash;
     decimal latitude;
@@ -68,6 +69,7 @@ _ = check dbClient->execute(`
         id SERIAL PRIMARY KEY,
         first_name VARCHAR(100) NOT NULL,
         last_name VARCHAR(100) NOT NULL,
+        contact_number VARCHAR(20) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(500) NOT NULL,
         latitude DECIMAL(10, 8) NOT NULL,
@@ -171,6 +173,7 @@ _ = check dbClient->execute(`
         email VARCHAR(255) PRIMARY KEY,
         first_name VARCHAR(100) NOT NULL,
         last_name VARCHAR(100) NOT NULL,
+        contact_number VARCHAR(20),
         password_hash VARCHAR(500) NOT NULL,
         location TEXT NOT NULL,
         user_role VARCHAR(50) NOT NULL,
@@ -849,6 +852,7 @@ public function deleteOldReports() returns int|error {
 public function insertUser(
     string firstName,
     string lastName,
+    string contact_number,
     string email,
     string passwordHash,
     decimal latitude,
@@ -858,10 +862,10 @@ public function insertUser(
 ) returns int|error {
     sql:ParameterizedQuery insertQuery = `
         INSERT INTO users (
-            first_name, last_name, email, password_hash, 
+            first_name, last_name, contact_number, email, password_hash, 
             latitude, longitude, address, profile_image
         ) VALUES (
-            ${firstName}, ${lastName}, ${email}, ${passwordHash},
+            ${firstName}, ${lastName}, ${contact_number}, ${email}, ${passwordHash},
             ${latitude}, ${longitude}, ${address}, ${profileImage}
         ) RETURNING id;
     `;
@@ -885,7 +889,7 @@ public function insertUser(
 
 public function getUserByEmail(string email) returns User|error {
     sql:ParameterizedQuery selectQuery = `
-        SELECT id, first_name, last_name, email, password_hash,
+        SELECT id, first_name, last_name, contact_number, email, password_hash,
                latitude, longitude, address, 
                profile_image, created_at
         FROM users 
@@ -912,12 +916,13 @@ public function updateUser(int userId, User updatedUser) returns User|error {
         UPDATE users 
         SET first_name = ${updatedUser.first_name},
             last_name = ${updatedUser.last_name},
+            contact_number = ${updatedUser.contact_number},
             latitude = ${updatedUser.latitude},
             longitude = ${updatedUser.longitude},
             address = ${updatedUser.address},
             profile_image = ${updatedUser.profile_image}
         WHERE id = ${userId}
-        RETURNING id, first_name, last_name, email, password_hash,
+        RETURNING id, first_name, last_name, contact_number, email, password_hash,
                   latitude, longitude, address, 
                   profile_image, created_at
     `;

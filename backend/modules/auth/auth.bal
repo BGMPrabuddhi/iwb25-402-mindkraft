@@ -485,10 +485,11 @@ public function getUserProfile(string email) returns user:UserProfile|error {
     var dbClient = database:getDbClient();
 
     stream<record {
-        int id; 
-        string first_name; 
-        string last_name; 
-        string email; 
+        int id;
+        string first_name;
+        string last_name;
+        string contact_number;
+        string email;
         decimal? latitude;
         decimal? longitude;
         string? address;
@@ -497,7 +498,7 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         string? created_at;
     }, sql:Error?> userStream =
         dbClient->query(`
-            SELECT id, first_name, last_name, email, latitude, longitude, address, profile_image, user_role, created_at 
+            SELECT id, first_name, last_name, contact_number, email, latitude, longitude, address, profile_image, user_role, created_at
             FROM users WHERE email = ${email}
         `);
 
@@ -529,6 +530,7 @@ public function getUserProfile(string email) returns user:UserProfile|error {
         id: userRecord.value.id,
         firstName: userRecord.value.first_name,
         lastName: userRecord.value.last_name,
+    contactNumber: userRecord.value.contact_number,
         email: userRecord.value.email,
         locationDetails: locationDetails,
         userRole: userRecord.value["user_role"] ?: "user",
@@ -562,6 +564,7 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
             UPDATE users 
             SET first_name = ${req.firstName}, 
                 last_name = ${req.lastName}, 
+                contact_number = ${req.contactNumber},
                 latitude = ${req.locationDetails.latitude},
                 longitude = ${req.locationDetails.longitude},
                 address = ${req.locationDetails.address},
@@ -574,6 +577,7 @@ public function updateUserProfile(string email, user:UpdateProfileRequest req) r
             UPDATE users 
             SET first_name = ${req.firstName}, 
                 last_name = ${req.lastName}, 
+                contact_number = ${req.contactNumber},
                 latitude = ${req.locationDetails.latitude},
                 longitude = ${req.locationDetails.longitude},
                 address = ${req.locationDetails.address}

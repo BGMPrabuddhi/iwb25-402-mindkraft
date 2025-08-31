@@ -7,6 +7,7 @@ public type LocationDetails record {
 public type RegisterRequest record {
     string firstName;
     string lastName;
+    string contactNumber;
     string email;
     string password;
     string location;
@@ -30,6 +31,7 @@ public type UserProfile record {
     int id;
     string firstName;
     string lastName;
+    string contactNumber;
     string email;
     LocationDetails locationDetails;
     string userRole;
@@ -40,6 +42,7 @@ public type UserProfile record {
 public type UpdateProfileRequest record {
     string firstName;
     string lastName;
+    string contactNumber;
     LocationDetails locationDetails;
     string? profileImage?; // Base64 encoded image - optional
 };
