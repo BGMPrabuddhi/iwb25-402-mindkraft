@@ -2,6 +2,7 @@ import ballerinax/postgresql;
 import ballerinax/postgresql.driver as _;
 import ballerina/sql;
 import ballerina/log;
+import ballerina/time;
 
 public type DatabaseError distinct error;
 
@@ -1852,6 +1853,8 @@ public function getReportLikeStats(int reportId, int? userId = ()) returns recor
 }
 
 // Helper function to get current timestamp
+// Helper function to get current timestamp
 function getCurrentTimestamp() returns string {
-    return time:utcToString(time:utcNow());
+    time:Utc currentTime = time:utcNow();
+    return time:utcToString(currentTime);
 }

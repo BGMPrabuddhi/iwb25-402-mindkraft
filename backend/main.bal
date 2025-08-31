@@ -9,7 +9,6 @@ import ballerina/mime;
 
 import saferoute/backend.database;
 import saferoute/backend.reports;
-
 import saferoute/backend.user;
 import saferoute/backend.auth as auth;
 
@@ -55,6 +54,8 @@ service /api on apiListener {
         check respondWithCorsHeaders(caller);
     }
 
+    // ============ AUTH ENDPOINTS ============
+    
     resource function post auth/register(user:RegisterRequest req) returns json {
         user:AuthResponse|error result = auth:register(req);
         if result is error {
@@ -125,39 +126,55 @@ service /api on apiListener {
         };
     }
 
-    // Upload profile image (multipart form with field 'image')
     resource function post me/profile_image(http:Request req) returns json {
         string|error email = validateAuthHeader(req);
         if email is error {
             return createErrorResponse("unauthorized", "Authentication required");
         }
-        // Get user for ID
+        
         database:User|error userRec = database:getUserByEmail(email);
-        if userRec is error { return createErrorResponse("not_found", "User not found"); }
+        if userRec is error { 
+            return createErrorResponse("not_found", "User not found"); 
+        }
 
         string contentType = req.getContentType();
         if !contentType.includes("multipart/form-data") {
             return createErrorResponse("invalid_request", "Expected multipart/form-data");
         }
+        
         mime:Entity[]|http:ClientError partsRes = req.getBodyParts();
-        if partsRes is http:ClientError { return createErrorResponse("invalid_payload", "Cannot read body parts"); }
+        if partsRes is http:ClientError { 
+            return createErrorResponse("invalid_payload", "Cannot read body parts"); 
+        }
 
         mime:Entity? imagePart = (); 
         foreach var p in partsRes { 
             mime:ContentDisposition cd = p.getContentDisposition();
-            if cd.name == "image" { imagePart = p; break; }
+            if cd.name == "image" { 
+                imagePart = p; 
+                break; 
+            }
         }
-        if imagePart is () { return createErrorResponse("missing_field", "Field 'image' required"); }
+        if imagePart is () { 
+            return createErrorResponse("missing_field", "Field 'image' required"); 
+        }
 
-        // Reuse reports.saveImageFile utilities
         string|error saved = reports:saveImageFile(<mime:Entity>imagePart);
-        if saved is error { return createErrorResponse("upload_failed", saved.message()); }
+        if saved is error { 
+            return createErrorResponse("upload_failed", saved.message()); 
+        }
 
         boolean|error upd = database:updateUserProfileImage(userRec.id, saved);
-        if upd is error { return createErrorResponse("update_failed", upd.message()); }
+        if upd is error { 
+            return createErrorResponse("update_failed", upd.message()); 
+        }
 
-        return { success: true, message: "Profile image updated", filename: saved, imageUrl: 
-            "http://localhost:" + serverPort.toString() + "/api/images/" + saved };
+        return { 
+            success: true, 
+            message: "Profile image updated", 
+            filename: saved, 
+            imageUrl: "http://localhost:" + serverPort.toString() + "/api/images/" + saved 
+        };
     }
 
     resource function get home(http:Request req) returns json {
@@ -166,7 +183,6 @@ service /api on apiListener {
             return createErrorResponse("unauthorized", "Authentication required");
         }
 
-        // Aggregate statistics via SQL (fewer round trips & simpler logic)
         int totalReports = 0;
         int activeAlerts = 0;
         int resolvedHazards = 0;
@@ -174,16 +190,16 @@ service /api on apiListener {
 
         postgresql:Client dbClient = database:getDbClient();
 
-        // Users count
         stream<record {int community_members;}, sql:Error?> usersStream = dbClient->query(`SELECT COUNT(*) AS community_members FROM users`);
         record {| record {int community_members;} value; |}|sql:Error? usersRow = usersStream.next();
         if usersRow is record {| record {int community_members;} value; |} {
             communityMembers = usersRow.value.community_members;
         }
         error? _closeUsers = usersStream.close();
-        if _closeUsers is error { log:printError("Failed closing usersStream", _closeUsers); }
+        if _closeUsers is error { 
+            log:printError("Failed closing usersStream", _closeUsers); 
+        }
 
-        // Reports aggregate
         stream<record {int total_reports; int resolved_count; int active_count;}, sql:Error?> reportsStream = dbClient->query(`
             SELECT COUNT(*) AS total_reports,
                    COALESCE(SUM(CASE WHEN LOWER(status) IN ('resolved','closed') THEN 1 ELSE 0 END),0) AS resolved_count,
@@ -197,7 +213,9 @@ service /api on apiListener {
             activeAlerts = reportsRow.value.active_count;
         }
         error? _closeReports = reportsStream.close();
-        if _closeReports is error { log:printError("Failed closing reportsStream", _closeReports); }
+        if _closeReports is error { 
+            log:printError("Failed closing reportsStream", _closeReports); 
+        }
 
         return {
             success: true,
@@ -211,7 +229,8 @@ service /api on apiListener {
         };
     }
 
-    // Password recovery endpoints
+    // ============ PASSWORD RECOVERY ENDPOINTS ============
+    
     resource function post auth/forgot\-password(user:ForgotPasswordRequest req) returns json {
         user:ForgotPasswordResponse|error result = auth:requestPasswordReset(req);
         if result is error {
@@ -264,7 +283,6 @@ service /api on apiListener {
         };
     }
     
-    // Send email verification OTP
     resource function post auth/send\-email\-verification(user:SendVerificationRequest req) returns json {
         user:SendVerificationResponse|error result = auth:sendVerificationOtp(req);
         if result is error {
@@ -282,7 +300,6 @@ service /api on apiListener {
         };
     }
 
-   // Verify email with OTP
     resource function post auth/verify\-email(user:VerifyEmailOtpRequest req) returns json {
         user:VerifyEmailOtpResponse|error result = auth:verifyEmailAndCreateAccount(req);
         if result is error {
@@ -301,7 +318,8 @@ service /api on apiListener {
         };
     }
 
-    // Hazard report endpoints
+    // ============ HAZARD REPORT ENDPOINTS ============
+    
     resource function post reports(http:Caller caller, http:Request req) returns error? {
         check reports:handleReportSubmission(caller, req);
     }
@@ -397,7 +415,7 @@ service /api on apiListener {
 
         return {
             success: true,
-            alerts: <json>alertsResult,  // Important: use 'alerts' not 'reports'
+            alerts: <json>alertsResult,
             total_count: alertsResult.length(),
             user_location: {
                 latitude: profile.locationDetails.latitude,
@@ -436,25 +454,132 @@ service /api on apiListener {
         }
     }
 
-    resource function options reports/[int reportId](http:Caller caller, http:Request req) returns error? {
-        check respondWithCorsHeaders(caller);
+    resource function put reports/[int reportId](http:Caller caller, http:Request req) returns error? {
+        log:printInfo("BACKEND: PUT reports endpoint called for ID: " + reportId.toString());
+        
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            log:printError("BACKEND: Auth validation failed: " + email.message());
+            check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
+            return;
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            log:printError("BACKEND: Failed to get user profile: " + profile.message());
+            check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
+            return;
+        }
+
+        json|error payload = req.getJsonPayload();
+        if payload is error {
+            log:printError("BACKEND: Invalid JSON payload: " + payload.message());
+            check caller->respond(createErrorResponse("invalid_request", "Invalid JSON payload"));
+            return;
+        }
+
+        // Check if this is a resolve action
+        if payload.status is string && payload.status == "resolved" {
+            log:printInfo("BACKEND: Processing resolve action for report: " + reportId.toString());
+            
+            string|error reportType = database:getReportType(reportId);
+            if reportType is error {
+                log:printError("BACKEND: Failed to get report type: " + reportType.message());
+                check caller->respond(createErrorResponse("report_not_found", "Report not found"));
+                return;
+            }
+            
+            if reportType != "pothole" && reportType != "construction" {
+                log:printError("BACKEND: Attempt to resolve non-road report: " + reportType);
+                check caller->respond(createErrorResponse("invalid_operation", "Only pothole and construction reports can be manually resolved"));
+                return;
+            }
+
+            if profile.userRole != "rda" {
+                log:printError("BACKEND: Non-RDA user attempting to resolve report");
+                check caller->respond(createErrorResponse("forbidden", "Only RDA officers can resolve reports"));
+                return;
+            }
+            
+            boolean|error result = database:resolveHazardReport(reportId, profile.id);
+            if result is error {
+                log:printError("BACKEND: Resolve failed: " + result.message());
+                check caller->respond(createErrorResponse("resolve_failed", result.message()));
+            } else {
+                log:printInfo("BACKEND: Report resolved successfully: " + reportId.toString());
+                check caller->respond({
+                    "success": true,
+                    "message": "Report resolved and moved to resolved reports",
+                    "timestamp": getCurrentTimestamp()
+                });
+            }
+        } else {
+            log:printInfo("BACKEND: Processing normal update for report: " + reportId.toString());
+            check reports:handleUpdateReport(caller, req, reportId);
+        }
     }
 
-    // OPTIONS handlers for comment endpoints
-    resource function options reports/[int reportId]/comments(http:Caller caller, http:Request req) returns error? {
-        check respondWithCorsHeaders(caller);
+    resource function delete reports/[int reportId](http:Caller caller, http:Request req) returns error? {
+        log:printInfo("BACKEND: DELETE reports endpoint called for ID: " + reportId.toString());
+        
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            log:printError("BACKEND: Auth validation failed: " + email.message());
+            check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
+            return;
+        }
+
+        user:UserProfile|error profile = auth:getUserProfile(email);
+        if profile is error {
+            log:printError("BACKEND: Failed to get user profile: " + profile.message());
+            check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
+            return;
+        }
+
+        var reportDetails = database:getReportDetails(reportId);
+        if reportDetails is error {
+            check caller->respond(createErrorResponse("report_not_found", "Report not found"));
+            return;
+        }
+
+        if reportDetails.hazard_type == "pothole" || reportDetails.hazard_type == "construction" {
+            if profile.userRole != "rda" && profile.id != reportDetails.user_id {
+                check caller->respond(createErrorResponse("forbidden", "You can only delete your own reports or be an RDA officer"));
+                return;
+            }
+        } else {
+            check caller->respond(createErrorResponse("invalid_operation", "Traffic and accident reports are automatically deleted after 24 hours"));
+            return;
+        }
+
+        check reports:handleDeleteReport(caller, req, reportId);
     }
 
-    resource function options comments/[int commentId](http:Caller caller, http:Request req) returns error? {
-        check respondWithCorsHeaders(caller);
+    resource function get resolved\-reports(http:Request req) returns json {
+        log:printInfo("BACKEND: GET resolved-reports endpoint called");
+        
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            log:printError("BACKEND: Auth validation failed for resolved reports: " + email.message());
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+        
+        var resolvedReports = database:getResolvedReports();
+        if resolvedReports is error {
+            log:printError("BACKEND: Failed to retrieve resolved reports: " + resolvedReports.message());
+            return createErrorResponse("internal_error", "Failed to retrieve resolved reports");
+        }
+
+        log:printInfo("BACKEND: Successfully retrieved resolved reports count: " + resolvedReports.length().toString());
+        return {
+            success: true,
+            reports: <json>resolvedReports,
+            total_count: resolvedReports.length()
+        };
     }
 
-    // OPTIONS handlers for likes endpoints
-    resource function options reports/[int reportId]/likes(http:Caller caller, http:Request req) returns error? {
-        check respondWithCorsHeaders(caller);
-    }
-
-    // Get comments for a report
+    // ============ COMMENT ENDPOINTS ============
+    
     resource function get reports/[int reportId]/comments(http:Request req) returns json {
         string|error email = validateAuthHeader(req);
         if email is error {
@@ -474,7 +599,6 @@ service /api on apiListener {
         };
     }
 
-    // Add a comment to a report
     resource function post reports/[int reportId]/comments(http:Request req) returns json {
         string|error email = validateAuthHeader(req);
         if email is error {
@@ -526,7 +650,6 @@ service /api on apiListener {
         };
     }
 
-    // Delete a comment
     resource function delete comments/[int commentId](http:Request req) returns json {
         string|error email = validateAuthHeader(req);
         if email is error {
@@ -550,9 +673,8 @@ service /api on apiListener {
     }
 
     // ============ LIKE/UNLIKE ENDPOINTS ============
-
-    // Get like stats for a report
-    resource function get reports/[int reportId]/likes(http:Request req) returns json {
+    
+    resource function get reports/[int reportId]/like(http:Request req) returns json {
         string|error email = validateAuthHeader(req);
         int? userId = ();
         
@@ -578,8 +700,7 @@ service /api on apiListener {
         };
     }
 
-    // Toggle like/unlike on a report
-    resource function post reports/[int reportId]/likes(http:Request req) returns json {
+    resource function post reports/[int reportId]/like(http:Request req) returns json {
         string|error email = validateAuthHeader(req);
         if email is error {
             return createErrorResponse("unauthorized", "Authentication required");
@@ -619,144 +740,8 @@ service /api on apiListener {
         };
     }
 
-    // Updated PUT reports endpoint with debugging
-    resource function put reports/[int reportId](http:Caller caller, http:Request req) returns error? {
-        log:printInfo("BACKEND: PUT reports endpoint called for ID: " + reportId.toString());
-        
-        string|error email = validateAuthHeader(req);
-        if email is error {
-            log:printError("BACKEND: Auth validation failed: " + email.message());
-            check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
-            return;
-        }
-
-        user:UserProfile|error profile = auth:getUserProfile(email);
-        if profile is error {
-            log:printError("BACKEND: Failed to get user profile: " + profile.message());
-            check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
-            return;
-        }
-
-        json|error payload = req.getJsonPayload();
-        if payload is error {
-            log:printError("BACKEND: Invalid JSON payload: " + payload.message());
-            check caller->respond(createErrorResponse("invalid_request", "Invalid JSON payload"));
-            return;
-        }
-
-        // Check if this is a resolve action
-        if payload.status is string && payload.status == "resolved" {
-            log:printInfo("BACKEND: Processing resolve action for report: " + reportId.toString());
-            
-            // First, check if the report is pothole or construction
-            string|error reportType = database:getReportType(reportId);
-            if reportType is error {
-                log:printError("BACKEND: Failed to get report type: " + reportType.message());
-                check caller->respond(createErrorResponse("report_not_found", "Report not found"));
-                return;
-            }
-            
-            if reportType != "pothole" && reportType != "construction" {
-                log:printError("BACKEND: Attempt to resolve non-road report: " + reportType);
-                check caller->respond(createErrorResponse("invalid_operation", "Only pothole and construction reports can be manually resolved"));
-                return;
-            }
-
-            // Check if user is RDA
-            if profile.userRole != "rda" {
-                log:printError("BACKEND: Non-RDA user attempting to resolve report");
-                check caller->respond(createErrorResponse("forbidden", "Only RDA officers can resolve reports"));
-                return;
-            }
-            
-            boolean|error result = database:resolveHazardReport(reportId, profile.id);
-            if result is error {
-                log:printError("BACKEND: Resolve failed: " + result.message());
-                check caller->respond(createErrorResponse("resolve_failed", result.message()));
-            } else {
-                log:printInfo("BACKEND: Report resolved successfully: " + reportId.toString());
-                check caller->respond({
-                    "success": true,
-                    "message": "Report resolved and moved to resolved reports",
-                    "timestamp": getCurrentTimestamp()
-                });
-            }
-        } else {
-            log:printInfo("BACKEND: Processing normal update for report: " + reportId.toString());
-            check reports:handleUpdateReport(caller, req, reportId);
-        }
-    }
-
-    // Add endpoint to get resolved reports
-    resource function get resolved\-reports(http:Request req) returns json {
-        log:printInfo("BACKEND: GET resolved-reports endpoint called");
-        
-        string|error email = validateAuthHeader(req);
-        if email is error {
-            log:printError("BACKEND: Auth validation failed for resolved reports: " + email.message());
-            return createErrorResponse("unauthorized", "Authentication required");
-        }
-        log:printInfo("BACKEND: Auth validated for resolved reports request");
-
-        var resolvedReports = database:getResolvedReports();
-        if resolvedReports is error {
-            log:printError("BACKEND: Failed to retrieve resolved reports: " + resolvedReports.message());
-            return createErrorResponse("internal_error", "Failed to retrieve resolved reports");
-        }
-
-        log:printInfo("BACKEND: Successfully retrieved resolved reports count: " + resolvedReports.length().toString());
-        return {
-            success: true,
-            reports: <json>resolvedReports,
-            total_count: resolvedReports.length()
-        };
-    }
-
-    resource function delete reports/[int reportId](http:Caller caller, http:Request req) returns error? {
-        log:printInfo("BACKEND: DELETE reports endpoint called for ID: " + reportId.toString());
-        
-        string|error email = validateAuthHeader(req);
-        if email is error {
-            log:printError("BACKEND: Auth validation failed: " + email.message());
-            check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
-            return;
-        }
-
-        user:UserProfile|error profile = auth:getUserProfile(email);
-        if profile is error {
-            log:printError("BACKEND: Failed to get user profile: " + profile.message());
-            check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
-            return;
-        }
-
-        // Get report details to check type and ownership
-        var reportDetails = database:getReportDetails(reportId);
-        if reportDetails is error {
-            check caller->respond(createErrorResponse("report_not_found", "Report not found"));
-            return;
-        }
-
-        // Only allow deletion of pothole/construction reports by RDA or the original submitter
-        if reportDetails.hazard_type == "pothole" || reportDetails.hazard_type == "construction" {
-            // Check if user is RDA or the original submitter
-            if profile.userRole != "rda" && profile.id != reportDetails.user_id {
-                check caller->respond(createErrorResponse("forbidden", "You can only delete your own reports or be an RDA officer"));
-                return;
-            }
-        } else {
-            // Traffic/accident reports cannot be manually deleted
-            check caller->respond(createErrorResponse("invalid_operation", "Traffic and accident reports are automatically deleted after 24 hours"));
-            return;
-        }
-
-        check reports:handleDeleteReport(caller, req, reportId);
-    }
-
-    resource function get images/[string filename](http:Caller caller, http:Request req) returns error? {
-        check serveImage(caller, filename);
-    }
-
-    // Add the RDA endpoints inside the service
+    // ============ RDA ENDPOINTS ============
+    
     resource function get rda/reports(http:Request req) returns json {
         string|error email = validateAuthHeader(req);
         if email is error {
@@ -768,7 +753,6 @@ service /api on apiListener {
             return createErrorResponse("internal_error", "Failed to retrieve user profile");
         }
 
-        // Check if user is RDA
         if profile.userRole != "rda" {
             return createErrorResponse("forbidden", "Access denied - RDA role required");
         }
@@ -796,7 +780,6 @@ service /api on apiListener {
             return createErrorResponse("internal_error", "Failed to retrieve user profile");
         }
 
-        // Check if user is RDA
         if profile.userRole != "rda" {
             return createErrorResponse("forbidden", "Access denied - RDA role required");
         }
@@ -824,7 +807,6 @@ service /api on apiListener {
             return createErrorResponse("internal_error", "Failed to retrieve user profile");
         }
 
-        // Check if user is RDA
         if profile.userRole != "rda" {
             return createErrorResponse("forbidden", "Access denied - RDA role required");
         }
@@ -834,9 +816,7 @@ service /api on apiListener {
             return createErrorResponse("invalid_request", "Invalid JSON payload");
         }
 
-        // Check if this is a resolve action
         if payload.status is string && payload.status == "resolved" {
-            // First, check if the report is pothole or construction
             string|error reportType = database:getReportType(reportId);
             if reportType is error {
                 return createErrorResponse("report_not_found", "Report not found");
@@ -859,6 +839,28 @@ service /api on apiListener {
         }
 
         return createErrorResponse("invalid_request", "Unsupported status");
+    }
+
+    resource function get images/[string filename](http:Caller caller, http:Request req) returns error? {
+        check serveImage(caller, filename);
+    }
+
+    // ============ OPTIONS HANDLERS ============
+    
+    resource function options reports/[int reportId](http:Caller caller, http:Request req) returns error? {
+        check respondWithCorsHeaders(caller);
+    }
+
+    resource function options reports/[int reportId]/comments(http:Caller caller, http:Request req) returns error? {
+        check respondWithCorsHeaders(caller);
+    }
+
+    resource function options comments/[int commentId](http:Caller caller, http:Request req) returns error? {
+        check respondWithCorsHeaders(caller);
+    }
+
+    resource function options reports/[int reportId]/like(http:Caller caller, http:Request req) returns error? {
+        check respondWithCorsHeaders(caller);
     }
 }
 
@@ -929,6 +931,8 @@ public function main() returns error? {
     log:printInfo("SafeRoute API server started on port " + serverPort.toString());
 }
 
+// ============ HELPER TYPES AND FUNCTIONS ============
+
 type ReportQueryParams record {
     string hazardType;
     string severity;
@@ -990,7 +994,6 @@ function validateAuthHeader(http:Request req) returns string|error {
     string token = authHeader.substring(7);
     log:printInfo("MAIN: Extracted token, calling auth module validation");
     
-    // This calls the auth module's validateJwtToken function
     return auth:validateJwtToken(token);
 }
 
@@ -1023,7 +1026,7 @@ function createUserProfileResponse(user:UserProfile profile) returns map<json> {
         firstName: profile.firstName,
         lastName: profile.lastName,
         email: profile.email,
-        location: profile.locationDetails.address, // Add location field for backward compatibility
+        location: profile.locationDetails.address,
         locationDetails: {
             latitude: profile.locationDetails.latitude,
             longitude: profile.locationDetails.longitude,

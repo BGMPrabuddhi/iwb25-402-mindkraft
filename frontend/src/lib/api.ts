@@ -613,63 +613,67 @@ private getAuthToken(): string | null {
   // ============ LIKE/UNLIKE FUNCTIONALITY ============
 
   // Get like stats for a specific report
-  async getReportLikeStats(reportId: number): Promise<{
-    success: boolean;
-    report_id: number;
-    total_likes: number;
-    total_unlikes: number;
-    user_liked: boolean;
-    user_unliked: boolean;
-  }> {
-    try {
-      const token = this.getAuthToken();
-      const headers: Record<string, string> = { 'Accept': 'application/json' };
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`${this.baseUrl}/reports/${reportId}/likes`, {
-        method: 'GET',
-        headers,
-      });
-      
-      return await this.handleResponse<{
-        success: boolean;
-        report_id: number;
-        total_likes: number;
-        total_unlikes: number;
-        user_liked: boolean;
-        user_unliked: boolean;
-      }>(response);
-    } catch (error) {
-      throw error;
+  // Fix this method in your ReportsAPI class:
+async getReportLikeStats(reportId: number): Promise<{
+  success: boolean;
+  report_id: number;
+  total_likes: number;
+  total_unlikes: number;
+  user_liked: boolean;
+  user_unliked: boolean;
+}> {
+  try {
+    const token = this.getAuthToken();
+    const headers: Record<string, string> = { 'Accept': 'application/json' };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
+
+    // Change from /likes to /like (singular)
+    const response = await fetch(`${this.baseUrl}/reports/${reportId}/like`, {
+      method: 'GET',
+      headers,
+    });
+    
+    return await this.handleResponse<{
+      success: boolean;
+      report_id: number;
+      total_likes: number;
+      total_unlikes: number;
+      user_liked: boolean;
+      user_unliked: boolean;
+    }>(response);
+  } catch (error) {
+    throw error;
   }
+}
 
-  // Toggle like/unlike on a report
-  async toggleReportLike(reportId: number, isLike: boolean): Promise<LikeResponse> {
-    try {
-      const token = this.getAuthToken();
-      if (!token) {
-        throw new Error('Authentication required. Please log in.');
-      }
+// Fix these methods in your ReportsAPI class:
 
-      const response = await fetch(`${this.baseUrl}/reports/${reportId}/likes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ is_like: isLike }),
-      });
-      
-      return await this.handleResponse<LikeResponse>(response);
-    } catch (error) {
-      throw error;
+async toggleReportLike(reportId: number, isLike: boolean): Promise<LikeResponse> {
+  try {
+    const token = this.getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required. Please log in.');
     }
+
+    // Change from /reports/${reportId}/likes to /reports/${reportId}/like
+    const response = await fetch(`${this.baseUrl}/reports/${reportId}/like`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ is_like: isLike }),
+    });
+    
+    return await this.handleResponse<LikeResponse>(response);
+  } catch (error) {
+    throw error;
   }
+}
 }
 
 export const reportsAPI = new ReportsAPI();
