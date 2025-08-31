@@ -213,40 +213,88 @@ function sendEmailViaSMTP(string recipientEmail, string otp, string smtpHost, in
 }
 
 function generateVerificationEmailTemplate(string otp, string recipientEmail) returns string {
-    return string `<!DOCTYPE html>
-<html>
+        return string `<!DOCTYPE html>
+<html lang="en" style="margin:0; padding:0;">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SafeRoute Email Verification</title>
+    <meta name="x-apple-disable-message-reformatting" />
+    <style>
+        body,table,td,div,p,a { font-family:'Segoe UI', Arial, sans-serif !important; }
+        @media (prefers-color-scheme: dark) {
+            body { background:#0f172a !important; }
+        }
+    </style>
 </head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
-    <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-        <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 30px; text-align: center;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">SafeRoute</h1>
-            <p style="color: #e0e7ff; margin: 8px 0 0 0; font-size: 16px;">Email Verification</p>
-        </div>
-        <div style="padding: 40px 30px;">
-            <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">Welcome to SafeRoute!</h2>
-            <p style="color: #4b5563; font-size: 16px; margin: 0 0 30px 0; line-height: 1.5;">
-                Thank you for signing up. Please verify your email address using the following verification code to complete your account creation:
-            </p>
-            <div style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px; padding: 25px; text-align: center; margin: 30px 0;">
-                <p style="color: #64748b; font-size: 14px; margin: 0 0 10px 0; font-weight: 500;">Verification Code</p>
-                <div style="color: #1e293b; font-size: 36px; font-weight: 700; letter-spacing: 6px; font-family: 'Courier New', monospace;">${otp}</div>
-            </div>
-            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 25px 0; border-radius: 4px;">
-                <p style="color: #92400e; font-size: 14px; margin: 0; font-weight: 500;">
-                    This code expires in 10 minutes
-                </p>
-            </div>
-        </div>
-        <div style="background-color: #f8fafc; padding: 20px 30px; border-top: 1px solid #e5e7eb;">
-            <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center; line-height: 1.4;">
-                © 2025 SafeRoute. This email was sent to ${recipientEmail}
-            </p>
-        </div>
-    </div>
+<body style="margin:0;padding:0;background:#f1f5f9;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+                 style="background:#f1f5f9;padding:24px 0;">
+        <tr>
+            <td align="center" style="padding:0 16px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+                             style="max-width:620px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
+                    <tr>
+                        <td style="padding:44px 40px 12px 40px;">
+                            <h1 style="margin:0 0 4px 0;font-size:24px;line-height:1.2;color:#0f172a;font-weight:800;letter-spacing:.4px;">
+                                Verify Your Email
+                            </h1>
+                            <p style="margin:0 0 24px 0;font-size:14px;letter-spacing:.5px;font-weight:600;text-transform:uppercase;color:#0d9488;">
+                                Complete Your Registration
+                            </p>
+                            <p style="margin:0 0 26px 0;font-size:15px;line-height:1.55;color:#334155;">
+                                Welcome to SafeRoute! Use the verification code below to activate your account.
+                                If you didn't initiate this registration, you can safely ignore this email.
+                            </p>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                                         style="margin:12px 0 8px 0;">
+                                <tr>
+                                    <td style="background:#f0fdfa;border:2px solid #99f6e4;border-radius:16px;padding:30px 20px;text-align:center;">
+                                        <p style="margin:0 0 12px 0;font-size:13px;letter-spacing:1px;font-weight:600;color:#0f766e;text-transform:uppercase;">
+                                            Verification Code
+                                        </p>
+                                        <div style="font-size:38px;font-weight:800;letter-spacing:10px;color:#134e4a;font-family:'Segoe UI',Arial,sans-serif;">
+                                            ${otp}
+                                        </div>
+                                        <p style="margin:18px 0 0 0;font-size:12px;color:#0f766e;letter-spacing:.5px;">
+                                            Code valid for <strong style="color:#0d9488;">10 minutes</strong>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div style="margin:34px 0 12px 0;border-left:4px solid #f59e0b;background:#fffbeb;padding:14px 18px;border-radius:10px;">
+                                <p style="margin:0;font-size:13px;line-height:1.5;color:#92400e;">
+                                    Never share this code. SafeRoute staff will never ask for it.
+                                </p>
+                            </div>
+                            <p style="margin:30px 0 0 0;font-size:13px;line-height:1.6;color:#475569;">
+                                Having trouble? Reply to this email and our support team will help.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:28px 30px 40px 30px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                                         style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:14px;">
+                                <tr>
+                                    <td style="padding:18px 24px;text-align:center;">
+                                        <p style="margin:0 0 6px 0;font-size:12px;color:#64748b;">
+                                            This verification email was sent to
+                                            <strong style="color:#0f172a;">${recipientEmail}</strong>.
+                                        </p>
+                                        <p style="margin:0;font-size:11px;line-height:1.6;color:#94a3b8;">
+                                            © 2025 SafeRoute. All rights reserved.<br/>
+                                            If you didn't sign up, you can ignore this.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>`;
 }

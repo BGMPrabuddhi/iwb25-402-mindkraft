@@ -404,26 +404,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
                 </div>
 
-                {/* Terms and Conditions */}
-                <div className="flex items-center group">
-                  <input
-                    id="terms"
-                    name="terms"
-                    type="checkbox"
-                    required
-                    className="h-4 w-4 text-green-700 focus:ring-brand-400 border-white/30 bg-white/10 rounded transition-all duration-300 hover:scale-110"
-                  />
-                  <label htmlFor="terms" className="ml-2 block text-sm text-black">
-                    I agree to the{' '}
-                    <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
-                      Terms and Conditions
-                    </a>{' '}
-                    and{' '}
-                    <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
-                      Privacy Policy
-                    </a>
-                  </label>
-                </div>
 
                 {/* Submit Button */}
                 <div>

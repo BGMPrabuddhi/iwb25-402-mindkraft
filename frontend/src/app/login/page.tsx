@@ -206,17 +206,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="flex items-center group">
-                  <input
-                    id="remember-me"
-                    name="remember-me"
-                    type="checkbox"
-                    className="h-4 w-4 text-green-700 focus:ring-brand-400 border-white/30 bg-white/10 rounded transition-all duration-300 hover:scale-110"
-                  />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-black">
-                    Remember me
-                  </label>
-                </div>
+                
                 <div className="text-sm">
                   <Link href="/forgot-password" className="font-medium text-green-700 hover:text-green-500 transition-colors duration-200 underline-offset-2 hover:underline inline-block">
                     Forgot password?
