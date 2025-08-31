@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import UpdateReportModal from "@/Components/UpdateReportModal";
 import DeleteReportModal from "@/Components/DeleteReportModal";
 import Header  from "@/Components/layout/Header";
+import { Snackbar, SnackbarStack } from '@/Components/Snackbar';
 
 const ReportsHistoryPage = () => {
 	const router = useRouter();
@@ -44,8 +45,8 @@ const ReportsHistoryPage = () => {
 	const [showUpdateModal, setShowUpdateModal] = useState(false);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const [selectedReport, setSelectedReport] = useState<HazardReport | null>(null);
-	const [snackbar, setSnackbar] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
-		show: false,
+	const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({
+		open: false,
 		message: "",
 		type: 'success'
 	});
@@ -79,10 +80,7 @@ const ReportsHistoryPage = () => {
 	}, []);
 
 	const showSnackbar = (message: string, type: 'success' | 'error' = 'success') => {
-		setSnackbar({ show: true, message, type });
-		setTimeout(() => {
-			setSnackbar({ show: false, message: "", type: 'success' });
-		}, 3000);
+		setSnackbar({ open: true, message, type });
 	};
 
 	const handleUpdateFormChange = (field: keyof HazardReportData, value: string) => {
@@ -231,10 +229,7 @@ const ReportsHistoryPage = () => {
 						</div>
 						<h3 className="text-xl font-bold text-white mb-2">No Reports Yet</h3>
 						<p className="text-brand-100/70 mb-8">You haven&apos;t submitted any hazard reports yet.</p>
-						<button onClick={() => router.push('/home')} className="relative inline-flex items-center gap-2 rounded-xl px-6 py-3 font-semibold text-white text-sm tracking-wide bg-gradient-to-r from-brand-600 via-brand-500 to-brand-400 shadow-lg shadow-black/30 ring-1 ring-white/20 hover:from-brand-500 hover:via-brand-500 hover:to-brand-300 transition-all focus:outline-none focus:ring-4 focus:ring-brand-400/40">
-							Submit Your First Report
-							<span className="absolute inset-0 rounded-xl opacity-0 hover:opacity-100 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.2),transparent_70%)] transition-opacity" />
-						</button>
+						
 					</div>
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
@@ -330,13 +325,9 @@ const ReportsHistoryPage = () => {
 				onDelete={handleDelete}
 			/>
 
-			{/* Snackbar */}
-			{snackbar.show && (
-				<div className={`fixed bottom-6 right-6 z-50 max-w-sm px-5 py-4 rounded-xl shadow-lg backdrop-blur-xl ring-1 ring-white/20 flex items-start gap-3 ${snackbar.type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
-					{snackbar.type === 'success' ? (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>) : (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>)}
-					<span className="text-sm font-semibold tracking-wide">{snackbar.message}</span>
-				</div>
-			)}
+			<SnackbarStack>
+				<Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} />
+			</SnackbarStack>
 		</main>
 	);
 };

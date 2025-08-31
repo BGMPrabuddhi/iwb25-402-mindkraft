@@ -235,7 +235,7 @@
 
   /* Snackbars */
   .snackbar {
-    @apply fixed bottom-6 right-6 px-6 py-4 rounded-lg text-white z-50 shadow-lg transform transition-all duration-300;
+    @apply fixed top-6 right-6 px-6 py-4 rounded-lg text-white z-50 shadow-lg transform transition-all duration-300;
   }
 
   .snackbar-success {
@@ -245,6 +245,7 @@
   .snackbar-error {
     @apply bg-red-500;
   }
+  .animate-slide-in { animation: slide-in .4s cubic-bezier(.4,0,.2,1); }
 }
 
 /* Loading animations */
@@ -255,6 +256,11 @@
   50% {
     opacity: 0.5;
   }
+}
+
+@keyframes slide-in {
+  0% { transform: translateY(-8px) translateX(20px); opacity:0; }
+  100% { transform: translateY(0) translateX(0); opacity:1; }
 }
 
 .animate-pulse-slow {

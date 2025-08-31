@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
+import logo from '@/Components/newLogo.png'
 
 export default function Home() {
   const [isVisible, setIsVisible] = useState(false)
@@ -94,12 +96,19 @@ export default function Home() {
           }`}
         >
           <div className="mb-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-xs font-semibold uppercase tracking-wider text-brand-200 mb-6 shadow-sm">
+            
+            {/* Logo + Brand Name */}
+            <div className="flex flex-col items-center mb-6">
+              <div className="flex flex-col items-center">
+                <Image src={logo} alt="SafeRoute logo" priority className="w-24 h-24 md:w-40 md:h-40 drop-shadow-lg" />
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-xs font-semibold uppercase tracking-wider text-brand-200 mb-6 shadow-lg">
               <span className="w-2 h-2 rounded-full bg-red-600 animate-none" /> Real-time Community Safety
             </div>
-            <h1 className="text-4xl md:text-7xl font-extrabold mb-8 tracking-tight leading-[1.15] overflow-visible">
+              </div>
+            </div>
+            <h1 className="text-3xl md:text-5xl font-extrabold mb-8 tracking-tight leading-tight overflow-visible">
               <span className="block bg-clip-text text-transparent bg-black/80 animate-gradient bg-[length:200%_200%] pb-1">Navigate Safer</span>
-              <span className="block mt-2 bg-clip-text text-transparent bg-black/80 animate-gradient bg-[length:200%_200%] pb-1">With Community Insight</span>
+              <span className="block mt-1 bg-clip-text text-transparent bg-black/80 animate-gradient bg-[length:200%_200%] pb-1">With Community Insight</span>
             </h1>
             <p className="text-lg md:text-xl text-black/70 max-w-2xl mx-auto leading-relaxed animate-fade-in-up animation-delay-300">
               Harness the power of collective reporting to avoid hazards, receive timely alerts, and make
