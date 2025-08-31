@@ -87,7 +87,6 @@ export const authAPI = {
 
   getProfile: async (): Promise<UserProfile> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-    
     const response = await fetch('/api/me', {
       method: 'GET',
       headers: {
@@ -95,8 +94,12 @@ export const authAPI = {
         'Content-Type': 'application/json'
       },
     });
-    
     return response.json();
+  },
+
+  getCurrentUser: async (): Promise<UserProfile> => {
+    // Alias for getProfile
+    return await authAPI.getProfile();
   },
 
   getHome: async (): Promise<HomeResponse> => {
