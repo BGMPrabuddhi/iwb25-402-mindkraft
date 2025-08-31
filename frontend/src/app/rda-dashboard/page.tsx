@@ -342,9 +342,9 @@ export default function RDADashboard() {
     .filter(report => {
       // District filter
       if (selectedDistrict !== 'all') {
-        const reportDistrict = extractDistrict(report.location?.address || '')
-        if (reportDistrict !== selectedDistrict) return false
-      }
+      const reportDistrict = report.district || extractDistrict(report.location?.address || '') || 'Unknown'
+      if (reportDistrict !== selectedDistrict) return false
+    }
       
       // Severity filter
       if (selectedSeverity !== 'all' && report.severity_level !== selectedSeverity) {
@@ -545,7 +545,7 @@ export default function RDADashboard() {
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {relevantReports.map((report) => {
-                const district = extractDistrict(report.location?.address || '')
+                const district = report.district || extractDistrict(report.location?.address || '') || 'Unknown'
                 return (
                   <div key={report.id} className="group relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur p-8 shadow-xl hover:shadow-2xl transition-all">
                     <div className="flex justify-between items-start mb-3">
