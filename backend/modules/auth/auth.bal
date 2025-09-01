@@ -540,6 +540,61 @@ public function getUserProfile(string email) returns user:UserProfile|error {
     return profile;
 }
 
+// Fetch user profile by user ID (for RDA)
+public function getUserProfileById(int userId) returns user:UserProfile|error {
+    var dbClient = database:getDbClient();
+
+    stream<record {
+        int id;
+        string first_name;
+        string last_name;
+        string contact_number;
+        string email;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string? profile_image;
+        string? user_role;
+        string? created_at;
+    }, sql:Error?> userStream =
+        dbClient->query(`
+            SELECT id, first_name, last_name, contact_number, email, latitude, longitude, address, profile_image, user_role, created_at
+            FROM users WHERE id = ${userId}
+        `);
+
+    var userRecord = userStream.next();
+    check userStream.close();
+
+    if userRecord is sql:Error {
+        return error("Database error occurred");
+    }
+    if userRecord is () {
+        return error("User not found");
+    }
+    if (userRecord.value.latitude is () || 
+        userRecord.value.longitude is () || 
+        userRecord.value.address is ()) {
+        return error("User location data is incomplete");
+    }
+    user:LocationDetails locationDetails = {
+        latitude: <decimal>userRecord.value.latitude,
+        longitude: <decimal>userRecord.value.longitude,
+        address: <string>userRecord.value.address
+    };
+    user:UserProfile profile = {
+        id: userRecord.value.id,
+        firstName: userRecord.value.first_name,
+        lastName: userRecord.value.last_name,
+        contactNumber: userRecord.value.contact_number,
+        email: userRecord.value.email,
+        locationDetails: locationDetails,
+        userRole: userRecord.value["user_role"] ?: "user",
+        profileImage: userRecord.value.profile_image is string ? userRecord.value.profile_image : (),
+        createdAt: userRecord.value.created_at is string ? userRecord.value.created_at : ()
+    };
+    return profile;
+}
+
 public function updateUserProfile(string email, user:UpdateProfileRequest req) returns user:UserProfile|error {
     // Validate input
     if req.firstName.trim().length() == 0 {

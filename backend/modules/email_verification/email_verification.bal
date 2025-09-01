@@ -27,7 +27,7 @@ public function storePendingRegistration(user:RegisterRequest req, string otp, s
             first_name, last_name, contact_number, email, password_hash, location, user_role,
             latitude, longitude, address, otp, expiration_time
         ) VALUES (
-            ${req.firstName}, ${req.lastName}, ${req.userRole == "general" ? req.contactNumber : null}, ${req.email}, ${passwordHash}, 
+            ${req.firstName}, ${req.lastName}, ${req["contactNumber"] is string ? req["contactNumber"] : ()}, ${req.email}, ${passwordHash}, 
             ${req.location}, ${req.userRole}, ${req.locationDetails.latitude}, 
             ${req.locationDetails.longitude}, ${req.locationDetails.address}, 
             ${otp}, ${expirationTime}
@@ -135,7 +135,7 @@ public function verifyOtpAndCreateUser(string email, string inputOtp, string jwt
         INSERT INTO users (
             first_name, last_name, contact_number, email, password_hash, latitude, longitude, address, user_role, is_email_verified
         ) VALUES (
-            ${pending.first_name}, ${pending.last_name}, ${pending.contact_number}, ${pending.email}, ${pending.password_hash}, ${pending.latitude}, ${pending.longitude}, ${pending.address}, ${pending.user_role}, true
+            ${pending.first_name}, ${pending.last_name}, ${pending.contact_number is string ? pending.contact_number : null}, ${pending.email}, ${pending.password_hash}, ${pending.latitude}, ${pending.longitude}, ${pending.address}, ${pending.user_role}, true
         )
     `);
     

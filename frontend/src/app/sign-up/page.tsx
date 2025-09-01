@@ -9,7 +9,7 @@ import LocationInput from '@/Components/LocationInput'
 type SignupFormData = {
   firstName: string
   lastName: string
-  contactNumber: string
+  contactNumber?: string
   email: string
   password: string
   confirmPassword: string
@@ -30,7 +30,7 @@ export default function SignupPage() {
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     lastName: '',
-    contactNumber: '',
+    contactNumber: '', // will be ignored for RDA
     email: '',
     password: '',
     confirmPassword: '',
@@ -102,7 +102,7 @@ export default function SignupPage() {
     }
 
     if (formData.userRole === 'general') {
-      if (!formData.contactNumber.trim()) {
+      if (!formData.contactNumber || !formData.contactNumber.trim()) {
         newErrors.contactNumber = 'Contact number is required'
       } else if (!/^([0-9+\-() ]{7,20})$/.test(formData.contactNumber.trim())) {
         newErrors.contactNumber = 'Invalid contact number format'
@@ -149,7 +149,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     const result = await authAPI.register({
       firstName: formData.firstName,
       lastName: formData.lastName,
-      contactNumber: formData.contactNumber,
+  contactNumber: formData.userRole === 'general' ? (formData.contactNumber || '') : '',
       email: formData.email,
       password: formData.password,
       location: formData.location,
@@ -358,7 +358,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                       onChange={handleChange}
                       className={`appearance-none block w-full px-3 py-3 border ${errors.contactNumber ? 'border-red-400 shake' : 'border-gray-300'} rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur hover:bg-white/70 focus:bg-white`}
                       placeholder="Enter your contact number"
-                      required
                     />
                     {errors.contactNumber && (
                       <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.contactNumber}</p>

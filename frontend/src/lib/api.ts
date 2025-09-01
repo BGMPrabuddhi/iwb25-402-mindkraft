@@ -1,3 +1,35 @@
+// Fetch any user's profile by user ID (for RDA dashboard)
+export interface UserProfileDetails {
+  id: number;
+  firstName: string;
+  lastName: string;
+  contactNumber: string;
+  email: string;
+  profileImage?: string;
+  location?: string;
+  locationDetails?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  };
+  latitude?: number;
+  longitude?: number;
+  createdAt?: string;
+}
+
+export async function fetchUserProfileById(userId: number): Promise<UserProfileDetails> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  const response = await fetch(`/api/user/${userId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message || 'Failed to fetch user profile');
+  return data.user;
+}
 // lib/api.ts
 
 export interface HazardReportData {

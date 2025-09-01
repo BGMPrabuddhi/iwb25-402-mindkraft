@@ -7,9 +7,9 @@ import ballerina/sql;
 import ballerinax/postgresql;
 
 import saferoute/backend.database;
-import saferoute/backend.reports;
-
+import saferoute/backend.types;
 import saferoute/backend.user;
+import saferoute/backend.reports as reports;
 import saferoute/backend.auth as auth;
 
 /// Error type representing authentication related failures.
@@ -33,7 +33,6 @@ listener http:Listener apiListener = new (serverPort);
     }
 }
 service /api on apiListener {
-    
     function init() returns error? {
         check reports:initializeCleanupTask();
     }
@@ -88,20 +87,14 @@ service /api on apiListener {
             log:printError("Failed to get user profile", profile);
             return createErrorResponse("internal_error", "Failed to retrieve user profile");
         }
-        
-        map<json> userResponse = createUserProfileResponse(profile);
-        return {
-            success: true,
-            id: userResponse["id"],
-            firstName: userResponse["firstName"],
-            lastName: userResponse["lastName"],
-            email: userResponse["email"],
-            userRole: profile.userRole,
-            location: userResponse["location"],
-            locationDetails: userResponse["locationDetails"],
-            createdAt: userResponse["createdAt"],
-            profileImage: userResponse.hasKey("profileImage") ? userResponse["profileImage"] : ()
-        };
+
+        // Only owner can see their contact/email/location
+        map<json> userResponse = createUserProfileResponse(profile, email, profile.userRole);
+        map<json> resp = { success: true, userRole: profile.userRole };
+        foreach string k in userResponse.keys() {
+            resp[k] = userResponse[k];
+        }
+        return resp;
     }
 
     resource function put me(http:Request req, user:UpdateProfileRequest updateReq) returns json {
@@ -554,21 +547,58 @@ service /api on apiListener {
             return createErrorResponse("forbidden", "Access denied - RDA role required");
         }
 
-        var reportsResult = database:getAllReports();
+        log:printInfo("BACKEND: RDA reports endpoint - fetching active reports");
+        var reportsResult = database:getActiveReports();
         if reportsResult is error {
+            log:printError("BACKEND: Failed to get reports", reportsResult);
             return createErrorResponse("internal_error", "Failed to retrieve reports");
         }
-        anydata[] filtered = [];
+        types:HazardReport[] filtered = [];
         if reportsResult is anydata[] {
+            log:printInfo("BACKEND: Processing " + reportsResult.length().toString() + " reports");
             foreach var r in reportsResult {
-                if r is map<anydata> && r.hasKey("hazard_type") {
+                if r is map<anydata> && r.hasKey("hazard_type") && r.hasKey("user_id") {
                     string ht = <string>r["hazard_type"];
+                    log:printInfo("BACKEND: Processing report with type: " + ht);
                     if ht == "pothole" || ht == "construction" {
-                        filtered.push(r);
+                        log:printInfo("BACKEND: Found core hazard type, fetching user details");
+                        int userId = <int>r["user_id"];
+                        database:User|error userResult = database:getUserById(userId);
+                        map<json> userDetails = {};
+                        if userResult is database:User {
+                            log:printInfo("BACKEND: User found: " + userResult.first_name + " " + userResult.last_name);
+                            userDetails = {
+                                id: userResult.id,
+                                firstName: userResult.first_name,
+                                lastName: userResult.last_name,
+                                contactNumber: userResult.contact_number,
+                                email: userResult.email,
+                                location: userResult.address,
+                                profileImage: userResult.profile_image
+                            };
+                        } else {
+                            log:printError("BACKEND: Failed to get user details for userId: " + userId.toString(), userResult);
+                        }
+                        types:HazardReport reportWithUser = {
+                            id: <int>r["id"],
+                            title: <string>r["title"],
+                            description: r.hasKey("description") ? <string?>r["description"] : (),
+                            hazard_type: ht,
+                            severity_level: <string>r["severity_level"],
+                            status: <string>r["status"],
+                            images: <string[]>r["images"],
+                            location: r.hasKey("location") ? <types:Location?>r["location"] : (),
+                            created_at: <string>r["created_at"],
+                            updated_at: r.hasKey("updated_at") ? <string?>r["updated_at"] : (),
+                            submittedBy: userDetails
+                        };
+                        filtered.push(reportWithUser);
+                        log:printInfo("BACKEND: Added report to filtered list, total count: " + filtered.length().toString());
                     }
                 }
             }
         }
+        log:printInfo("BACKEND: Returning " + filtered.length().toString() + " filtered reports");
         return {
             success: true,
             reports: <json>filtered,
@@ -650,6 +680,52 @@ service /api on apiListener {
         }
 
         return createErrorResponse("invalid_request", "Unsupported status");
+    }
+
+    // Endpoint for RDA to fetch any user's profile by user ID
+    resource function get user/[int userId](http:Request req) returns json {
+        string|error requesterEmail = validateAuthHeader(req);
+        if requesterEmail is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        // Try to use auth:getUserProfileById if it exists, otherwise fallback to database:getUserById
+        user:UserProfile|error profile;
+        // If you have implemented getUserProfileById in auth, use it. Otherwise, fallback:
+        database:User|error dbUser = database:getUserById(userId);
+        if dbUser is error {
+            return createErrorResponse("not_found", "User not found");
+        }
+        profile = {
+            id: dbUser.id,
+            firstName: dbUser.first_name,
+            lastName: dbUser.last_name,
+            contactNumber: dbUser.contact_number ?: "",
+            email: dbUser.email,
+            locationDetails: {
+                latitude: dbUser.latitude,
+                longitude: dbUser.longitude,
+                address: dbUser.address
+            },
+            userRole: "general",
+            profileImage: dbUser.profile_image,
+            createdAt: dbUser.created_at
+        };
+        if profile is error {
+            return createErrorResponse("not_found", "User not found");
+        }
+
+        // Only RDA can access any user's full profile
+        user:UserProfile|error requesterProfile = auth:getUserProfile(requesterEmail);
+        if requesterProfile is error {
+            return createErrorResponse("internal_error", "Failed to retrieve requester profile");
+        }
+        if requesterProfile.userRole != "rda" {
+            return createErrorResponse("forbidden", "Access denied - RDA role required");
+        }
+
+        map<json> userResponse = createUserProfileResponse(profile, requesterEmail, requesterProfile.userRole);
+        return { success: true, user: userResponse };
     }
 }
 
@@ -807,26 +883,31 @@ function createSuccessAuthResponse(user:AuthResponse authResponse) returns json 
     };
 }
 
-function createUserProfileResponse(user:UserProfile profile) returns map<json> {
+// Returns user profile with privacy logic for contact number, email, and location.
+function createUserProfileResponse(user:UserProfile profile, string? requesterEmail = (), string? requesterRole = ()) returns map<json> {
+    boolean isRDA = requesterRole is string && requesterRole == "rda";
+    boolean isOwner = requesterEmail is string && requesterEmail == profile.email;
     map<json> response = {
         id: profile.id,
         firstName: profile.firstName,
         lastName: profile.lastName,
-        email: profile.email,
-        location: profile.locationDetails.address, // Add location field for backward compatibility
-        locationDetails: {
+        createdAt: profile.createdAt
+    };
+    // Only RDA or owner can see contact/email/location
+    if isRDA || isOwner {
+        response["contactNumber"] = profile.contactNumber;
+        response["email"] = profile.email;
+        response["location"] = profile.locationDetails.address;
+        response["locationDetails"] = {
             latitude: profile.locationDetails.latitude,
             longitude: profile.locationDetails.longitude,
             address: profile.locationDetails.address
-        },
-        createdAt: profile.createdAt
-    };
-    
+        };
+    }
     string? profileImage = profile?.profileImage;
     if profileImage is string {
         response["profileImage"] = profileImage;
     }
-    
     return response;
 }
 

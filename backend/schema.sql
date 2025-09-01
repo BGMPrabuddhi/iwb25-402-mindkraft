@@ -15,7 +15,7 @@ CREATE TABLE users (
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    contact_number VARCHAR(20) UNIQUE NOT NULL,
+    contact_number VARCHAR(20), -- nullable and not unique for RDA users
     password_hash VARCHAR(500) NOT NULL,
     latitude DECIMAL(10, 8) NOT NULL,
     longitude DECIMAL(11, 8) NOT NULL,
@@ -112,3 +112,24 @@ CREATE TRIGGER update_hazard_reports_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 COMMIT;
+
+-- Create pending_user_registrations table (for email verification flow)
+CREATE TABLE IF NOT EXISTS pending_user_registrations (
+    email VARCHAR(255) PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    contact_number VARCHAR(20), -- nullable for RDA users
+    password_hash VARCHAR(500) NOT NULL,
+    location TEXT NOT NULL,
+    user_role VARCHAR(50) NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    address TEXT NOT NULL,
+    otp VARCHAR(6) NOT NULL,
+    expiration_time BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for pending_user_registrations
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_email ON pending_user_registrations(email);
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_expiration ON pending_user_registrations(expiration_time);

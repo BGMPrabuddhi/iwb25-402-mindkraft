@@ -1,8 +1,11 @@
-'use client'
+"use client";
+
 import { useState, useEffect } from 'react'
+import { fetchUserProfileById, UserProfileDetails } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/auth'
 import { Snackbar, SnackbarStack } from '@/Components/Snackbar'
+import Image from 'next/image';
 import MapPopup from '@/Components/MapPopup'
 import ImageGallery from '@/Components/ImageGallery'
 import ConfirmationDialog from '@/Components/ConfirmationDialog'
@@ -26,6 +29,15 @@ interface Report {
   resolved_at?: string
   original_report_id?: number
   district?: string
+  submittedBy?: {
+    id?: number
+    firstName?: string
+    lastName?: string
+    contactNumber?: string
+    email?: string
+    location?: string
+    profileImage?: string
+  }
 }
 
 type TabType = 'submitted' | 'resolved'
@@ -51,7 +63,6 @@ const extractDistrict = (address: string): string => {
 
 export default function RDADashboard() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
   const [reports, setReports] = useState<Report[]>([])
   const [resolvedReports, setResolvedReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
@@ -106,8 +117,12 @@ export default function RDADashboard() {
     isOpen: false
   })
 
+  // Popup state for user details
+  const [userDetailsPopup, setUserDetailsPopup] = useState<{isOpen: boolean; user?: UserProfileDetails; loading?: boolean; error?: string}>({isOpen: false});
+
   useEffect(() => {
     checkAccess()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Image gallery functions
@@ -205,12 +220,11 @@ export default function RDADashboard() {
       const profile = await authAPI.getProfile()
       
       if (profile.success && (profile.userRole === 'rda' || profile.email === 'rdasrilanka0@gmail.com')) {
-        setUser(profile)
         loadReports()
       } else {
         router.push('/login')
       }
-    } catch (error) {
+    } catch {
       router.push('/login')
     } finally {
       setLoading(false)
@@ -367,14 +381,7 @@ export default function RDADashboard() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-brand-900 via-brand-900 to-brand-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-400 mx-auto mb-4"></div>
-          <p className="text-brand-300">Loading dashboard...</p>
-        </div>
-      </div>
-    )
+  return null;
   }
 
   // Derived stats
@@ -459,6 +466,7 @@ export default function RDADashboard() {
                 <div className="flex items-center space-x-2">
                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">District</label>
                   <select
+                    title="Select district"
                     value={selectedDistrict}
                     onChange={(e) => setSelectedDistrict(e.target.value)}
                     className="rounded-md border border-gray-300 bg-white/60 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -472,6 +480,7 @@ export default function RDADashboard() {
                 <div className="flex items-center space-x-2">
                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">Severity</label>
                   <select
+                    title="Select severity"
                     value={selectedSeverity}
                     onChange={(e) => setSelectedSeverity(e.target.value)}
                     className="rounded-md border border-gray-300 bg-white/60 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -485,6 +494,7 @@ export default function RDADashboard() {
                 <div className="flex items-center space-x-2">
                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">Type</label>
                   <select
+                    title="Select hazard type"
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
                     className="rounded-md border border-gray-300 bg-white/60 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -559,6 +569,39 @@ export default function RDADashboard() {
                         )}
                       </div>
                     </div>
+                    {/* Always show Submitted by, fallback to Unknown if missing */}
+                    <div className="mb-2">
+                      <span className="font-semibold text-gray-800">Submitted by: </span>
+                      {report.submittedBy && report.submittedBy.firstName ? (
+                        <button
+                          className="text-brand-600 hover:text-brand-500 underline underline-offset-2 text-left font-semibold"
+                          onClick={async () => {
+                            setUserDetailsPopup({ isOpen: true, loading: true });
+                            try {
+                              let userId: number | undefined = undefined;
+                              if ('user_id' in report && typeof (report as { user_id?: number }).user_id === 'number') {
+                                userId = (report as { user_id: number }).user_id;
+                              } else if (report.submittedBy && 'id' in report.submittedBy && typeof report.submittedBy.id === 'number') {
+                                userId = report.submittedBy.id;
+                              }
+                              if (!userId) {
+                                setUserDetailsPopup({ isOpen: true, error: 'User ID not available' });
+                                return;
+                              }
+                              const user = await fetchUserProfileById(userId);
+                              setUserDetailsPopup({ isOpen: true, user });
+                            } catch (err) {
+                              const errorMsg = err instanceof Error ? err.message : 'Failed to fetch user details';
+                              setUserDetailsPopup({ isOpen: true, error: errorMsg });
+                            }
+                          }}
+                        >
+                          {report.submittedBy.firstName} {report.submittedBy.lastName}
+                        </button>
+                      ) : (
+                        <span className="text-gray-500">Unknown</span>
+                      )}
+                    </div>
                     
                     {report.images.length > 0 && (
                       <button
@@ -625,6 +668,114 @@ export default function RDADashboard() {
      </main>
 
      <Footer />
+
+     {/* User Details Popup */}
+     {userDetailsPopup.isOpen && (
+       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md relative">
+           <button
+             className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+             onClick={() => setUserDetailsPopup({isOpen:false})}
+           >
+             <span className="text-xl">×</span>
+           </button>
+           {userDetailsPopup.loading ? (
+             <div className="flex flex-col items-center gap-3">
+               <div className="w-16 h-16 rounded-full bg-gray-200 animate-pulse" />
+               <div className="text-lg font-bold text-gray-900">Loading user details...</div>
+             </div>
+           ) : userDetailsPopup.error ? (
+             <div className="flex flex-col items-center gap-3">
+               <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                 <span className="text-red-500 text-2xl">!</span>
+               </div>
+               <div className="text-lg font-bold text-red-700">{userDetailsPopup.error}</div>
+             </div>
+           ) : userDetailsPopup.user && (
+             <div className="flex flex-col gap-4">
+               <div className="flex flex-col items-center gap-3">
+                 {userDetailsPopup.user.profileImage ? (
+                   <Image src={userDetailsPopup.user.profileImage} alt="Profile" width={80} height={80} className="w-20 h-20 rounded-full object-cover border-2 border-gray-200" />
+                 ) : (
+                   <div className="w-20 h-20 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+                     <span className="text-2xl font-bold text-white">
+                       {userDetailsPopup.user.firstName?.[0]}{userDetailsPopup.user.lastName?.[0]}
+                     </span>
+                   </div>
+                 )}
+                 <div className="text-center">
+                   <div className="text-xl font-bold text-gray-900">
+                     {userDetailsPopup.user.firstName} {userDetailsPopup.user.lastName}
+                   </div>
+                   <div className="text-sm text-gray-500">Community Member</div>
+                 </div>
+               </div>
+               
+               <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                 <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                     <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                     </svg>
+                   </div>
+                   <div>
+                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Email</div>
+                     <div className="text-sm text-gray-900">{userDetailsPopup.user.email}</div>
+                   </div>
+                 </div>
+                 
+                 <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                     <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                     </svg>
+                   </div>
+                   <div>
+                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contact Number</div>
+                     <div className="text-sm text-gray-900">{userDetailsPopup.user.contactNumber}</div>
+                   </div>
+                 </div>
+                 
+                 <div className="flex items-start gap-3">
+                   <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mt-0.5">
+                     <svg className="h-4 w-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                     </svg>
+                   </div>
+                   <div className="flex-1">
+                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</div>
+                     <div className="text-sm text-gray-900">
+                       {userDetailsPopup.user.locationDetails?.address || userDetailsPopup.user.location || 'Not provided'}
+                     </div>
+                     {(userDetailsPopup.user.locationDetails?.latitude && userDetailsPopup.user.locationDetails?.longitude) && (
+                       <div className="text-xs text-gray-500 mt-1">
+                         Lat: {userDetailsPopup.user.locationDetails.latitude.toFixed(6)}, 
+                         Lng: {userDetailsPopup.user.locationDetails.longitude.toFixed(6)}
+                       </div>
+                     )}
+                   </div>
+                 </div>
+                 
+                 {userDetailsPopup.user.createdAt && (
+                   <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                       <svg className="h-4 w-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                       </svg>
+                     </div>
+                     <div>
+                       <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Member Since</div>
+                       <div className="text-sm text-gray-900">{new Date(userDetailsPopup.user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                     </div>
+                   </div>
+                 )}
+               </div>
+             </div>
+           )}
+         </div>
+       </div>
+     )}
 
      {/* Map Popup */}
      {mapPopup.isOpen && mapPopup.latitude && mapPopup.longitude && (

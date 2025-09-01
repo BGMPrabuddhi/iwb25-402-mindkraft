@@ -7,7 +7,7 @@ public type LocationDetails record {
 public type RegisterRequest record {
     string firstName;
     string lastName;
-    string contactNumber;
+    string? contactNumber?;
     string email;
     string password;
     string location;
