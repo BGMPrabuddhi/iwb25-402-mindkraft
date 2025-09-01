@@ -194,21 +194,33 @@ service /api on apiListener {
             log:printError("Failed closing usersStream", _closeUsers); 
         }
 
-        stream<record {int total_reports; int resolved_count; int active_count;}, sql:Error?> reportsStream = dbClient->query(`
+        // Get counts for current (active/pending) hazard reports
+        stream<record {int total_reports; int active_count;}, sql:Error?> reportsStream = dbClient->query(`
             SELECT COUNT(*) AS total_reports,
-                   COALESCE(SUM(CASE WHEN LOWER(status) IN ('resolved','closed') THEN 1 ELSE 0 END),0) AS resolved_count,
                    COALESCE(SUM(CASE WHEN LOWER(status) NOT IN ('resolved','closed') THEN 1 ELSE 0 END),0) AS active_count
             FROM hazard_reports
         `);
-        record {| record {int total_reports; int resolved_count; int active_count;} value; |}|sql:Error? reportsRow = reportsStream.next();
-        if reportsRow is record {| record {int total_reports; int resolved_count; int active_count;} value; |} {
+        record {| record {int total_reports; int active_count;} value; |}|sql:Error? reportsRow = reportsStream.next();
+        if reportsRow is record {| record {int total_reports; int active_count;} value; |} {
             totalReports = reportsRow.value.total_reports;
-            resolvedHazards = reportsRow.value.resolved_count;
             activeAlerts = reportsRow.value.active_count;
         }
         error? _closeReports = reportsStream.close();
         if _closeReports is error { 
             log:printError("Failed closing reportsStream", _closeReports); 
+        }
+
+        // Get resolved hazards count from resolved_hazard_reports table
+        stream<record {int resolved_total;}, sql:Error?> resolvedStream = dbClient->query(`
+            SELECT COUNT(*) AS resolved_total FROM resolved_hazard_reports
+        `);
+        record {| record {int resolved_total;} value; |}|sql:Error? resolvedRow = resolvedStream.next();
+        if resolvedRow is record {| record {int resolved_total;} value; |} {
+            resolvedHazards = resolvedRow.value.resolved_total;
+        }
+        error? _closeResolved = resolvedStream.close();
+        if _closeResolved is error {
+            log:printError("Failed closing resolvedStream", _closeResolved);
         }
 
         return {

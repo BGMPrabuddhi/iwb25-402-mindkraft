@@ -667,7 +667,7 @@ export default function RDADashboard() {
        </div>
      </main>
 
-     <Footer />
+    
 
      {/* User Details Popup */}
      {userDetailsPopup.isOpen && (
