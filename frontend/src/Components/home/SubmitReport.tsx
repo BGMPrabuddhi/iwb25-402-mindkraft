@@ -49,30 +49,47 @@ const SubmitReport = () => {
   const [showMap, setShowMap] = useState(false)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [isLoadingLocation, setIsLoadingLocation] = useState(false)
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null)
+  const [isRefiningLocation, setIsRefiningLocation] = useState(false)
+  const [isResolvingAddress, setIsResolvingAddress] = useState(false)
   const [googleMapsScriptLoaded, setGoogleMapsScriptLoaded] = useState(false)
+  const [lastLocationError, setLastLocationError] = useState<string | null>(null)
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
   const markerRef = useRef<google.maps.Marker | null>(null)
+  const accuracyCircleRef = useRef<google.maps.Circle | null>(null)
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Use browser geolocation as default if available
+  // Use browser geolocation once (no live tracking)
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        () => {
-          setUserLocation(null);
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setUserLocation({ lat, lng });
+        // If user hasn't manually set a location yet, prefill with current position
+        if (!submitForm.location) {
+          setSubmitForm(prev => ({...prev, location: { lat, lng, address: 'Fetching location name…' }}))
+          resolveAddress(lat, lng).then(address => {
+            setSubmitForm(prev => {
+              if (!prev.location) return prev; // user removed meanwhile
+              if (Math.abs(prev.location.lat - lat) < 1e-6 && Math.abs(prev.location.lng - lng) < 1e-6) {
+                return { ...prev, location: { lat, lng, address } }
+              }
+              return prev
+            })
+          })
         }
-      );
-    }
+      },
+      (err) => {
+        console.warn('Initial geolocation failed:', err);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
   }, []);
 
   const defaultLocation = userLocation || { lat: 7.2083, lng: 79.8358 };
@@ -199,40 +216,226 @@ const SubmitReport = () => {
     }
   }
 
+  // Generic reverse geocoder (uses Maps JS if available else REST API)
+  const resolveAddress = async (lat: number, lng: number): Promise<string> => {
+    try {
+      if (window.google?.maps?.Geocoder) {
+        const geocoder = new window.google.maps.Geocoder();
+        const res = await geocoder.geocode({ location: { lat, lng } });
+        const addr = res.results?.[0]?.formatted_address;
+        if (addr) return addr;
+      } else if (GOOGLE_MAPS_API_KEY) {
+        const resp = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`);
+        if (resp.ok) {
+          const data = await resp.json();
+            const addr = data.results?.[0]?.formatted_address;
+            if (addr) return addr;
+        }
+      }
+    } catch (e) {
+      console.warn('Reverse geocoding failed', e);
+    }
+    return `Near ${lat.toFixed(5)}, ${lng.toFixed(5)}`
+  }
+
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
       setSnackbar({ open: true, message: 'Geolocation is not supported by this browser.', type: 'error' })
       return
     }
-
+    setLastLocationError(null)
     setIsLoadingLocation(true)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = position.coords.latitude
-        const lng = position.coords.longitude
-        
-        if (mapInstanceRef.current && markerRef.current) {
-          updateLocation(lat, lng, mapInstanceRef.current, markerRef.current)
-          mapInstanceRef.current.setZoom(15)
-        } else {
-          setSubmitForm(prev => ({
-            ...prev,
-            location: { lat, lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` }
-          }))
-        }
-        setIsLoadingLocation(false)
-      },
-      (error) => {
-        console.error('Error getting location:', error)
-        setSnackbar({ open: true, message: 'Unable to retrieve your location. Please set it manually on the map.', type: 'error' })
-        setIsLoadingLocation(false)
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
+    setIsRefiningLocation(true)
+    setLocationAccuracy(null)
+
+    // Parameters for refinement
+    const targetAccuracy = 20   // meters (ideal)
+    const acceptableAccuracy = 35 // meters (if stable cluster)
+    const maxWait = 25000       // ms total
+    const improvementGrace = 5000 // ms with no improvement but cluster stable
+    const clusterRadius = 15    // meters for stability check
+    const minSamples = 3
+    const stabilityWindow = 3
+
+    const start = Date.now()
+    let watchId: number | null = null
+    let best: GeolocationPosition | null = null
+    let finished = false
+    let lastImprovement = start
+    const samples: GeolocationPosition[] = []
+
+    const haversine = (a: GeolocationPosition, b: GeolocationPosition) => {
+      const R = 6371e3
+      const toRad = (d: number) => d * Math.PI / 180
+      const lat1 = toRad(a.coords.latitude)
+      const lat2 = toRad(b.coords.latitude)
+      const dLat = toRad(b.coords.latitude - a.coords.latitude)
+      const dLng = toRad(b.coords.longitude - a.coords.longitude)
+      const sinDLat = Math.sin(dLat/2)
+      const sinDLng = Math.sin(dLng/2)
+      const h = sinDLat*sinDLat + Math.cos(lat1)*Math.cos(lat2)*sinDLng*sinDLng
+      return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1-h))
+    }
+
+    const computeClusterCenter = () => {
+      if (!best) return null
+      // Filter samples close to best (within 1.5 * best accuracy or 25m whichever larger)
+      const threshold = Math.max(best.coords.accuracy * 1.5, 25)
+      const cluster = samples.filter(s => {
+        const d = haversine(best!, s)
+        return d <= threshold
+      })
+      if (cluster.length === 0) return null
+      let sumLat = 0, sumLng = 0
+      cluster.forEach(s => { sumLat += s.coords.latitude; sumLng += s.coords.longitude })
+      return { lat: sumLat / cluster.length, lng: sumLng / cluster.length, count: cluster.length }
+    }
+
+    const updateAccuracyCircle = (lat: number, lng: number, accuracy: number) => {
+      if (!mapInstanceRef.current || !window.google) return
+      if (!accuracyCircleRef.current) {
+        accuracyCircleRef.current = new window.google.maps.Circle({
+          strokeColor: '#2563eb',
+          strokeOpacity: 0.6,
+          strokeWeight: 1,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.15,
+          map: mapInstanceRef.current,
+          center: { lat, lng },
+          radius: accuracy
+        })
+      } else {
+        accuracyCircleRef.current.setCenter({ lat, lng })
+        accuracyCircleRef.current.setRadius(Math.max(accuracy, 5))
       }
-    )
+    }
+
+    const finalize = (pos: GeolocationPosition | null, reason: string) => {
+      if (finished) return
+      finished = true
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId)
+      setIsLoadingLocation(false)
+      setIsRefiningLocation(false)
+      if (!pos) {
+        setLastLocationError('Could not obtain a precise location. Please move to an open area or set manually on the map.')
+        setSnackbar({ open: true, message: 'Precise location unavailable – please pick on map.', type: 'warning' })
+        return
+      }
+      let { latitude: lat, longitude: lng, accuracy } = pos.coords
+      // Cluster center refinement
+      const clusterCenter = computeClusterCenter()
+      if (clusterCenter && clusterCenter.count >= 2) {
+        lat = clusterCenter.lat
+        lng = clusterCenter.lng
+      }
+      setLocationAccuracy(accuracy)
+      if (mapInstanceRef.current && markerRef.current) {
+        updateLocation(lat, lng, mapInstanceRef.current, markerRef.current)
+        mapInstanceRef.current.setZoom(accuracy < 30 ? 18 : (accuracy < 60 ? 16 : 15))
+        updateAccuracyCircle(lat, lng, accuracy)
+      } else {
+        setSubmitForm(prev => ({ ...prev, location: { lat, lng, address: 'Fetching location name…' } }))
+        setIsResolvingAddress(true)
+        resolveAddress(lat, lng).then(address => {
+          setSubmitForm(prev => {
+            if (!prev.location) return prev
+            if (Math.abs(prev.location.lat - lat) < 1e-6 && Math.abs(prev.location.lng - lng) < 1e-6) {
+              return { ...prev, location: { lat, lng, address } }
+            }
+            return prev
+          })
+        }).finally(() => setIsResolvingAddress(false))
+      }
+    }
+
+    const evaluate = () => {
+      if (!best) return
+      const acc = best.coords.accuracy
+      const elapsed = Date.now() - start
+      if (acc <= targetAccuracy && samples.length >= 2) {
+        finalize(best, 'target')
+        return
+      }
+      if (elapsed >= maxWait) {
+        finalize(best, 'timeout')
+        return
+      }
+      if (samples.length >= minSamples) {
+        const last = samples.slice(-stabilityWindow)
+        if (last.length === stabilityWindow) {
+          let maxDist = 0
+          for (let i=0;i<last.length;i++) {
+            for (let j=i+1;j<last.length;j++) {
+              const d = haversine(last[i], last[j])
+              if (d > maxDist) maxDist = d
+            }
+          }
+          if (maxDist <= clusterRadius && acc <= acceptableAccuracy) {
+            finalize(best, 'stable-cluster')
+            return
+          }
+          if (Date.now() - lastImprovement > improvementGrace && acc <= acceptableAccuracy) {
+            finalize(best, 'no-more-improve')
+            return
+          }
+        }
+      }
+    }
+
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          if (finished) return
+            const acc = pos.coords.accuracy
+            setLocationAccuracy(acc)
+            samples.push(pos)
+            if (!best || acc < best.coords.accuracy - 1) { // improvement threshold 1m
+              best = pos
+              lastImprovement = Date.now()
+            }
+            // Live update circle for visual feedback if map open
+            if (mapInstanceRef.current) {
+              const liveBest = best || pos
+              updateAccuracyCircle(liveBest.coords.latitude, liveBest.coords.longitude, liveBest.coords.accuracy)
+            }
+            evaluate()
+        },
+        (err) => {
+          console.error('watchPosition error:', err)
+          navigator.geolocation.getCurrentPosition(
+            (single) => finalize(best || single, 'single-fallback'),
+            () => finalize(best, 'error-fallback'),
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+          )
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: maxWait }
+      )
+      // Final safeguard
+      setTimeout(() => {
+        if (finished) return
+        if (best) finalize(best, 'safety-timeout')
+        else {
+          navigator.geolocation.getCurrentPosition(
+            (p) => finalize(p, 'final-single'),
+            () => finalize(null, 'final-failed'),
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+          )
+        }
+      }, maxWait + 1500)
+    } catch (e) {
+      console.warn('watchPosition not available, fallback single get', e)
+      navigator.geolocation.getCurrentPosition(
+        (p) => finalize(p, 'no-watch'),
+        () => finalize(null, 'no-watch-error'),
+        { enableHighAccuracy: true, timeout: maxWait }
+      )
+    }
+  }
+
+  const refineLocation = () => {
+    if (isLoadingLocation) return
+    if (locationAccuracy !== null && locationAccuracy <= 25) return // already good
+    getCurrentLocation()
   }
 
   const openMapModal = () => setShowMap(true)
@@ -420,6 +623,8 @@ const SubmitReport = () => {
             console.error('Failed to load Google Maps script')
             setSnackbar({ open: true, message: 'Failed to load Google Maps. Please check your API key and internet connection.', type: 'error' })
           }}
+          async
+          defer
         />
       )}
 
@@ -515,15 +720,28 @@ const SubmitReport = () => {
             </label>
             <div className="space-y-3">
               {!submitForm.location ? (
-                <button
-                  type="button"
-                  onClick={openMapModal}
-                  className="w-full flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
-                  disabled={isLoading}
-                >
-                  <MapPinIcon className="h-5 w-5 mr-2 text-gray-500" />
-                  <span className="text-gray-600"> Set Location on Map</span>
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={openMapModal}
+                    className="w-full flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
+                    disabled={isLoading}
+                  >
+                    <MapPinIcon className="h-5 w-5 mr-2 text-gray-500" />
+                    <span className="text-gray-600">Set Location on Map</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={getCurrentLocation}
+                    className="w-full flex items-center justify-center px-4 py-2 border border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-60"
+                    disabled={isLoadingLocation || isLoading}
+                  >
+                    {isLoadingLocation ? (isRefiningLocation ? 'Improving accuracy…' : 'Detecting location…') : 'Use Current Location'}
+                  </button>
+                  {locationAccuracy !== null && (
+                    <p className="text-[11px] text-gray-500 text-center">Accuracy ~ {Math.round(locationAccuracy)} m</p>
+                  )}
+                </div>
               ) : (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-start justify-between">
@@ -533,7 +751,10 @@ const SubmitReport = () => {
                         <span className="text-sm font-medium text-green-800">Location Set</span>
                       </div>
                       <p className="text-sm text-green-700">
-                        {submitForm.location.address || `${submitForm.location.lat.toFixed(6)}, ${submitForm.location.lng.toFixed(6)}`}
+                        {isResolvingAddress && submitForm.location.address?.startsWith('Fetching') ? 'Resolving address…' : (submitForm.location.address || `${submitForm.location.lat.toFixed(6)}, ${submitForm.location.lng.toFixed(6)}`)}
+                        {locationAccuracy !== null && (
+                          <span className="block text-[10px] text-green-500 mt-1">Accuracy ~ {Math.round(locationAccuracy)} m</span>
+                        )}
                       </p>
                     </div>
                     <div className="flex space-x-2">

@@ -4,6 +4,7 @@ const API_BASE = '/api/auth';
 export interface RegisterData {
   firstName: string;
   lastName: string;
+  contactNumber: string;
   email: string;
   password: string;
   location: string;
@@ -25,6 +26,7 @@ export interface UserProfile {
   id: number;
   firstName: string;
   lastName: string;
+  contactNumber: string;
   email: string;
   userRole: string;
   location: string;
@@ -48,6 +50,7 @@ export interface HomeResponse {
 export interface UpdateProfileData {
   firstName: string;
   lastName: string;
+  contactNumber: string;
   locationDetails: {
     latitude: number;
     longitude: number;
@@ -87,7 +90,6 @@ export const authAPI = {
 
   getProfile: async (): Promise<UserProfile> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-    
     const response = await fetch('/api/me', {
       method: 'GET',
       headers: {
@@ -95,8 +97,12 @@ export const authAPI = {
         'Content-Type': 'application/json'
       },
     });
-    
     return response.json();
+  },
+
+  getCurrentUser: async (): Promise<UserProfile> => {
+    // Alias for getProfile
+    return await authAPI.getProfile();
   },
 
   getHome: async (): Promise<HomeResponse> => {

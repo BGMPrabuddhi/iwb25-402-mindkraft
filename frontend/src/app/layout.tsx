@@ -25,6 +25,8 @@ export default function RootLayout({
           src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&v=weekly`}
           strategy="beforeInteractive"
           id="google-maps"
+          async
+          defer
         />
       </head>
       <body className={`${inter.className} antialiased`}>

@@ -191,6 +191,9 @@ export default function VerifyOtpPage() {
             <p className="text-black/65 text-sm animate-fade-in-up animation-delay-300">
               Enter the 6-digit code sent to <span className="font-semibold text-green-900">{email}</span>
             </p>
+              <p className="mt-2 text-sm text-gray-600">We&apos;ve sent a 6-digit code to your email address.</p>
+              {/* Additional context line */}
+              <p className="text-sm text-gray-500">Please check your inbox.</p>
           </div>
 
           {/* OTP Verification Form */}
@@ -217,7 +220,7 @@ export default function VerifyOtpPage() {
                         error
                           ? 'border-red-400 shake bg-red-500/10'
                           : 'border-gray-300 bg-white/10 backdrop-blur hover:bg-white/20 focus:bg-white/30 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/40'
-                      } text-white placeholder-white/40`}
+                      } text-gray-900 placeholder-gray-400`}
                     />
                   ))}
                 </div>
@@ -277,7 +280,7 @@ export default function VerifyOtpPage() {
             {/* Help Text */}
             <div className="mt-6 text-center">
               <p className="text-xs text-brand-200/80">
-                Didn't receive the code? Check your spam folder or try resending.
+                Didn&apos;t receive the code? Check your spam folder or try resending.
               </p>
             </div>
           </div>

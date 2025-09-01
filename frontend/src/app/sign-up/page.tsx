@@ -5,15 +5,17 @@ import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { authAPI } from '@/lib/auth'
 import LocationInput from '@/Components/LocationInput'
+import { Snackbar, SnackbarStack } from '@/Components/Snackbar'
 
 type SignupFormData = {
-    firstName: string
-    lastName: string
-    email: string
-    password: string
-    confirmPassword: string
-    location: string
-    userRole: string
+  firstName: string
+  lastName: string
+  contactNumber?: string
+  email: string
+  password: string
+  confirmPassword: string
+  location: string
+  userRole: string
 }
 
 type LocationData = {
@@ -29,6 +31,7 @@ export default function SignupPage() {
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     lastName: '',
+    contactNumber: '', // will be ignored for RDA
     email: '',
     password: '',
     confirmPassword: '',
@@ -41,6 +44,8 @@ export default function SignupPage() {
   const [isVisible, setIsVisible] = useState(false)
   const [locationData, setLocationData] = useState<LocationData | null>(null)
   const [googleMapsScriptLoaded, setGoogleMapsScriptLoaded] = useState(false)
+  const [snackbar, setSnackbar] = useState<{open:boolean; message:string; type:'success'|'error'|'info'|'warning'}>({open:false,message:'',type:'info'})
+  const showSnackbar = (message:string, type:'success'|'error'|'info'|'warning'='info') => setSnackbar({open:true,message,type})
 
   useEffect(() => {
     setIsVisible(true)
@@ -82,6 +87,7 @@ export default function SignupPage() {
   }
 
   const validateForm = (): boolean => {
+
     const newErrors: Partial<SignupFormData> = {}
 
     if (!formData.firstName.trim()) {
@@ -96,6 +102,14 @@ export default function SignupPage() {
       newErrors.email = 'Email is required'
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid'
+    }
+
+    if (formData.userRole === 'general') {
+      if (!formData.contactNumber || !formData.contactNumber.trim()) {
+        newErrors.contactNumber = 'Contact number is required'
+      } else if (!/^([0-9+\-() ]{7,20})$/.test(formData.contactNumber.trim())) {
+        newErrors.contactNumber = 'Invalid contact number format'
+      }
     }
 
     if (!formData.password) {
@@ -138,6 +152,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     const result = await authAPI.register({
       firstName: formData.firstName,
       lastName: formData.lastName,
+  contactNumber: formData.userRole === 'general' ? (formData.contactNumber || '') : '',
       email: formData.email,
       password: formData.password,
       location: formData.location,
@@ -155,9 +170,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       sessionStorage.setItem('user_role', formData.userRole) // Store user role for redirect logic
       
       if (formData.userRole === 'rda') {
-        alert('RDA account created successfully! Please check your email to verify your account before accessing the RDA Dashboard.')
+        showSnackbar('RDA account created successfully! Please verify via email before accessing the Dashboard.', 'success')
       } else {
-        alert('Account created successfully! Please check your email to verify your account.')
+        showSnackbar('Account created successfully! Please verify your email.', 'success')
       }
       
       // Both user types go to email verification first
@@ -179,6 +194,8 @@ const handleSubmit = async (e: React.FormEvent) => {
         src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&v=weekly`}
         onLoad={() => setGoogleMapsScriptLoaded(true)}
         onError={() => console.error('Failed to load Google Maps')}
+        async
+        defer
       />
       
       <div className="min-h-screen relative overflow-hidden bg-white text-gray-900">
@@ -294,6 +311,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
                 </div>
 
+
                 {/* User Role Selection Field */}
                 <div className="group">
                   <label htmlFor="userRole" className="block text-sm font-medium text-brand-100 mb-2 transition-all duration-300 group-focus-within:text-green-900">
@@ -301,7 +319,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-500 group-focus-within:text-brand-600 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-5 w-5 text-gray-500 group-focus-within:text-brand-600 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
@@ -329,6 +347,28 @@ const handleSubmit = async (e: React.FormEvent) => {
                     }
                   </p>
                 </div>
+
+                {/* Contact Number Field (only for general users) */}
+                {formData.userRole === 'general' && (
+                  <div className="group">
+                    <label htmlFor="contactNumber" className="block text-sm font-medium text-brand-100 mb-2 transition-all duration-300 group-focus-within:text-green-900">
+                      Contact Number
+                    </label>
+                    <input
+                      id="contactNumber"
+                      name="contactNumber"
+                      type="text"
+                      autoComplete="tel"
+                      value={formData.contactNumber}
+                      onChange={handleChange}
+                      className={`appearance-none block w-full px-3 py-3 border ${errors.contactNumber ? 'border-red-400 shake' : 'border-gray-300'} rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent sm:text-sm transition-all duration-300 bg-white/50 backdrop-blur hover:bg-white/70 focus:bg-white`}
+                      placeholder="Enter your contact number"
+                    />
+                    {errors.contactNumber && (
+                      <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.contactNumber}</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Location Field */}
                 <LocationInput
@@ -404,26 +444,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
                 </div>
 
-                {/* Terms and Conditions */}
-                <div className="flex items-center group">
-                  <input
-                    id="terms"
-                    name="terms"
-                    type="checkbox"
-                    required
-                    className="h-4 w-4 text-green-700 focus:ring-brand-400 border-white/30 bg-white/10 rounded transition-all duration-300 hover:scale-110"
-                  />
-                  <label htmlFor="terms" className="ml-2 block text-sm text-black">
-                    I agree to the{' '}
-                    <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
-                      Terms and Conditions
-                    </a>{' '}
-                    and{' '}
-                    <a href="#" className="text-green-700 hover:text-green-500 font-medium transition-colors duration-200 underline-offset-2 hover:underline">
-                      Privacy Policy
-                    </a>
-                  </label>
-                </div>
 
                 {/* Submit Button */}
                 <div>
@@ -578,6 +598,9 @@ const handleSubmit = async (e: React.FormEvent) => {
           .shadow-3xl { box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25); }
         `}</style>
       </div> {/* end min-h-screen */}
+      <SnackbarStack>
+        <Snackbar open={snackbar.open} message={snackbar.message} type={snackbar.type} onClose={() => setSnackbar(prev => ({...prev, open:false}))} />
+      </SnackbarStack>
     </>  
   )
 }
