@@ -244,7 +244,37 @@ private getAuthToken(): string | null {
   }
 
   getImageUrl(filename: string): string {
-    return `${this.baseUrl}/images/${filename}`;
+    const url = `${this.baseUrl}/images/${filename}`;
+    console.log(`getImageUrl called with filename: "${filename}" -> URL: "${url}"`);
+    return url;
+  }
+
+  async getProfileImageUrl(profileImage: string | null): Promise<string | null> {
+    console.log('🔗 getProfileImageUrl called with:', profileImage);
+    
+    if (!profileImage) {
+      console.log('🔗 profileImage is null/empty, returning null');
+      return null;
+    }
+    
+    // If it's already a base64 data URL, return it directly
+    if (profileImage.startsWith('data:image')) {
+      console.log('🔗 profileImage is base64, returning directly');
+      return profileImage;
+    }
+    
+    // If it looks like a filename, use the regular image URL
+    if (!profileImage.includes('/') && profileImage.includes('.')) {
+      const imageUrl = this.getImageUrl(profileImage);
+      console.log('🔗 profileImage looks like filename, using getImageUrl:', imageUrl);
+      return imageUrl;
+    }
+    
+    // If it's a user ID or other identifier, we might need to fetch from profile endpoint
+    // For now, just return the regular image URL
+    const imageUrl = this.getImageUrl(profileImage);
+    console.log('🔗 profileImage other format, using getImageUrl:', imageUrl);
+    return imageUrl;
   }
 
   async getReports(filters?: {

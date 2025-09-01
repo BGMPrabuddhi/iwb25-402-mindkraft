@@ -1,115 +1,174 @@
-// components/ReportComments.tsx
-import React, { useState, useEffect } from 'react'
-import { UserCircleIcon } from '@heroicons/react/24/solid'
-import { reportsAPI } from '@/lib/api'
+import React, { useState, useEffect } from 'react';
+import { UserCircleIcon } from '@heroicons/react/24/outline';
+import { reportsAPI } from '../../lib/api';
 
 interface Comment {
-  id: number
-  report_id: number
-  user_id: number
-  comment_text: string
-  created_at: string
-  updated_at: string
-  commenter_first_name: string
-  commenter_last_name: string
-  commenter_profile_image?: string
+  id: number;
+  report_id: number;
+  user_id: number;
+  comment_text: string;
+  created_at: string;
+  updated_at: string;
+  commenter_first_name: string;
+  commenter_last_name: string;
+  commenter_profile_image?: string;
 }
 
+interface ProfileImageProps {
+  profileImage?: string;
+  alt?: string;
+  className?: string;
+}
+
+const ProfileImage: React.FC<ProfileImageProps> = ({ 
+  profileImage, 
+  alt = 'Profile', 
+  className = 'h-8 w-8' 
+}) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadImage = async () => {
+      console.log('🖼️ ProfileImage useEffect triggered with profileImage:', profileImage);
+      
+      if (!profileImage) {
+        console.log('🖼️ No profileImage provided, setting to null');
+        setImageSrc(null);
+        return;
+      }
+
+      try {
+        console.log('🖼️ Calling getProfileImageUrl with:', profileImage);
+        const imageUrl = await reportsAPI.getProfileImageUrl(profileImage);
+        console.log('🖼️ Received imageUrl:', imageUrl);
+        setImageSrc(imageUrl);
+        setImageError(false);
+      } catch (error) {
+        console.error('🖼️ Error loading profile image:', error);
+        setImageSrc(null);
+        setImageError(true);
+      }
+    };
+
+    loadImage();
+  }, [profileImage]);
+
+  if (!imageSrc || imageError) {
+    console.log('🖼️ Using UserCircleIcon fallback. imageSrc:', imageSrc, 'imageError:', imageError);
+    return <UserCircleIcon className={`${className} text-gray-300 rounded-full`} />;
+  }
+
+  console.log('🖼️ Rendering img tag with src:', imageSrc);
+  return (
+    <img
+      src={imageSrc}
+      alt={alt}
+      className={`${className} rounded-full object-cover border border-gray-200`}
+      onError={() => {
+        console.log('🖼️ Image onError triggered for src:', imageSrc);
+        setImageError(true);
+      }}
+      onLoad={() => {
+        console.log('🖼️ Image onLoad triggered for src:', imageSrc);
+      }}
+    />
+  );
+};
+
 interface ReportCommentsProps {
-  reportId: number
-  currentUserId?: number
+  reportId: number;
+  currentUserId?: number;
 }
 
 const ReportComments: React.FC<ReportCommentsProps> = ({ reportId, currentUserId }) => {
-  const [comments, setComments] = useState<Comment[]>([])
-  const [newComment, setNewComment] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchComments();
+  }, [reportId]);
 
   const fetchComments = async () => {
     try {
-      setLoading(true)
-      const response = await reportsAPI.getReportComments(reportId)
-      setComments(response.comments || [])
+      setLoading(true);
+      console.log('💬 Fetching comments for reportId:', reportId);
+      const response = await reportsAPI.getReportComments(reportId);
+      console.log('💬 Comments response:', response);
+      console.log('💬 Comments data:', response.comments);
+      
+      // Log each comment's profile image data
+      if (response.comments) {
+        response.comments.forEach((comment: Comment, index: number) => {
+          console.log(`💬 Comment ${index + 1} profile image:`, {
+            id: comment.id,
+            commenter_first_name: comment.commenter_first_name,
+            commenter_profile_image: comment.commenter_profile_image,
+            type: typeof comment.commenter_profile_image,
+            length: comment.commenter_profile_image?.length
+          });
+        });
+      }
+      
+      setComments(response.comments || []);
     } catch (error) {
-      console.error('Failed to fetch comments:', error)
-      setError('Failed to load comments')
+      console.error('💬 Error fetching comments:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const submitComment = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newComment.trim()) return
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
 
     try {
-      setSubmitting(true)
-      const response = await reportsAPI.addReportComment(reportId, newComment.trim())
-      setComments([...comments, response.comment])
-      setNewComment('')
+      setSubmitting(true);
+      const response = await reportsAPI.addReportComment(reportId, newComment.trim());
+      setComments([...comments, response.comment]);
+      setNewComment('');
     } catch (error) {
-      console.error('Failed to add comment:', error)
-      setError('Failed to add comment')
+      console.error('Error adding comment:', error);
+      alert('Failed to add comment. Please try again.');
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
-
-  const deleteComment = async (commentId: number) => {
-    if (!confirm('Are you sure you want to delete this comment?')) return
-
-    try {
-      await reportsAPI.deleteComment(commentId)
-      setComments(comments.filter(c => c.id !== commentId))
-    } catch (error) {
-      console.error('Failed to delete comment:', error)
-      setError('Failed to delete comment')
-    }
-  }
-
-  useEffect(() => {
-    fetchComments()
-  }, [reportId])
+  };
 
   if (loading) {
-    return <div className="text-center py-4">Loading comments...</div>
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="space-y-3">
+            <div className="h-4 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="mt-6 border-t border-gray-200 pt-6">
-      <h4 className="text-lg font-semibold text-gray-900 mb-4">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">
         Comments ({comments.length})
-      </h4>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
-          <p className="text-red-600 text-sm">{error}</p>
-          <button 
-            onClick={() => setError(null)}
-            className="text-red-500 hover:text-red-700 text-xs mt-1"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
+      </h3>
 
       {/* Add comment form */}
-      <form onSubmit={submitComment} className="mb-6">
-        <textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Add a comment..."
-          className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          rows={3}
-          maxLength={500}
-          disabled={submitting}
-        />
-        <div className="flex justify-between items-center mt-2">
-          <span className="text-xs text-gray-500">
-            {newComment.length}/500 characters
-          </span>
+      <form onSubmit={handleSubmit} className="mb-6">
+        <div className="flex space-x-3">
+          <div className="flex-1">
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add a comment..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              rows={3}
+            />
+          </div>
           <button
             type="submit"
             disabled={!newComment.trim() || submitting}
@@ -125,48 +184,46 @@ const ReportComments: React.FC<ReportCommentsProps> = ({ reportId, currentUserId
         {comments.length === 0 ? (
           <p className="text-gray-500 text-center py-4">No comments yet. Be the first to comment!</p>
         ) : (
-          comments.map((comment) => (
-            <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-3 mb-2">
-                  {comment.commenter_profile_image ? (
-                    <img
-                      src={reportsAPI.getImageUrl(comment.commenter_profile_image)}
+          comments.map((comment) => {
+            console.log('💬 Rendering comment with profile image:', {
+              commentId: comment.id,
+              commenter_profile_image: comment.commenter_profile_image,
+              commenter_first_name: comment.commenter_first_name
+            });
+            
+            return (
+              <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <ProfileImage 
+                      profileImage={comment.commenter_profile_image}
                       alt={comment.commenter_first_name}
-                      className="h-8 w-8 rounded-full object-cover border border-gray-200"
+                      className="h-8 w-8"
                     />
-                  ) : (
-                    <UserCircleIcon className="h-8 w-8 text-gray-300" />
-                  )}
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {[comment.commenter_first_name, comment.commenter_last_name].filter(Boolean).join(' ') || 'Unknown User'}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(comment.created_at).toLocaleString()}
-                    </p>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {[comment.commenter_first_name, comment.commenter_last_name].filter(Boolean).join(' ') || 'Unknown User'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(comment.created_at).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                
-                {currentUserId === comment.user_id && (
-                  <button
-                    onClick={() => deleteComment(comment.id)}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                  >
-                    Delete
-                  </button>
-                )}
+                <p className="text-gray-700 leading-relaxed">{comment.comment_text}</p>
               </div>
-              
-              <p className="text-gray-700 whitespace-pre-wrap ml-11">
-                {comment.comment_text}
-              </p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default ReportComments
+export default ReportComments;
