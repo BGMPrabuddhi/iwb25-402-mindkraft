@@ -6,3 +6,8 @@ generated/
 
 node_modules/
 
+# Environment and configuration files
+.env
+backend/Config.toml
+Config.toml
+frontend/.env

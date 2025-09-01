@@ -1,0 +1,25 @@
+# Server Configuration (for main module)
+serverPort = 8080
+corsOrigins = ["http://localhost:3000"]
+
+# Database Configuration (for backend.database module)
+[backend.database]
+host = "your-database-host"
+port = 5432
+name = "your-database-name"
+username = "your-database-username"
+password = "your-database-password"
+
+# JWT Configuration (for backend.auth module)
+[backend.auth]
+jwtSecret = "your-jwt-secret-key-here"
+jwtIssuer = "mindkraft-auth"
+jwtAudience = "saferoute-users"
+jwtExpiry = 3600
+
+# Email Configuration
+smtpHost = "smtp.gmail.com"
+smtpPort = 587
+smtpUsername = "your-email@gmail.com"
+smtpPassword = "your-app-password"
+emailEnabled = true
