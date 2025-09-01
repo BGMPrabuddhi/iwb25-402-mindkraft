@@ -131,7 +131,7 @@ public function handleGetReports(http:Caller caller, http:Request req) returns e
         res.setPayload(createErrorResponse("Failed to retrieve reports: " + reportsResult.message()));
     } else {
         types:HazardReport[] typedReports = [];
-        foreach var r in reportsResult {
+    foreach var r in reportsResult {
             types:Location? location = ();
             // Fix: Properly handle optional location
             if r.location is record {| decimal lat; decimal lng; string? address; |} {
@@ -153,7 +153,10 @@ public function handleGetReports(http:Caller caller, http:Request req) returns e
                 images: r.images,
                 location: location,
                 created_at: r.created_at,
-                updated_at: r.updated_at
+        updated_at: r.updated_at,
+        reporter_first_name: r.reporter_first_name,
+        reporter_last_name: r.reporter_last_name,
+        reporter_profile_image: r.reporter_profile_image
             };
             typedReports.push(report);
         }
@@ -224,7 +227,10 @@ public function handleUpdateReport(http:Caller caller, http:Request req, int rep
             images: result.images,
             location: location,
             created_at: result.created_at,
-            updated_at: result.updated_at
+            updated_at: result.updated_at,
+            reporter_first_name: result.reporter_first_name,
+            reporter_last_name: result.reporter_last_name,
+            reporter_profile_image: result.reporter_profile_image
         };
         
         types:UpdateReportResponse response = {

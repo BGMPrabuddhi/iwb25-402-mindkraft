@@ -182,6 +182,8 @@ const handleSubmit = async (e: React.FormEvent) => {
         src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&v=weekly`}
         onLoad={() => setGoogleMapsScriptLoaded(true)}
         onError={() => console.error('Failed to load Google Maps')}
+        async
+        defer
       />
       
       <div className="min-h-screen relative overflow-hidden bg-white text-gray-900">

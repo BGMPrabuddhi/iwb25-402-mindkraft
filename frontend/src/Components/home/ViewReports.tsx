@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Script from 'next/script'
 import { reportsAPI } from '@/lib/api'
+import { authAPI } from '@/lib/auth'
 import FilterPanel from './FilterPanel'
 import RouteMap from './RouteMap'
 import TrafficRouteInfo from './TrafficRouteInfo'
@@ -33,44 +34,67 @@ const ViewReports = () => {
   const [calculatedRoutes, setCalculatedRoutes] = useState<any[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0)
 
-  useEffect(() => {
-    const fetchAllReports = async () => {
-      try {
-        console.log('Fetching reports from backend...')
-        const response = await reportsAPI.getReports({
-          page: 1,
-          page_size: 100
-        })
-        
-        const backendReports = response.reports || []
-        const convertedReports: Report[] = backendReports.map((report: any) => ({
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const fetchAllReports = async (reason: string = 'manual/initial') => {
+    try {
+      console.log('[Reports] Fetching reports from backend...', { reason })
+      const response = await reportsAPI.getReports({
+        page: 1,
+        page_size: 100
+      })
+      const backendReports = response.reports || []
+      console.log('[Reports] Raw first report sample:', backendReports[0])
+      const convertedReports: Report[] = backendReports.map((report: any) => {
+        const firstName = (report.reporter_first_name || report.first_name || report.user_first_name || '').trim()
+        const lastName = (report.reporter_last_name || report.last_name || report.user_last_name || '').trim()
+        const converted: Report = {
+          ...report, // keep any extra backend fields
           id: report.id,
-          title: report.title,
-          description: report.description || '',
-          hazard_type: report.hazard_type,
-          severity_level: report.severity_level,
-          created_at: report.created_at,
-          images: report.images || [],
-          location: report.location ? {
-            lat: report.location.lat || report.latitude,
-            lng: report.location.lng || report.longitude,
-            address: report.location.address || report.address
-          } : undefined,
-          status: report.status || 'active'
-        }))
-        
-        setReports(convertedReports)
-      } catch (error) {
-        console.error('Error fetching reports:', error)
-        // Don't show error to user, just use empty array
-        setReports([])
-        // Optional: Set some mock data for testing
-        // setReports(mockReports)
-      }
+            title: report.title,
+            description: report.description || '',
+            hazard_type: report.hazard_type,
+            severity_level: report.severity_level,
+            created_at: report.created_at,
+            images: report.images || [],
+            location: report.location ? {
+              lat: report.location.lat || report.latitude,
+              lng: report.location.lng || report.longitude,
+              address: report.location.address || report.address
+            } : undefined,
+            status: report.status || 'active',
+            reporter_first_name: firstName || undefined,
+            reporter_last_name: lastName || undefined,
+            reporter_profile_image: report.reporter_profile_image || report.profile_image
+        }
+        if (!converted.reporter_first_name && !converted.reporter_last_name) {
+          console.debug('[Reports] Missing reporter names (will show Unknown User):', report)
+        }
+        return converted
+      })
+      console.log('[Reports] Converted first report sample:', convertedReports[0])
+      setReports(convertedReports)
+    } catch (error) {
+      console.error('[Reports] Error fetching reports:', error)
+      setReports([])
     }
+  }
 
-    fetchAllReports()
-  }, [])
+  useEffect(() => {
+  const fetchCurrentUser = async () => {
+    try {
+      // Assuming you have an API call to get current user
+      const user = await authAPI.getCurrentUser() // or however you get current user
+      setCurrentUser(user)
+    } catch (error) {
+      console.error('Failed to fetch current user:', error)
+    }
+  }
+  
+  fetchCurrentUser()
+}, [])
+
+  // initial load
+  useEffect(() => { fetchAllReports('initial-mount') }, [])
   const handleFilterSubmit = async () => {
     if (!viewFilters.hazardType || !viewFilters.sensitivity) {
       setSnackbar({ open: true, message: 'Please select hazard type and sensitivity level', type: 'error' })
@@ -103,12 +127,23 @@ const ViewReports = () => {
         src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry,routes&v=weekly`}
         onLoad={() => setGoogleMapsScriptLoaded(true)}
         onError={() => setError('Failed to load Google Maps')}
+        async
+        defer
       />
 
       <div className="space-y-6">
         <div className="text-center mb-6">
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Route Hazard Viewer</h3>
           <p className="text-gray-600">Select hazard type, sensitivity, and route to view hazards along your path</p>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => fetchAllReports('manual-refresh')}
+              className="px-3 py-1 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50 shadow-sm"
+            >
+              Refresh Reports
+            </button>
+          </div>
         </div>
 
         <FilterPanel
@@ -173,6 +208,7 @@ const ViewReports = () => {
             selectedReport={selectedReport}
             setSelectedReport={setSelectedReport}
             viewFilters={viewFilters}
+            currentUserId={currentUser?.id}
           />
         )}
 

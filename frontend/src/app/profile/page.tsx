@@ -216,6 +216,8 @@ const ProfileEditPage = () => {
     <>
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&v=weekly`}
+        async
+        defer
         onLoad={() => setGoogleMapsScriptLoaded(true)}
         onError={() => console.error('Failed to load Google Maps')}
       />
