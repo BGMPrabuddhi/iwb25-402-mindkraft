@@ -185,7 +185,9 @@ _ = check dbClient->execute(`
             first_name VARCHAR(100) NOT NULL,
             last_name VARCHAR(100) NOT NULL,
             contact_number VARCHAR(20),
+            password_hash VARCHAR(500) NOT NULL,
             user_role VARCHAR(50) NOT NULL,
+            latitude DECIMAL(10, 8) NOT NULL,
             longitude DECIMAL(11, 8) NOT NULL,
             address TEXT NOT NULL,
             otp VARCHAR(6) NOT NULL,
@@ -220,10 +222,6 @@ _ = check dbClient->execute(`
             FOREIGN KEY (report_id) REFERENCES hazard_reports(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             UNIQUE(report_id, user_id)
-        )
-    `);
-            expiration_time BIGINT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
     

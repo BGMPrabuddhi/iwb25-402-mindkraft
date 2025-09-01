@@ -21,14 +21,15 @@ public function storePendingRegistration(user:RegisterRequest req, string otp, s
     
     int expirationTime = <int>time:utcNow()[0] + 600; // 10 minutes
     
-    // Store pending user data
+    // Store pending user data (matching the updated table schema)
     sql:ExecutionResult _ = check dbClient->execute(`
         INSERT INTO pending_user_registrations (
-            first_name, last_name, contact_number, email, password_hash, location, user_role,
+            email, first_name, last_name, contact_number, password_hash, user_role,
             latitude, longitude, address, otp, expiration_time
         ) VALUES (
-            ${req.firstName}, ${req.lastName}, ${req["contactNumber"] is string ? req["contactNumber"] : ()}, ${req.email}, ${passwordHash}, 
-            ${req.location}, ${req.userRole}, ${req.locationDetails.latitude}, 
+            ${req.email}, ${req.firstName}, ${req.lastName}, 
+            ${req["contactNumber"] is string ? req["contactNumber"] : ()}, 
+            ${passwordHash}, ${req.userRole}, ${req.locationDetails.latitude}, 
             ${req.locationDetails.longitude}, ${req.locationDetails.address}, 
             ${otp}, ${expirationTime}
         )
@@ -38,7 +39,6 @@ public function storePendingRegistration(user:RegisterRequest req, string otp, s
             last_name = EXCLUDED.last_name,
             contact_number = EXCLUDED.contact_number,
             password_hash = EXCLUDED.password_hash,
-            location = EXCLUDED.location,
             user_role = EXCLUDED.user_role,
             latitude = EXCLUDED.latitude,
             longitude = EXCLUDED.longitude,
@@ -59,10 +59,9 @@ public function verifyOtpAndCreateUser(string email, string inputOtp, string jwt
     stream<record {| 
         string first_name;
         string last_name;
-        string contact_number;
+        string? contact_number;
         string email;
         string password_hash;
-        string location;
         string user_role;
         decimal latitude;
         decimal longitude;
@@ -70,7 +69,7 @@ public function verifyOtpAndCreateUser(string email, string inputOtp, string jwt
         string otp;
         int expiration_time;
     |}, sql:Error?> pendingStream = dbClient->query(`
-        SELECT first_name, last_name, contact_number, email, password_hash, location, user_role,
+        SELECT first_name, last_name, contact_number, email, password_hash, user_role,
                latitude, longitude, address, otp, expiration_time
         FROM pending_user_registrations 
         WHERE email = ${email}
@@ -79,10 +78,9 @@ public function verifyOtpAndCreateUser(string email, string inputOtp, string jwt
     record {| record {| 
         string first_name;
         string last_name;
-        string contact_number;
+        string? contact_number;
         string email;
         string password_hash;
-        string location;
         string user_role;
         decimal latitude;
         decimal longitude;
@@ -104,10 +102,9 @@ public function verifyOtpAndCreateUser(string email, string inputOtp, string jwt
     record {| 
         string first_name;
         string last_name;
-        string contact_number;
+        string? contact_number;
         string email;
         string password_hash;
-        string location;
         string user_role;
         decimal latitude;
         decimal longitude;
