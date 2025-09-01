@@ -580,38 +580,6 @@ service /api on apiListener {
 
     // ============ COMMENT ENDPOINTS ============
     
-    string|error email = validateAuthHeader(req);
-    if email is error {
-        log:printError("BACKEND: Auth validation failed: " + email.message());
-        check caller->respond(createErrorResponse("unauthorized", "Authentication required"));
-        return;
-    }
-
-    user:UserProfile|error profile = auth:getUserProfile(email);
-    if profile is error {
-        log:printError("BACKEND: Failed to get user profile: " + profile.message());
-        check caller->respond(createErrorResponse("internal_error", "Failed to retrieve user profile"));
-        return;
-    }
-
-    // Get report details to check type and ownership
-    var reportDetails = database:getReportDetails(reportId);
-    if reportDetails is error {
-        check caller->respond(createErrorResponse("report_not_found", "Report not found"));
-        return;
-    }
-
-    // Prevent owners from deleting resolved reports; they remain for history
-    if reportDetails.status == "resolved" {
-        check caller->respond(createErrorResponse("forbidden", "Resolved reports cannot be deleted"));
-        return;
-    }
-    // Allow deletion of any non-resolved report by its owner; RDA may also delete pothole/construction
-    if profile.id != reportDetails.user_id {
-        if !(profile.userRole == "rda" && (reportDetails.hazard_type == "pothole" || reportDetails.hazard_type == "construction")) {
-            check caller->respond(createErrorResponse("forbidden", "Only the owner or RDA (for road reports) can delete"));
-            return;
-        }
     resource function get reports/[int reportId]/comments(http:Request req) returns json {
         string|error email = validateAuthHeader(req);
         if email is error {
