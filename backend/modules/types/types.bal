@@ -15,6 +15,7 @@ public type HazardReport record {|
     Location? location?;
     string created_at;
     string? updated_at?;
+    string? district?;
     map<json>? submittedBy?;
 |};
 

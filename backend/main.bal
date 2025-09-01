@@ -590,6 +590,7 @@ service /api on apiListener {
                             location: r.hasKey("location") ? <types:Location?>r["location"] : (),
                             created_at: <string>r["created_at"],
                             updated_at: r.hasKey("updated_at") ? <string?>r["updated_at"] : (),
+                            district: r.hasKey("district") ? <string?>r["district"] : (),
                             submittedBy: userDetails
                         };
                         filtered.push(reportWithUser);
