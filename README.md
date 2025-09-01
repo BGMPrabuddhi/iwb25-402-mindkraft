@@ -30,10 +30,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the application.
 
+**For RDA Dashboard Access**: See the [RDA Dashboard Access](#rda-dashboard-access) section below for registration details.
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)
 - [Database Configuration](#database-configuration)
+- [RDA Dashboard Access](#rda-dashboard-access)
 - [Detailed Setup Instructions](#detailed-setup-instructions)
 - [Secret Configuration & API Keys](#secret-configuration--api-keys)
 - [Features](#features)
@@ -73,6 +76,66 @@ The database tables will be automatically created when you first run the backend
 - `report_comments` - Comments on reports
 - `report_likes` - Like/dislike reactions on reports
 - And other supporting tables
+
+---
+
+## RDA Dashboard Access
+
+The SafeRoute application includes an RDA (Road Development Authority) dashboard for managing and reviewing hazard reports. Here's how to access it:
+
+### For New RDA Users
+
+If you're setting up RDA access for the first time, you can register using these pre-configured credentials:
+
+#### Registration Details
+- **First Name**: RDA
+- **Last Name**: SriLanka
+- **Email**: rdasrilanka0@gmail.com
+- **Password**: Rdasrilanka0
+- **User Role**: RDA (select this during registration)
+
+#### Steps to Register
+1. Start the SafeRoute application (follow Quick Start above)
+2. Open [http://localhost:3000](http://localhost:3000)
+3. Click "Sign Up" or "Register"
+4. Fill in the registration form with the details above
+5. **Important**: Select "RDA" as the user role during registration
+6. Complete the email verification process
+
+#### Email Verification
+The system will send a verification email to rdasrilanka0@gmail.com. To access this email:
+
+**Gmail Account Credentials:**
+- **Email**: rdasrilanka0@gmail.com
+- **Password**: Rdasrilanka1@
+
+**To verify your RDA account:**
+1. Go to [gmail.com](https://gmail.com)
+2. Log in with the credentials above
+3. Look for the verification email from SafeRoute
+4. Click the verification link in the email
+5. Your RDA account will be activated
+
+### For Existing RDA Users
+
+If you already have RDA credentials:
+- **Email**: rdasrilanka0@gmail.com
+- **Password**: Rdasrilanka0
+
+### RDA Dashboard Features
+
+Once logged in as an RDA user, you'll have access to:
+- **Hazard Report Management**: View, approve, and resolve reported hazards
+- **User Management**: View user profiles and activity
+- **Analytics Dashboard**: Statistics and reports on hazard data
+- **Administrative Tools**: Manage system settings and configurations
+
+### Access Levels
+
+The application has different user roles:
+- **General Users**: Can report hazards and view reports
+- **RDA Users**: Administrative access to manage reports and users
+- **Admin**: Full system access (if configured)
 
 ---
 
@@ -196,13 +259,25 @@ NEXT_PUBLIC_API_URL=http://localhost:8080/api
 1. **API connection failed**: Ensure the backend is running on port 8080
 2. **Environment variables**: Check that your .env file exists and has the correct values
 
+### RDA Dashboard Issues
+1. **Cannot access RDA features**: Ensure you registered with "RDA" user role
+2. **Email verification pending**: Check rdasrilanka0@gmail.com for verification email
+3. **Login failed**: Use the exact credentials provided above (case-sensitive)
+4. **Gmail access issues**: Try the password "Rdasrilanka1@" for gmail access
+5. **Role not showing**: Contact administrator to verify RDA role assignment
+
 ---
 
 ## Features
 
 - **Hazard Reporting**: Report road hazards with images (supports both file upload and base64 storage)
-- **User Authentication**: Secure user registration and login
+- **User Authentication**: Secure user registration and login with role-based access
+- **RDA Dashboard**: Administrative interface for Road Development Authority users
+  - Hazard report management and approval
+  - User management and analytics
+  - Administrative tools and system oversight
 - **Real-time Updates**: Live hazard report updates
 - **Image Storage**: Dual image storage system supporting files and base64 encoding
 - **Location Services**: GPS-based location tracking and mapping
 - **Comments & Reactions**: Interactive features for community engagement
+- **Role-based Access**: Different permission levels for general users, RDA, and administrators
