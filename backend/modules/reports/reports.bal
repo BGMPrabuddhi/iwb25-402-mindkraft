@@ -125,7 +125,6 @@ public function handleGetReports(http:Caller caller, http:Request req) returns e
     http:Response res = createCorsResponse();
 
     var reportsResult = database:getAllReports();
-    
     if reportsResult is error {
         log:printError("Failed to retrieve reports: " + reportsResult.message());
         res.setPayload(createErrorResponse("Failed to retrieve reports: " + reportsResult.message()));
@@ -133,7 +132,6 @@ public function handleGetReports(http:Caller caller, http:Request req) returns e
         types:HazardReport[] typedReports = [];
     foreach var r in reportsResult {
             types:Location? location = ();
-            // Fix: Properly handle optional location
             if r.location is record {| decimal lat; decimal lng; string? address; |} {
                 record {| decimal lat; decimal lng; string? address; |} loc = <record {| decimal lat; decimal lng; string? address; |}>r.location;
                 location = {
@@ -142,7 +140,28 @@ public function handleGetReports(http:Caller caller, http:Request req) returns e
                     address: loc.address
                 };
             }
-            
+
+            // Fetch submitting user details
+            map<json>? submittedBy = ();
+            if r.user_id is int {
+                var userResult = database:getUserById(r.user_id);
+                string userResultStr = userResult is database:User ? userResult.toString() : (userResult is error ? userResult.message() : "unknown");
+                log:printInfo("DEBUG: getUserById(" + r.user_id.toString() + ") result: " + userResultStr);
+                if userResult is database:User {
+                    submittedBy = {
+                        id: userResult.id,
+                        firstName: userResult.first_name,
+                        lastName: userResult.last_name,
+                        contactNumber: userResult.contact_number ?: "",
+                        email: userResult.email,
+                        profileImage: userResult.profile_image ?: "",
+                        location: userResult.address
+                    };
+                } else {
+                    log:printError("Hazard report user_id not found in users table: " + r.user_id.toString());
+                }
+            }
+
             types:HazardReport report = {
                 id: r.id,
                 title: r.title,
@@ -153,14 +172,16 @@ public function handleGetReports(http:Caller caller, http:Request req) returns e
                 images: r.images,
                 location: location,
                 created_at: r.created_at,
-        updated_at: r.updated_at,
-        reporter_first_name: r.reporter_first_name,
-        reporter_last_name: r.reporter_last_name,
-        reporter_profile_image: r.reporter_profile_image
+                updated_at: r.updated_at,
+                reporter_first_name: r.reporter_first_name,
+                reporter_last_name: r.reporter_last_name,
+                reporter_profile_image: r.reporter_profile_image,
+                district: r.district,
+                submittedBy: submittedBy
             };
             typedReports.push(report);
         }
-        
+
         types:ReportsResponse response = {
             status: "success",
             message: "Reports retrieved successfully",
@@ -168,10 +189,33 @@ public function handleGetReports(http:Caller caller, http:Request req) returns e
         };
         res.setPayload(response);
     }
-    
+
     check caller->respond(res);
 }
 
+// Endpoint: GET /api/user/{id} - RDA can fetch any user's profile
+public function handleGetUserProfile(http:Caller caller, http:Request req, int userId) returns error? {
+    http:Response res = createCorsResponse();
+    var userResult = database:getUserById(userId);
+    if userResult is database:User {
+        json userProfile = {
+            id: userResult.id,
+            firstName: userResult.first_name,
+            lastName: userResult.last_name,
+            contactNumber: userResult.contact_number ?: "",
+            email: userResult.email,
+            profileImage: userResult.profile_image ?: "",
+            location: userResult.address,
+            latitude: userResult.latitude,
+            longitude: userResult.longitude,
+            createdAt: userResult.created_at ?: ""
+        };
+        res.setPayload({ success: true, user: userProfile });
+    } else {
+        res.setPayload({ success: false, message: "User not found" });
+    }
+    check caller->respond(res);
+}
 public function handleUpdateReport(http:Caller caller, http:Request req, int reportId) returns error? {
     http:Response res = createCorsResponse();
 
@@ -230,7 +274,9 @@ public function handleUpdateReport(http:Caller caller, http:Request req, int rep
             updated_at: result.updated_at,
             reporter_first_name: result.reporter_first_name,
             reporter_last_name: result.reporter_last_name,
-            reporter_profile_image: result.reporter_profile_image
+            reporter_profile_image: result.reporter_profile_image,
+            district: (),
+            submittedBy: ()
         };
         
         types:UpdateReportResponse response = {

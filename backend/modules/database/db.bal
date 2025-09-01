@@ -5,12 +5,34 @@ import ballerina/log;
 import saferoute/backend.location;
 import ballerina/time;
 
+public function getUserById(int userId) returns User|error {
+    sql:ParameterizedQuery selectQuery = `
+        SELECT id, first_name, last_name, contact_number, email, password_hash,
+               latitude, longitude, address, 
+               profile_image, created_at
+        FROM users 
+        WHERE id = ${userId}
+    `;
+    stream<User, sql:Error?> resultStream = dbClient->query(selectQuery);
+    record {| User value; |}|sql:Error? row = check resultStream.next();
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    if row is record {| User value; |} {
+        return row.value;
+    } else {
+        return error DatabaseError("User not found");
+    }
+}
+
 public type DatabaseError distinct error;
 
 public type User record {
     int id;
     string first_name;
     string last_name;
+    string? contact_number;
     string email;
     string password_hash;
     decimal latitude;
@@ -63,22 +85,23 @@ public function testConnection() returns boolean {
 }
 
 public function initializeDatabase() returns error? {
-    // Create users table
-    _ = check dbClient->execute(`
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            first_name VARCHAR(100) NOT NULL,
-            last_name VARCHAR(100) NOT NULL,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash VARCHAR(500) NOT NULL,
-            latitude DECIMAL(10, 8) NOT NULL,
-            longitude DECIMAL(11, 8) NOT NULL,
-            address TEXT NOT NULL,
-            profile_image TEXT,
-            user_role VARCHAR(50) DEFAULT 'general',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
+// Create users table
+_ = check dbClient->execute(`
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        first_name VARCHAR(100) NOT NULL,
+        last_name VARCHAR(100) NOT NULL,
+        contact_number VARCHAR(20),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(500) NOT NULL,
+        latitude DECIMAL(10, 8) NOT NULL,
+        longitude DECIMAL(11, 8) NOT NULL,
+        address TEXT NOT NULL,
+        profile_image TEXT,
+        user_role VARCHAR(50) DEFAULT 'general',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
 
     // Ensure column exists if table was created earlier without it
     _ = check dbClient->execute(`
@@ -155,16 +178,14 @@ public function initializeDatabase() returns error? {
         )
     `);
 
-    // Create table for pending user registrations
+    // Create table for pending user registrations (contact_number nullable, expiration_time BIGINT)
     _ = check dbClient->execute(`
         CREATE TABLE IF NOT EXISTS pending_user_registrations (
             email VARCHAR(255) PRIMARY KEY,
             first_name VARCHAR(100) NOT NULL,
             last_name VARCHAR(100) NOT NULL,
-            password_hash VARCHAR(500) NOT NULL,
-            location TEXT NOT NULL,
+            contact_number VARCHAR(20),
             user_role VARCHAR(50) NOT NULL,
-            latitude DECIMAL(10, 8) NOT NULL,
             longitude DECIMAL(11, 8) NOT NULL,
             address TEXT NOT NULL,
             otp VARCHAR(6) NOT NULL,
@@ -199,6 +220,10 @@ public function initializeDatabase() returns error? {
             FOREIGN KEY (report_id) REFERENCES hazard_reports(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             UNIQUE(report_id, user_id)
+        )
+    `);
+            expiration_time BIGINT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
     
@@ -552,6 +577,115 @@ public function getAllReports() returns record {|
                 reporter_first_name: row.reporter_first_name,
                 reporter_last_name: row.reporter_last_name,
                 reporter_profile_image: row.reporter_profile_image
+            });
+        };
+    
+    if fromResult is error {
+        return fromResult;
+    }
+    
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    return reports;
+}
+
+public function getActiveReports() returns record {|
+    int id;
+    string title;
+    string? description;
+    string hazard_type;
+    string severity_level;
+    string[] images;
+    record {|
+        decimal lat;
+        decimal lng;
+        string? address;
+    |}? location;
+    string created_at;
+    string status;
+    string? updated_at;
+    int user_id;
+    string? district;
+|}[]|error {
+    
+    sql:ParameterizedQuery selectQuery = `
+        SELECT id, user_id, title, description, hazard_type, severity_level, images, 
+               latitude, longitude, address, district, created_at, status, updated_at
+        FROM hazard_reports
+        WHERE status IN ('pending', 'active')
+        ORDER BY created_at DESC
+    `;
+    
+    stream<record {|
+        int id;
+        int user_id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        decimal? latitude;
+        decimal? longitude;
+        string? address;
+        string? district;
+        string created_at;
+        string status;
+        string? updated_at;
+    |}, sql:Error?> resultStream = dbClient->query(selectQuery);
+    
+    record {|
+        int id;
+        string title;
+        string? description;
+        string hazard_type;
+        string severity_level;
+        string[] images;
+        record {|
+            decimal lat;
+            decimal lng;
+            string? address;
+        |}? location;
+        string created_at;
+        string status;
+        string? updated_at;
+        int user_id;
+        string? district;
+    |}[] reports = [];
+    
+    error? fromResult = from var row in resultStream
+        do {
+            record {|
+                decimal lat;
+                decimal lng;
+                string? address;
+            |}? location = ();
+
+            if row.latitude is decimal && row.longitude is decimal {
+                decimal validLat = <decimal>row.latitude;
+                decimal validLng = <decimal>row.longitude;
+                location = {
+                    lat: validLat,
+                    lng: validLng,
+                    address: row.address
+                };
+            }
+
+            reports.push({
+                id: row.id,
+                user_id: row.user_id,
+                title: row.title,
+                description: row.description,
+                hazard_type: row.hazard_type,
+                severity_level: row.severity_level,
+                images: row.images,
+                location: location,
+                created_at: row.created_at,
+                status: row.status,
+                updated_at: row.updated_at,
+                district: row.district
             });
         };
     
@@ -970,6 +1104,7 @@ public function deleteOldReports() returns int|error {
 public function insertUser(
     string firstName,
     string lastName,
+    string contact_number,
     string email,
     string passwordHash,
     decimal latitude,
@@ -979,10 +1114,10 @@ public function insertUser(
 ) returns int|error {
     sql:ParameterizedQuery insertQuery = `
         INSERT INTO users (
-            first_name, last_name, email, password_hash, 
+            first_name, last_name, contact_number, email, password_hash, 
             latitude, longitude, address, profile_image
         ) VALUES (
-            ${firstName}, ${lastName}, ${email}, ${passwordHash},
+            ${firstName}, ${lastName}, ${contact_number}, ${email}, ${passwordHash},
             ${latitude}, ${longitude}, ${address}, ${profileImage}
         ) RETURNING id;
     `;
@@ -1006,7 +1141,7 @@ public function insertUser(
 
 public function getUserByEmail(string email) returns User|error {
     sql:ParameterizedQuery selectQuery = `
-        SELECT id, first_name, last_name, email, password_hash,
+        SELECT id, first_name, last_name, contact_number, email, password_hash,
                latitude, longitude, address, 
                profile_image, created_at
         FROM users 
@@ -1033,12 +1168,13 @@ public function updateUser(int userId, User updatedUser) returns User|error {
         UPDATE users 
         SET first_name = ${updatedUser.first_name},
             last_name = ${updatedUser.last_name},
+            contact_number = ${updatedUser.contact_number},
             latitude = ${updatedUser.latitude},
             longitude = ${updatedUser.longitude},
             address = ${updatedUser.address},
             profile_image = ${updatedUser.profile_image}
         WHERE id = ${userId}
-        RETURNING id, first_name, last_name, email, password_hash,
+        RETURNING id, first_name, last_name, contact_number, email, password_hash,
                   latitude, longitude, address, 
                   profile_image, created_at
     `;
@@ -1467,10 +1603,11 @@ public function getResolvedReports() returns record {|
     string resolved_at;
     int original_report_id;
     string? district;
+    map<json> submittedBy;
 |}[]|error {
     
     sql:ParameterizedQuery selectQuery = `
-        SELECT id, original_report_id, title, description, hazard_type, severity_level, 
+        SELECT id, original_report_id, user_id, title, description, hazard_type, severity_level, 
                images, latitude, longitude, address, district, created_at, resolved_at
         FROM resolved_hazard_reports
         ORDER BY resolved_at DESC
@@ -1479,6 +1616,7 @@ public function getResolvedReports() returns record {|
     stream<record {|
         int id;
         int original_report_id;
+        int user_id;
         string title;
         string? description;
         string hazard_type;
@@ -1508,6 +1646,7 @@ public function getResolvedReports() returns record {|
         string resolved_at;
         int original_report_id;
         string? district;
+        map<json> submittedBy;
     |}[] reports = [];
     
     error? fromResult = from var row in resultStream
@@ -1528,6 +1667,21 @@ public function getResolvedReports() returns record {|
                 };
             }
 
+            // Fetch user details for submittedBy
+            User|error userResult = getUserById(row.user_id);
+            map<json> userDetails = {};
+            if userResult is User {
+                userDetails = {
+                    id: userResult.id,
+                    firstName: userResult.first_name,
+                    lastName: userResult.last_name,
+                    contactNumber: userResult.contact_number,
+                    email: userResult.email,
+                    location: userResult.address,
+                    profileImage: userResult.profile_image
+                };
+            }
+
             reports.push({
                 id: row.id,
                 original_report_id: row.original_report_id,
@@ -1539,7 +1693,8 @@ public function getResolvedReports() returns record {|
                 location: location,
                 created_at: row.created_at,
                 resolved_at: row.resolved_at,
-                district: row.district
+                district: row.district,
+                submittedBy: userDetails
             });
         };
     
