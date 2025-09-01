@@ -4,6 +4,7 @@ const API_BASE = '/api/auth';
 export interface RegisterData {
   firstName: string;
   lastName: string;
+  contactNumber: string;
   email: string;
   password: string;
   location: string;
@@ -25,6 +26,7 @@ export interface UserProfile {
   id: number;
   firstName: string;
   lastName: string;
+  contactNumber: string;
   email: string;
   userRole: string;
   location: string;
@@ -48,6 +50,7 @@ export interface HomeResponse {
 export interface UpdateProfileData {
   firstName: string;
   lastName: string;
+  contactNumber: string;
   locationDetails: {
     latitude: number;
     longitude: number;

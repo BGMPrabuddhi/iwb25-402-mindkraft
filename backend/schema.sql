@@ -15,6 +15,7 @@ CREATE TABLE users (
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
+    contact_number VARCHAR(20), -- nullable and not unique for RDA users
     password_hash VARCHAR(500) NOT NULL,
     latitude DECIMAL(10, 8) NOT NULL,
     longitude DECIMAL(11, 8) NOT NULL,
@@ -55,6 +56,7 @@ CREATE TABLE hazard_reports (
 );
 
 -- Create indexes for users table
+CREATE INDEX idx_users_contact_number ON users(contact_number);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_coordinates ON users(latitude, longitude);
 CREATE INDEX idx_users_address ON users(address);
@@ -73,6 +75,7 @@ CREATE INDEX idx_hazard_reports_created_at ON hazard_reports(created_at);
 CREATE INDEX idx_hazard_reports_district ON hazard_reports(district);
 
 -- Add constraints for users table
+ALTER TABLE users ADD CONSTRAINT check_contact_number_format CHECK (contact_number ~* '^[0-9+\-() ]{7,20}$');
 ALTER TABLE users ADD CONSTRAINT check_latitude CHECK (latitude >= -90 AND latitude <= 90);
 ALTER TABLE users ADD CONSTRAINT check_longitude CHECK (longitude >= -180 AND longitude <= 180);
 ALTER TABLE users ADD CONSTRAINT check_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
@@ -109,3 +112,24 @@ CREATE TRIGGER update_hazard_reports_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 COMMIT;
+
+-- Create pending_user_registrations table (for email verification flow)
+CREATE TABLE IF NOT EXISTS pending_user_registrations (
+    email VARCHAR(255) PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    contact_number VARCHAR(20), -- nullable for RDA users
+    password_hash VARCHAR(500) NOT NULL,
+    location TEXT NOT NULL,
+    user_role VARCHAR(50) NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    address TEXT NOT NULL,
+    otp VARCHAR(6) NOT NULL,
+    expiration_time BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for pending_user_registrations
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_email ON pending_user_registrations(email);
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_expiration ON pending_user_registrations(expiration_time);

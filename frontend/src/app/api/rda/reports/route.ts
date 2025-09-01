@@ -14,22 +14,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     console.log('🔄 RDA API: Fetching reports for RDA dashboard...');
     
-    // Forward to backend to get all reports
-    const response = await fetch('http://localhost:8080/api/reports', {
+    // Forward to backend RDA endpoint with authentication
+    const response = await fetch('http://localhost:8080/api/rda/reports', {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
+        'Authorization': authHeader
       },
     });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return NextResponse.json(errorData, { status: response.status });
+    }
 
     const data = await response.json();
     console.log('✅ RDA API: Reports fetched:', data);
 
-    return NextResponse.json({
-      success: true,
-      reports: data.reports || [],
-      total_count: data.total_count || 0
-    });
+    return NextResponse.json(data);
 
   } catch (error: unknown) {
     console.error('❌ RDA reports API error:', error);

@@ -34,6 +34,7 @@ const ProfileEditPage = () => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    contactNumber: '',
     location: ''
   })
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
@@ -56,6 +57,7 @@ const ProfileEditPage = () => {
           setFormData({
             firstName: profile.firstName || '',
             lastName: profile.lastName || '',
+            contactNumber: profile.contactNumber || '',
             location: profile.location || '' // Show existing location
           })
           
@@ -141,6 +143,11 @@ const ProfileEditPage = () => {
       if (!formData.lastName.trim()) {
         newErrors.lastName = 'Last name is required'
       }
+      if (!formData.contactNumber.trim()) {
+        newErrors.contactNumber = 'Contact number is required'
+      } else if (!/^([0-9+\-() ]{7,20})$/.test(formData.contactNumber.trim())) {
+        newErrors.contactNumber = 'Invalid contact number format'
+      }
       if (!formData.location.trim()) {
         newErrors.location = 'Location is required'
       }
@@ -164,6 +171,7 @@ const ProfileEditPage = () => {
       const updateData = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
+        contactNumber: formData.contactNumber.trim(),
         locationDetails: {
           latitude: locationData.latitude,
           longitude: locationData.longitude,
@@ -352,6 +360,27 @@ const ProfileEditPage = () => {
                 placeholder="Email not available"
               />
               <p className="text-[11px] text-brand-800 mt-2 font-medium tracking-wide">Email address cannot be changed. Contact support if you need to update your email.</p>
+            </div>
+
+
+            {/* Contact Number Field */}
+            <div>
+              <label htmlFor="contactNumber" className="block text-sm font-semibold tracking-wide text-brand-800 mb-2">
+                Contact Number *
+              </label>
+              <input
+                type="text"
+                id="contactNumber"
+                name="contactNumber"
+                value={formData.contactNumber}
+                onChange={handleInputChange}
+                required
+                className={`w-full px-4 py-3 rounded-xl bg-white border ${errors.contactNumber ? 'border-red-400 shake' : 'border-brand-200'} text-brand-800 placeholder-brand-400 focus:ring-2 focus:ring-brand-400 focus:border-brand-400 transition-all`}
+                placeholder="Enter your contact number"
+              />
+              {errors.contactNumber && (
+                <p className="mt-2 text-sm text-red-600 animate-fade-in-down">{errors.contactNumber}</p>
+              )}
             </div>
 
             {/* Location Field */}

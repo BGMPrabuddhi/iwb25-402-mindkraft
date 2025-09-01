@@ -21,14 +21,15 @@ public function storePendingRegistration(user:RegisterRequest req, string otp, s
     
     int expirationTime = <int>time:utcNow()[0] + 600; // 10 minutes
     
-    // Store pending user data
+    // Store pending user data (matching the updated table schema)
     sql:ExecutionResult _ = check dbClient->execute(`
         INSERT INTO pending_user_registrations (
-            first_name, last_name, email, password_hash, location, user_role,
+            email, first_name, last_name, contact_number, password_hash, user_role,
             latitude, longitude, address, otp, expiration_time
         ) VALUES (
-            ${req.firstName}, ${req.lastName}, ${req.email}, ${passwordHash}, 
-            ${req.location}, ${req.userRole}, ${req.locationDetails.latitude}, 
+            ${req.email}, ${req.firstName}, ${req.lastName}, 
+            ${req["contactNumber"] is string ? req["contactNumber"] : ()}, 
+            ${passwordHash}, ${req.userRole}, ${req.locationDetails.latitude}, 
             ${req.locationDetails.longitude}, ${req.locationDetails.address}, 
             ${otp}, ${expirationTime}
         )
@@ -36,8 +37,8 @@ public function storePendingRegistration(user:RegisterRequest req, string otp, s
         DO UPDATE SET 
             first_name = EXCLUDED.first_name,
             last_name = EXCLUDED.last_name,
+            contact_number = EXCLUDED.contact_number,
             password_hash = EXCLUDED.password_hash,
-            location = EXCLUDED.location,
             user_role = EXCLUDED.user_role,
             latitude = EXCLUDED.latitude,
             longitude = EXCLUDED.longitude,
@@ -55,12 +56,12 @@ public function verifyOtpAndCreateUser(string email, string inputOtp, string jwt
     int currentTime = <int>time:utcNow()[0];
     
     // Get pending registration
-    stream<record {|
+    stream<record {| 
         string first_name;
         string last_name;
+        string? contact_number;
         string email;
         string password_hash;
-        string location;
         string user_role;
         decimal latitude;
         decimal longitude;
@@ -68,18 +69,18 @@ public function verifyOtpAndCreateUser(string email, string inputOtp, string jwt
         string otp;
         int expiration_time;
     |}, sql:Error?> pendingStream = dbClient->query(`
-        SELECT first_name, last_name, email, password_hash, location, user_role,
+        SELECT first_name, last_name, contact_number, email, password_hash, user_role,
                latitude, longitude, address, otp, expiration_time
         FROM pending_user_registrations 
         WHERE email = ${email}
     `);
     
-    record {| record {|
+    record {| record {| 
         string first_name;
         string last_name;
+        string? contact_number;
         string email;
         string password_hash;
-        string location;
         string user_role;
         decimal latitude;
         decimal longitude;
@@ -98,12 +99,12 @@ public function verifyOtpAndCreateUser(string email, string inputOtp, string jwt
         return error("No pending registration found for this email");
     }
     
-    record {|
+    record {| 
         string first_name;
         string last_name;
+        string? contact_number;
         string email;
         string password_hash;
-        string location;
         string user_role;
         decimal latitude;
         decimal longitude;
@@ -129,12 +130,9 @@ public function verifyOtpAndCreateUser(string email, string inputOtp, string jwt
     // Create the actual user account
     sql:ExecutionResult result = check dbClient->execute(`
         INSERT INTO users (
-            first_name, last_name, email, password_hash, latitude, longitude, 
-            address, user_role, is_email_verified
+            first_name, last_name, contact_number, email, password_hash, latitude, longitude, address, user_role, is_email_verified
         ) VALUES (
-            ${pending.first_name}, ${pending.last_name}, ${pending.email}, 
-            ${pending.password_hash}, ${pending.latitude}, ${pending.longitude}, 
-            ${pending.address}, ${pending.user_role}, true
+            ${pending.first_name}, ${pending.last_name}, ${pending.contact_number is string ? pending.contact_number : null}, ${pending.email}, ${pending.password_hash}, ${pending.latitude}, ${pending.longitude}, ${pending.address}, ${pending.user_role}, true
         )
     `);
     
