@@ -420,6 +420,8 @@ const SubmitReport = () => {
             console.error('Failed to load Google Maps script')
             setSnackbar({ open: true, message: 'Failed to load Google Maps. Please check your API key and internet connection.', type: 'error' })
           }}
+          async
+          defer
         />
       )}
 
