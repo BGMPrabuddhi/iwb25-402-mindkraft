@@ -2,24 +2,24 @@
 serverPort = 8080
 corsOrigins = ["http://localhost:3000"]
 
-# Database Configuration (for backend.database module)
+# Database Configuration (for backend.database module) - RAILWAY POSTGRESQL
 [backend.database]
-host = "localhost"
-port = 5432
-name = "saferoute_db"
+host = "shortline.proxy.rlwy.net"
+port = 32455
+name = "railway"
 username = "postgres"
-password = "123456"
+password = "pFKtmPEPqKeFYIeMDkvfSGItkKKmcgbl"
 
 # JWT Configuration (for backend.auth module)
 [backend.auth]
 jwtSecret = "pogVDNo+zysOxpiSYzqIp3FHuWimvX1bSj7uu674JoU="
 jwtIssuer = "mindkraft-auth"
 jwtAudience = "saferoute-users"
-jwtExpiry=3600
+jwtExpiry = 3600
 
+# Email Configuration
 smtpHost = "smtp.gmail.com"
 smtpPort = 587
 smtpUsername = "saferoute0@gmail.com"
-smtpPassword = "rlaf wavf mjjx njpf"  
-emailEnabled = true  
-
+smtpPassword = "rlaf wavf mjjx njpf"
+emailEnabled = true

@@ -146,13 +146,13 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
                     <p className="text-sm font-medium text-gray-700 mb-2">
                       Images ({report.images.length})
                     </p>
-                    <div className="flex space-x-2 overflow-x-auto">
+                    <div className="flex space-x-4 overflow-x-auto">
                       {report.images.slice(0, 4).map((image, index) => (
                         <img
                           key={index}
                           src={reportsAPI.getImageUrl(image)}
                           alt={`Report ${report.id} image ${index + 1}`}
-                          className="h-16 w-16 object-cover rounded-lg border border-gray-200 flex-shrink-0 hover:h-20 hover:w-20 transition-all cursor-pointer"
+                          className="h-32 w-32 object-cover rounded-lg border border-gray-200 flex-shrink-0 hover:h-40 hover:w-40 transition-all cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation()
                             window.open(reportsAPI.getImageUrl(image), '_blank')
@@ -160,7 +160,7 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
                         />
                       ))}
                       {report.images.length > 4 && (
-                        <div className="h-16 w-16 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center text-xs text-gray-500 flex-shrink-0">
+                        <div className="h-32 w-32 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center text-sm text-gray-500 flex-shrink-0">
                           +{report.images.length - 4}
                         </div>
                       )}
@@ -174,7 +174,7 @@ const HazardReportsList: React.FC<HazardReportsListProps> = ({
                     <ReportLikes reportId={report.id} currentUserId={currentUserId} />
                     <button
                       onClick={(e) => toggleComments(report.id, e)}
-                      className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                      className="flex items-center space-x-2 text-green-600 hover:text-green-800 text-sm font-medium transition-colors"
                     >
                       <ChatBubbleLeftIcon className="h-4 w-4" />
                       <span>
