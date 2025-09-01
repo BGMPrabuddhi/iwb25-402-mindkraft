@@ -933,6 +933,24 @@ public function updateUserProfileImage(int userId, string filename) returns bool
     return error DatabaseError("User not found or no update performed");
 }
 
+public function getUserProfileImage(int userId) returns string|error {
+    sql:ParameterizedQuery q = `SELECT profile_image FROM users WHERE id = ${userId}`;
+    stream<record {| string? profile_image; |}, sql:Error?> resultStream = dbClient->query(q);
+    
+    record {| record {| string? profile_image; |} value; |}|sql:Error? result = resultStream.next();
+    error? closeErr = resultStream.close();
+    if closeErr is error {
+        log:printError("Error closing result stream", closeErr);
+    }
+    
+    if result is record {| record {| string? profile_image; |} value; |} {
+        string? profileImage = result.value.profile_image;
+        return profileImage ?: "";
+    } else {
+        return error DatabaseError("User not found");
+    }
+}
+
 public function deleteOldReports() returns int|error {
     sql:ParameterizedQuery deleteQuery = `
         DELETE FROM hazard_reports 
@@ -1606,6 +1624,11 @@ public function addReportComment(int reportId, int userId, string commentText) r
             firstName = userRow.value.first_name;
             lastName = userRow.value.last_name;
             profileImage = userRow.value.profile_image;
+            
+            // Filter out base64 profile images (only show filename-based images)
+            if profileImage is string && profileImage.startsWith("data:image") {
+                profileImage = ();
+            }
         }
         
         return {
@@ -1672,6 +1695,13 @@ public function getReportComments(int reportId) returns record {|
     
     error? fromResult = from var row in resultStream
         do {
+            // Add debug logging
+            log:printInfo("DATABASE: Raw commenter_profile_image from DB: " + (row.commenter_profile_image ?: "null"));
+            
+            // Don't filter out base64 images here - let frontend handle them
+            string? profileImage = row.commenter_profile_image;
+            log:printInfo("DATABASE: Profile image after processing: " + (profileImage ?: "null"));
+            
             comments.push({
                 id: row.id,
                 report_id: row.report_id,
@@ -1681,7 +1711,7 @@ public function getReportComments(int reportId) returns record {|
                 updated_at: row.updated_at,
                 commenter_first_name: row.commenter_first_name,
                 commenter_last_name: row.commenter_last_name,
-                commenter_profile_image: row.commenter_profile_image
+                commenter_profile_image: profileImage
             });
         };
     

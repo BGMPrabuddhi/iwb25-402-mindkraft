@@ -586,9 +586,16 @@ service /api on apiListener {
             return createErrorResponse("unauthorized", "Authentication required");
         }
 
+        log:printInfo("Getting comments for report ID: " + reportId.toString());
         var commentsResult = database:getReportComments(reportId);
         if commentsResult is error {
+            log:printError("Failed to get comments for report " + reportId.toString(), commentsResult);
             return createErrorResponse("internal_error", "Failed to retrieve comments");
+        }
+
+        log:printInfo("Retrieved " + commentsResult.length().toString() + " comments for report " + reportId.toString());
+        if commentsResult.length() > 0 {
+            log:printInfo("First comment profile image: " + (commentsResult[0].commenter_profile_image ?: "null"));
         }
 
         return {
@@ -936,6 +943,45 @@ service / on new http:Listener(serverPort + 1) {
 
     resource function get images/[string filename](http:Caller caller, http:Request req) returns error? {
         check serveImage(caller, filename);
+    }
+
+    resource function get profile\-image(http:Request req) returns json|error {
+        string|error email = validateAuthHeader(req);
+        if email is error {
+            return createErrorResponse("unauthorized", "Authentication required");
+        }
+
+        map<string[]> queryParams = req.getQueryParams();
+        string userId = getQueryParam(queryParams, "userId");
+        
+        if userId == "" {
+            return createErrorResponse("bad_request", "userId parameter is required");
+        }
+
+        int userIdInt = checkpanic int:fromString(userId);
+        string|error profileImageResult = database:getUserProfileImage(userIdInt);
+        
+        if profileImageResult is error {
+            return createErrorResponse("not_found", "User not found");
+        }
+        
+        string profileImage = profileImageResult;
+        
+        // If it's base64 data, return the data URL for frontend to use
+        if profileImage.startsWith("data:image") {
+            return {
+                "status": "success",
+                "type": "base64",
+                "data": profileImage
+            };
+        } else {
+            // If it's a filename, return the regular image URL
+            return {
+                "status": "success", 
+                "type": "file",
+                "url": "http://localhost:8080/api/images/" + profileImage
+            };
+        }
     }
 
     resource function get health() returns json {
