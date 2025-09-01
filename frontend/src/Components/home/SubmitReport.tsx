@@ -1,5 +1,5 @@
 'use client'
-import { PhotoIcon, XMarkIcon, MapPinIcon } from '@heroicons/react/24/outline'
+import { PhotoIcon, XMarkIcon, MapPinIcon, ExclamationTriangleIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { reportsAPI, type HazardReportData } from '@/lib/api'
 import Script from 'next/script'
@@ -44,6 +44,7 @@ const SubmitReport = () => {
 
   const [isLoading, setIsLoading] = useState(false)
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  // (Wizard removed – single unified form)
   
   // Map-related state
   const [showMap, setShowMap] = useState(false)
@@ -528,6 +529,25 @@ const SubmitReport = () => {
     setImagePreviews(prev => prev.filter((_, i) => i !== index))
   }, [])
 
+  const moveImage = (index: number, direction: -1 | 1) => {
+    setSubmitForm(prev => {
+      const imgs = [...prev.images]
+      const ni = index + direction
+      if (ni < 0 || ni >= imgs.length) return prev
+      const [m] = imgs.splice(index, 1)
+      imgs.splice(ni, 0, m)
+      return { ...prev, images: imgs }
+    })
+    setImagePreviews(prev => {
+      const arr = [...prev]
+      const ni = index + direction
+      if (ni < 0 || ni >= arr.length) return prev
+      const [m] = arr.splice(index, 1)
+      arr.splice(ni, 0, m)
+      return arr
+    })
+  }
+
 
   // Submit hazard report
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -599,7 +619,7 @@ const SubmitReport = () => {
         images: [],
         location: undefined,
       })
-      setImagePreviews([])
+  setImagePreviews([])
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
@@ -628,17 +648,16 @@ const SubmitReport = () => {
         />
       )}
 
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <div className="mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Report a Road Hazard</h3>
-          <p className="text-gray-600">
-            Help keep our roads safe by reporting hazards, accidents, or dangerous conditions.
-          </p>
+          <h3 className="text-2xl font-semibold text-gray-900 mb-1 flex items-center gap-2"><ExclamationTriangleIcon className="h-7 w-7 text-amber-500"/>Hazard Report</h3>
+          <p className="text-gray-600 text-sm md:text-base">Help keep roads safe by reporting hazards. Provide clear details so responders and other drivers can act quickly.</p>
           
           
         </div>
-        
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-8" onSubmit={handleSubmit}>
+          {/* Details Section */}
+          <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Report Title *
@@ -648,12 +667,13 @@ const SubmitReport = () => {
               required
               value={submitForm.title}
               onChange={(e) => setSubmitForm(prev => ({...prev, title: e.target.value}))}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm transition-all duration-300 bg-white/60 backdrop-blur hover:bg-white/80 focus:bg-white"
               placeholder="Brief, clear description of the hazard"
               maxLength={255}
               disabled={isLoading}
+              aria-describedby="title-counter"
             />
-            <p className="text-xs text-gray-500 mt-1">{submitForm.title.length}/255 characters</p>
+            <p id="title-counter" className="text-xs text-gray-500 mt-1 flex justify-between"><span>{submitForm.title.length}/255 characters</span>{submitForm.title.length>200 && <span className="text-amber-600">Approaching limit</span>}</p>
           </div>
 
           <div>
@@ -664,14 +684,16 @@ const SubmitReport = () => {
               value={submitForm.description}
               onChange={(e) => setSubmitForm(prev => ({...prev, description: e.target.value}))}
               rows={4}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm transition-all duration-300 bg-white/50 backdrop-blur hover:bg-white/70 focus:bg-white"
               placeholder="Provide detailed information about the hazard..."
               maxLength={2000}
               disabled={isLoading}
+              aria-describedby="desc-counter"
             />
-            <p className="text-xs text-gray-500 mt-1">{submitForm.description.length}/2000 characters</p>
+            <p id="desc-counter" className="text-xs text-gray-500 mt-1 flex justify-between"><span>{submitForm.description.length}/2000 characters</span>{submitForm.description.length>1800 && <span className="text-amber-600">Approaching limit</span>}</p>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Hazard Type *
@@ -682,7 +704,7 @@ const SubmitReport = () => {
               title="Select hazard type"
               value={submitForm.hazard_type}
               onChange={(e) => setSubmitForm(prev => ({...prev, hazard_type: e.target.value}))}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/60 backdrop-blur text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm transition-all hover:bg-white/80 focus:bg-white disabled:opacity-60"
               disabled={isLoading}
             >
               <option value="">Select hazard type</option>
@@ -692,7 +714,6 @@ const SubmitReport = () => {
               <option value="construction">Construction Work</option>
             </select>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Severity Level *
@@ -703,7 +724,7 @@ const SubmitReport = () => {
               title="Select severity level"
               value={submitForm.severity_level}
               onChange={(e) => setSubmitForm(prev => ({...prev, severity_level: e.target.value}))}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/60 backdrop-blur text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm transition-all hover:bg-white/80 focus:bg-white disabled:opacity-60"
               disabled={isLoading}
             >
               <option value="">Select severity level</option>
@@ -711,12 +732,18 @@ const SubmitReport = () => {
               <option value="medium">Medium</option>
               <option value="low">Low</option>
             </select>
+            {submitForm.severity_level && (
+              <p className="mt-2 text-xs font-medium"><span className={`px-2 py-1 rounded-md ${submitForm.severity_level==='high'?'bg-red-100 text-red-700':submitForm.severity_level==='medium'?'bg-amber-100 text-amber-700':'bg-green-100 text-green-700'}`}>Severity: {submitForm.severity_level}</span></p>
+            )}
           </div>
+          </div>
+      </div>
 
-          {/* Location Selection */}
-          <div>
+      {/* Location Section */}
+      <div className="space-y-3">
+      <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Location (Optional)
+        Location (Required)
             </label>
             <div className="space-y-3">
               {!submitForm.location ? (
@@ -724,16 +751,16 @@ const SubmitReport = () => {
                   <button
                     type="button"
                     onClick={openMapModal}
-                    className="w-full flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
+                    className="w-full flex items-center justify-center px-4 py-3 rounded-xl border-2 border-dashed border-brand-300/70 hover:border-brand-400 hover:bg-brand-50/60 transition-all duration-300 text-brand-700 gap-2 backdrop-blur-sm"
                     disabled={isLoading}
                   >
-                    <MapPinIcon className="h-5 w-5 mr-2 text-gray-500" />
-                    <span className="text-gray-600">Set Location on Map</span>
+                    <MapPinIcon className="h-5 w-5 text-brand-500" />
+                    <span className="font-medium">Set Location on Map</span>
                   </button>
                   <button
                     type="button"
                     onClick={getCurrentLocation}
-                    className="w-full flex items-center justify-center px-4 py-2 border border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-60"
+                    className="w-full flex items-center justify-center px-4 py-2 rounded-xl shadow-lg text-sm font-semibold text-brand-900 transition-all duration-300 transform disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-95 bg-gradient-to-r from-brand-500 via-brand-400 to-brand-300 hover:from-brand-400 hover:via-brand-300 hover:to-brand-200 hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/40 backdrop-blur"
                     disabled={isLoadingLocation || isLoading}
                   >
                     {isLoadingLocation ? (isRefiningLocation ? 'Improving accuracy…' : 'Detecting location…') : 'Use Current Location'}
@@ -761,7 +788,7 @@ const SubmitReport = () => {
                       <button
                         type="button"
                         onClick={handleEditLocation}
-                        className="text-green-600 hover:text-green-800 text-sm underline"
+                        className="text-brand-600 hover:text-brand-500 text-sm underline"
                         disabled={isLoading}
                       >
                         Edit
@@ -769,7 +796,7 @@ const SubmitReport = () => {
                       <button
                         type="button"
                         onClick={handleRemoveLocation}
-                        className="text-red-600 hover:text-red-800 text-sm underline"
+                        className="text-red-600 hover:text-red-500 text-sm underline"
                         disabled={isLoading}
                       >
                         Remove
@@ -780,11 +807,13 @@ const SubmitReport = () => {
               )}
             </div>
           </div>
+      </div>
 
-          {/* Image Upload Section */}
-          <div>
+      {/* Images Section */}
+      <div className="space-y-6">
+      <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Add Images (Optional)
+        Add Images (At least 1 required)
             </label>
             <div className="space-y-4">
               <div className="flex items-center justify-center w-full">
@@ -820,6 +849,10 @@ const SubmitReport = () => {
                           alt={`Preview ${index + 1}`}
                           className="w-full h-24 object-cover rounded-lg border border-gray-200"
                         />
+                        <div className="absolute top-1 left-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button type="button" onClick={() => moveImage(index, -1)} disabled={index===0 || isLoading} className="bg-white/80 hover:bg-white text-gray-700 rounded p-1 shadow disabled:opacity-40" aria-label="Move image up"><ArrowUpIcon className="h-4 w-4"/></button>
+                          <button type="button" onClick={() => moveImage(index, 1)} disabled={index===imagePreviews.length-1 || isLoading} className="bg-white/80 hover:bg-white text-gray-700 rounded p-1 shadow disabled:opacity-40" aria-label="Move image down"><ArrowDownIcon className="h-4 w-4"/></button>
+                        </div>
                         <button
                           type="button"
                           title="Remove image"
@@ -840,31 +873,34 @@ const SubmitReport = () => {
               )}
             </div>
           </div>
+          </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className={`relative w-full py-3.5 px-6 rounded-xl font-semibold tracking-wide transition-all focus:outline-none focus:ring-4 focus:ring-brand-400/40 disabled:cursor-not-allowed disabled:opacity-60 shadow-md shadow-black/20 ring-1 ring-white/20 overflow-hidden ${
-              isLoading
-                ? 'bg-gradient-to-r from-brand-300 via-blue-300 to-brand-200 text-brand-800'
-                : 'bg-gradient-to-r from-brand-600 via-blue-600 to-brand-400 hover:from-brand-500 hover:via-blue-500 hover:to-brand-300 text-white'
-            }`}
-          >
-            {!isLoading && (
-              <span className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_65%)]" aria-hidden="true" />
-            )}
-            {isLoading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Submitting Report...
-              </span>
-            ) : (
-              `🚀 Submit Hazard Report ${submitForm.images.length > 0 ? `(${submitForm.images.length} image${submitForm.images.length > 1 ? 's' : ''})` : ''}`
-            )}
-          </button>
+          {/* Submit Button */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`group w-full flex justify-center py-3.5 px-6 rounded-xl shadow-lg text-sm font-semibold text-brand-900 transition-all duration-300 transform disabled:opacity-60 disabled:cursor-not-allowed ${
+                isLoading
+                  ? 'bg-brand-500/60 scale-95'
+                  : 'bg-gradient-to-r from-brand-500 via-brand-400 to-brand-300 hover:from-brand-400 hover:via-brand-300 hover:to-brand-200 hover:scale-[1.02] hover:shadow-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/40 active:scale-95'
+              }`}
+            >
+              {isLoading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-brand-900" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="animate-pulse">Submitting Report...</span>
+                </span>
+              ) : (
+                <span className="flex items-center">Submit Hazard Report
+                  {submitForm.images.length > 0 && <span className="ml-2 text-xs font-medium px-2 py-0.5 rounded bg-white/40 text-brand-800">{submitForm.images.length} img</span>}
+                </span>
+              )}
+            </button>
+          </div>
 
           
         </form>
@@ -893,7 +929,7 @@ const SubmitReport = () => {
                       ref={searchInputRef}
                       type="text"
                       placeholder="Search for a location..."
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="appearance-none block w-full px-4 py-2 border border-gray-300 rounded-xl bg-white/60 backdrop-blur text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm transition-all hover:bg-white/80 focus:bg-white disabled:opacity-60"
                       disabled={!mapLoaded}
                     />
                   </div>
@@ -930,8 +966,8 @@ const SubmitReport = () => {
                 <div className="relative">
                   <div
                     ref={mapRef}
-                    className="w-full h-96 rounded-lg border border-gray-300"
-                    style={{ minHeight: '400px' }}
+                    className="w-full h-72 rounded-lg border border-gray-300"
+                    style={{ minHeight: '320px' }}
                   />
                   {!mapLoaded && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg">
@@ -964,11 +1000,11 @@ const SubmitReport = () => {
                )}
              </div>
 
-             <div className="flex items-center justify-end space-x-3 p-6 border-t">
+             <div className="flex items-center justify-end space-x-3 p-5 border-t bg-gray-50/40">
                <button
                  type="button"
                  onClick={closeMapModal}
-                 className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                 className="px-5 py-2.5 rounded-xl border border-gray-300/70 text-gray-700 bg-white/60 hover:bg-white shadow-sm hover:shadow transition-all text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/40"
                >
                  Cancel
                </button>
@@ -976,10 +1012,10 @@ const SubmitReport = () => {
                  type="button"
                  onClick={confirmLocation}
                  disabled={!submitForm.location}
-                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                 className={`px-6 py-2.5 rounded-xl text-sm font-semibold shadow-lg transition-all focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/40 ${
                    submitForm.location
-                     ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                     : 'bg-gray-300 cursor-not-allowed text-gray-500'
+                     ? 'bg-gradient-to-r from-brand-500 via-brand-400 to-brand-300 hover:from-brand-400 hover:via-brand-300 hover:to-brand-200 text-brand-900 hover:scale-[1.02] active:scale-95'
+                     : 'bg-gray-300 cursor-not-allowed text-gray-600'
                  }`}
                >
                  Confirm Location
