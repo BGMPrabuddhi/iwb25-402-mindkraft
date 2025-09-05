@@ -244,7 +244,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8080/api
 - **User Report History**: Users can view and manage the reports they have previously submitted.  
 - **User Profile Management**: Users can update their profile information, including usernames and profile pictures.  
 
--**Nearby Hazards**: Displays all hazard reports within a 25 km radius of the user’s current location  
+- **Nearby Hazards**: Displays all hazard reports within a 25 km radius of the user’s current location  
 - **Route Hazard Insights**: When selecting two destinations, users can see all reported hazards along the road.
 - **Safest Route Suggestions**
 - **Hazard Types & Sensitivity Levels**: Maintains different hazard categories (e.g., potholes, construction, natural disasters) with sensitivity/priority levels.  
