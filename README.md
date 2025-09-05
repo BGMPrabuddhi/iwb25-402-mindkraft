@@ -244,12 +244,13 @@ NEXT_PUBLIC_API_URL=http://localhost:8080/api
 - **User Report History**: Users can view and manage the reports they have previously submitted.  
 - **User Profile Management**: Users can update their profile information, including usernames and profile pictures.  
 
-- **Hazard Alerts**: Users can view hazard reports within a **25 km radius**.  
+-**Nearby Hazards**: Displays all hazard reports within a 25 km radius of the user’s current location  
 - **Route Hazard Insights**: When selecting two destinations, users can see all reported hazards along the road.
--**Safest Route Suggestions**
+- **Safest Route Suggestions**
 - **Hazard Types & Sensitivity Levels**: Maintains different hazard categories (e.g., potholes, construction, natural disasters) with sensitivity/priority levels.  
 - **Report Accuracy Validation**: Includes comments and reactions on hazard reports to verify accuracy and credibility.  
-- **Report Management for Users**: Users can delete their own submitted reports.  
+- **Report Management for Users**: Users can delete their own submitted reports.
+- **Temporary Reports**: Traffic and accident reports will automatically be deleted after 24 hours to ensure real-time accuracy 
 - **RDA Dashboard**: Administrative interface for Road Development Authority users  
   - Filter reports by **city, hazard type, and sensitivity level**  
   - Mark pothole and construction reports as resolved  
