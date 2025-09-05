@@ -40,7 +40,9 @@ Open [http://localhost:3000](http://localhost:3000) to see the application.
 - [Detailed Setup Instructions](#detailed-setup-instructions)
 - [Secret Configuration & API Keys](#secret-configuration--api-keys)
 - [Features](#features)
+- [Planned Features](#planned-features)
 - [Troubleshooting](#troubleshooting)
+
 
 ---
 
@@ -116,6 +118,10 @@ The system will send a verification email to rdasrilanka0@gmail.com. To access t
 4. Click the verification link in the email
 5. Your RDA account will be activated
 
+**Important Note**: All RDA users must register with:
+- **First Name**: RDA
+- **Last Name**: SriLanka
+- 
 ### For Existing RDA Users
 
 If you already have RDA credentials:
@@ -128,14 +134,12 @@ Once logged in as an RDA user, you'll have access to:
 - **Hazard Report Management**: View, approve, and resolve reported hazards
 - **User Management**: View user profiles and activity
 - **Analytics Dashboard**: Statistics and reports on hazard data
-- **Administrative Tools**: Manage system settings and configurations
 
 ### Access Levels
 
 The application has different user roles:
 - **General Users**: Can report hazards and view reports
 - **RDA Users**: Administrative access to manage reports and users
-- **Admin**: Full system access (if configured)
 
 ---
 
@@ -171,8 +175,7 @@ cd SafeRoute
 	
 	**Note**: The database is already hosted and configured. You don't need to set up a local database.
 
-4. Make sure you have Ballerina installed. See: https://ballerina.io/downloads/
-5. Start the backend server:
+4. Start the backend server:
 	```bash
 	bal run
 	```
@@ -203,11 +206,8 @@ cd SafeRoute
 ---
 
 ## Secret Configuration & API Keys
-
-**Do not commit real API keys, secrets, or credentials to the repository.**
-
-- For the backend, copy `backend/config.example.toml` to `backend/Config.toml` and fill in your own values. Do not commit your filled `Config.toml`.
-- For the frontend, copy `frontend/.env.example` to `frontend/.env` and fill in your own values. Do not commit your filled `.env` file.
+- For the backend, copy `backend/config.example.toml` to `backend/Config.toml` and fill the values. 
+- For the frontend, copy `frontend/.env.example` to `frontend/.env` and fill the values.
 
 ### Required Configuration Files
 
@@ -234,16 +234,61 @@ Your `frontend/.env` should include:
 NEXT_PUBLIC_API_URL=http://localhost:8080/api
 # Add other environment variables as needed
 ```
-
-### How to Obtain API Keys
-
-- For services like Google Maps, follow the official documentation to obtain your API key: https://developers.google.com/maps/documentation/javascript/get-api-key
-- For email or database credentials, use your own secure credentials or those provided by your deployment environment.
-
-**Never share your real secrets in public repositories.**
-
 ---
 
+## Features
+
+- **Hazard Reporting**: Report road hazards with images (supports both file upload and base64 storage), including rural road damages.  
+- **User Authentication**: Secure user registration and login with role-based access.  
+- **Password Recovery with Email Verification**: Allows users to reset forgotten passwords securely through a verification code sent to their registered email.  
+- **User Report History**: Users can view and manage the reports they have previously submitted.  
+- **User Profile Management**: Users can update their profile information, including usernames and profile pictures.  
+
+- **Hazard Alerts**: Users can view hazard reports within a **25 km radius**.  
+- **Route Hazard Insights**: When selecting two destinations, users can see all reported hazards along the road.
+-**Safest Route Suggestions**
+- **Hazard Types & Sensitivity Levels**: Maintains different hazard categories (e.g., potholes, construction, natural disasters) with sensitivity/priority levels.  
+- **Report Accuracy Validation**: Includes comments and reactions on hazard reports to verify accuracy and credibility.  
+- **Report Management for Users**: Users can delete their own submitted reports.  
+- **RDA Dashboard**: Administrative interface for Road Development Authority users  
+  - Filter reports by **city, hazard type, and sensitivity level**  
+  - Mark pothole and construction reports as resolved  
+  - Manage hazard reports and approvals  
+  - Ability to view reported user details such as email, username, and phone number
+  - Administrative tools and system oversight  
+- **Real-time Updates**: Live hazard report updates with instant notifications.  
+- **Image Storage**: Dual image storage system supporting files and base64 encoding.  
+- **Location Services**: GPS-based location tracking and mapping.  
+- **Comments & Reactions**: Interactive features for community engagement and validating report accuracy.  
+- **Role-based Access**: Different permission levels for general users and RDA authorities.  
+
+
+## Planned Features
+
+- **Historical Hazard Analysis**: The system will track and analyze hazard reports over time to identify:
+ - Recurring accident patterns at specific locations
+ - High-risk areas based on incident frequency and severity
+ - Seasonal or temporal hazard trends
+
+### Intelligent Safety Alert System
+- **Proximity-Based Audio Warnings**: When users approach dangerous areas, the system will:
+ - Automatically detect when a user is within 200 meters of a high-risk location
+ - Trigger audio alerts for areas with multiple high-sensitivity incidents
+ - Play voice recordings such as: *"Dangerous area 200 meters ahead - multiple accidents reported at this location"*
+
+- **Smart Alert Criteria**:
+ - Activates when 2 or more accidents with high sensitivity ratings occur at the same location
+ - Considers incidents across different dates to identify persistent hazard zones
+ - Customizable sensitivity thresholds for different types of hazards
+
+### Expanded Hazard Categories
+- We are planning to add more categories for reporting, such as:
+  - Broken traffic lights  
+  - Faded road markings  
+  - Damaged signboards  
+  - Missing or damaged guardrails  
+  - Other infrastructure-related hazards
+ 
 ## Troubleshooting
 
 ### Database Connection Issues
@@ -265,19 +310,3 @@ NEXT_PUBLIC_API_URL=http://localhost:8080/api
 3. **Login failed**: Use the exact credentials provided above (case-sensitive)
 4. **Gmail access issues**: Try the password "Rdasrilanka1@" for gmail access
 5. **Role not showing**: Contact administrator to verify RDA role assignment
-
----
-
-## Features
-
-- **Hazard Reporting**: Report road hazards with images (supports both file upload and base64 storage)
-- **User Authentication**: Secure user registration and login with role-based access
-- **RDA Dashboard**: Administrative interface for Road Development Authority users
-  - Hazard report management and approval
-  - User management and analytics
-  - Administrative tools and system oversight
-- **Real-time Updates**: Live hazard report updates
-- **Image Storage**: Dual image storage system supporting files and base64 encoding
-- **Location Services**: GPS-based location tracking and mapping
-- **Comments & Reactions**: Interactive features for community engagement
-- **Role-based Access**: Different permission levels for general users, RDA, and administrators
