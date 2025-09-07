@@ -6,7 +6,7 @@ SafeRoute is a web application for safe route planning and hazard reporting, fea
 
 ### Prerequisites
 - [Ballerina](https://ballerina.io/downloads/) (for backend)
-- [Node.js](https://nodejs.org/) (for frontend)
+- [Next.js](https://nextjs.org/)  (for frontend)
 - Git
 
 ### 1-Minute Setup
