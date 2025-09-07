@@ -33,7 +33,8 @@ function MapPopup({ isOpen, onClose, latitude, longitude, address, title }: MapP
       initializeMap()
     } else {
       const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAz2gtcc8kLOLLa5jbq4V3P7cpsGYlOPjQ&libraries=places`
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true
       script.defer = true
       script.onload = initializeMap
